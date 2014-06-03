@@ -11,3 +11,6 @@ After installing everything type:
 grunt dist-mac --force
 ```
 This will create a /dist folder which will hold the app.
+
+
+##CONTRIBUTIONS ARE WELCOME!
