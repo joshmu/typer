@@ -1,0 +1,17 @@
+{
+	"name"           : "typer",
+	"main"           : "views/index.html",
+	"version"        : "0.0.1",
+	"single-instance": true,
+	"window"         : {
+		"title"     : "Typer",
+		"width"     : 650,
+		"height"    : 650,
+		"min_width" : 650,
+		"min_height": 650,
+		"max_width" : 850,
+		"frame"     : true,
+		"toolbar"   : false
+	},
+	"chromium-args"  : "--child-clean-exit"
+}

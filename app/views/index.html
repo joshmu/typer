@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html ng-app='typerApp' ng-controller="GlobalCtrl" ng-keypress="broadcastKeys($event)" ng-class="{background: t.finished}">
+<head>
+	<script type="text/javascript" src="../js/nodewebkit-main.js"></script>
+	<script type="text/javascript" src="../vendor/js/angular.js"></script>
+	<script type="text/javascript" src="../vendor/js/ui-bootstrap-tpls.js"></script>
+	<script type="text/javascript" src="../vendor/js/angular-timer.js"></script>
+	<script type="text/javascript" src="../js/index.js"></script>
+	<script type="text/javascript" src="../js/typer.controllers.js"></script>
+	<script type="text/javascript" src="../js/typer.directives.js"></script>
+	<script type="text/javascript" src="../js/typer.services.js"></script>
+
+	<link rel="stylesheet" href="../vendor/css/bootstrap.css"/>
+	<link rel="stylesheet" href="../css/main.css"/>
+    <title>Typer</title>
+</head>
+<body ng-class="{background:t.finished}">
+
+<div class="container-fluid">
+	<header class="nav col-md-12" ng-hide="t.modalOpened">
+		<h1 id="logo" class="text-primary pull-left">Typer</h1>
+
+		<div ng-controller="StatsCtrl" class="text-info pull-right stats">
+			<timer autostart="false" interval="1000"><h4 id="timerStat">{{mminutes || "00"}}:{{sseconds || "00"}}</h4></timer>
+			<span class="wpmStat"><span id="wpmStat-num">{{t.wpm}}</span> WPM</span>
+		</div>
+
+	</header>
+
+	<!-- MODAL -->
+	<div ng-controller="ModalCtrl" ng-hide="t.letterTotal >= 0">
+		<button class="btn btn-default" ng-click="open()">Add Text!</button>
+	</div>
+
+	<br/>
+
+	<!-- TEXT -->
+	<div class="col-sm-10 col-sm-offset-1">
+
+		<div class="text-container">
+			<letter ng-repeat="letter in t.textContent.split('') track by $index"
+			        count="t.letterCount.num"
+			        index="$index"
+			        letter="letter"
+			        total-mistakes="t.incorrectKeystrokes"
+			        perfect-flag="t.perfectFlag"
+			        update-word-count="updateWordCount()"
+			        keystrokes="t.keystrokes"
+					></letter>
+		</div>
+
+		<!-- ALERT -->
+		<div class="alert alert-success text-center alertFinished" ng-show="t.finished" onclick="location.reload()">
+			<strong>Finished!</strong> Spacebar to restart.
+		</div>
+
+	</div>
+	<br/>
+
+	<!-- DEVELOPER STATISTICS FOR TYPER -->
+	<!--<div class="col-sm-10" style="position: absolute; left:0; top: 20%;">-->
+		<!--<ul class="list-unstyled">-->
+			<!--<li ng-repeat="(key, val) in t" ng-hide="key === 'textContent'">-->
+				<!--<strong>{{key}}</strong> : {{val}}-->
+			<!--</li>-->
+		<!--</ul>-->
+	<!--</div>-->
+
+
+	<!--<input type="number" ng-model="t.correctPart"/>-->
+	<!--<input type="number" ng-model="t.incorrectPart"/>-->
+
+	<!-- PROGRESS BAR -->
+	<div class="col-sm-10 col-sm-offset-1 navbar-fixed-bottom">
+		<footer ng-hide="t.modalOpened">
+
+			<!--<progress>-->
+				<!--<bar value="t.correctPart" type="success">-->
+					<!--<span ng-hide="t.correctPart < 5">{{t.correctPart}}%</span>-->
+				<!--</bar>-->
+				<!--<bar value="t.incorrectPart" type="danger">-->
+					<!--<span ng-hide="t.incorrectPart < 5">{{t.incorrectPart}}%</span>-->
+				<!--</bar>-->
+			<!--</progress>-->
+
+			<div class="progress">
+				<div class="progress-bar progress-bar-success" style="width: {{t.correctPart}}%">
+					<span ng-hide="t.correctPart < 5">{{t.correctPart}}%</span>
+				</div>
+				<div class="progress-bar progress-bar-danger" style="width: {{t.incorrectPart}}%">
+					<span ng-hide="t.incorrectPart < 5">{{t.incorrectPart}}%</span>
+				</div>
+			</div>
+
+		</footer>
+	</div>
+</div>
+</body>
+</html>

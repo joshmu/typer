@@ -1,0 +1,87 @@
+html, body {
+	background-color: #fbfbfb;
+}
+
+.background {
+	background-color: #fbfbfb;
+}
+
+#logo {
+	letter-spacing: -7px;
+	font-size: 3.5em;
+}
+
+.alertFinished {
+	margin-top: 20px;
+	cursor: pointer;
+}
+
+/* CURSOR & TEXT */
+.text-container {
+	font-size: 1.5em;
+}
+
+.active {
+	background-color: #00da00;
+	color: black;
+}
+
+.cursorMistake1 {
+	background-color : #ffc474; !important;
+}
+
+.cursorMistake2 {
+	background-color : #ff7f4a; !important;
+}
+
+.cursorMistake3 {
+	background-color : #ff5425; !important;
+}
+
+.cursorMistakeLast {
+	background-color : red; !important;
+}
+
+.mistake1 {
+	color : #c1c1c1; !important;
+}
+
+.mistake2 {
+	color : #777777; !important;
+}
+
+.mistake3 {
+	color : #333333; !important;
+}
+
+.mistakeLast {
+	color : #000000; !important;
+}
+
+.notPerfect {
+	color : #000000; !important;
+}
+
+.perfect {
+	opacity: 0;
+}
+
+
+/* STATS */
+
+.stats{
+	text-align: right;
+}
+
+#timerStat {
+	margin-bottom: 0;
+}
+
+.wpmStat {
+}
+
+#wpmStat-num {
+	font-size: 3em;
+	font-weight: bold;
+	letter-spacing: -3px;
+}
