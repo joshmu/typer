@@ -1,5 +1,5 @@
 #Typer
-=====
+
 
 Touch typing web app which allows you to paste in your own text.
 
