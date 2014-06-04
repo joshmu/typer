@@ -12,5 +12,8 @@ grunt dist-mac --force
 ```
 This will create a /dist folder which will hold the app.
 
+##Web App
+You will need to move index.html to root and refactor it's dependencies.
+Otherwise check out an old version which does not use AngularJS [here](http://typer.com.au).
 
-###CONTRIBUTIONS ARE WELCOME!
+###Contributions are welcome!
