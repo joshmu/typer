@@ -2,6 +2,7 @@ import { Show, onMount } from "solid-js";
 import { animate, stagger, spring } from "motion";
 import type { CharBreakdown } from "@/lib/core/calc";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
+import HistoryList from "./HistoryList";
 import WPMChart from "./WPMChart";
 
 interface ResultsScreenProps {
@@ -190,6 +191,11 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 			>
 				Redo
 			</button>
+
+			{/* History */}
+			<div class="redo-section w-full mt-4 opacity-0">
+				<HistoryList />
+			</div>
 		</div>
 	);
 }
