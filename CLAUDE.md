@@ -71,7 +71,7 @@ Test config: `karma.conf.js` — loads Angular + mocks from bower_components.
 | State | SolidJS signals + stores |
 | Testing | Vitest + Playwright |
 | Linting | Biome (lint + format) |
-| Data | Dexie.js v4 (IndexedDB) + localStorage |
+| Data | Dexie.js v4 (IndexedDB) + @solid-primitives/storage (localStorage) |
 | Deployment | Vercel |
 
 See `docs/` for architecture, roadmap, tech decisions, and performance guide.

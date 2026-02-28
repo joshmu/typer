@@ -38,7 +38,7 @@ v1 was built with AngularJS 1.x, Grunt, Bower, and node-webkit — a 2014-era st
 | Testing | Vitest (unit/component) + Playwright (E2E) |
 | Build | Vite |
 | Linting | Biome (lint + format) |
-| Data | Dexie.js v4 (IndexedDB) + localStorage |
+| Data | Dexie.js v4 (IndexedDB) + @solid-primitives/storage (localStorage) |
 | Deployment | Vercel |
 
 ## Key Architectural Decisions

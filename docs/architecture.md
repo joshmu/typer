@@ -229,19 +229,21 @@ Themes are defined as JSON objects and compiled into CSS at build time.
 
 All data stays in the browser. No backend, no accounts, no sync.
 
-| Storage | Use Case |
-|---------|----------|
-| Dexie.js v4 (IndexedDB) | Typing results, history, personal bests |
-| localStorage | User preferences (theme, config) |
+| Storage | Use Case | Library |
+|---------|----------|---------|
+| IndexedDB | Typing results, history, personal bests | Dexie.js v4 (30 KB) |
+| localStorage | User preferences (theme, config) | @solid-primitives/storage (2 KB) |
 
 ```
 ┌─────────┐    ┌───────────┐
-│  Typing  │───▶│ Dexie.js  │
-│  Engine  │    │(IndexedDB)│
+│  Typing  │───▶│ Dexie.js  │  Reactive via liveQuery + SolidJS from()
+│  Engine  │    │(IndexedDB)│  Indexed queries: [mode+wpm], timestamp
 └─────────┘    └───────────┘
-                    │
-              always works
-              (no network)
+
+┌─────────┐    ┌───────────────────────────┐
+│  Config  │───▶│ @solid-primitives/storage │  makePersisted() wraps signals
+│  (prefs) │    │      (localStorage)       │  with automatic persistence
+└─────────┘    └───────────────────────────┘
 ```
 
 ## Performance Budgets

@@ -124,24 +124,54 @@ src/
 
 ---
 
-## 7. Data: Dexie.js v4 + localStorage
+## 7. Data: Dexie.js v4 + @solid-primitives/storage
 
 **Context:** Local-first app. All data stored in the browser. No backend required.
 
-**Decision:** Dexie.js v4 for structured data, localStorage for simple preferences.
+**Options considered:**
 
-| Storage | Use Case |
-|---------|----------|
-| Dexie.js (IndexedDB) | Typing results, history, personal bests |
-| localStorage | User preferences (theme, config settings) |
+| Library | Bundle (gzip) | Reactive | SolidJS Support | Query Support |
+|---------|--------------|----------|-----------------|---------------|
+| Dexie.js v4 | 30 KB | Yes (liveQuery) | Yes (via `from()`) | Indexed, compound |
+| idb | 1.4 KB | No | Manual | Raw cursors |
+| @solid-primitives/storage | 2.0 KB | Native signals | Native | JS filter/sort only |
+| localStorage alone | 0 KB | No | No | None (5 MB cap) |
+| RxDB | 47 KB | Yes | No | Overkill — sync/replication |
+| TinyBase | 5.5 KB | Yes | No adapter | Tables, no IndexedDB |
+| localForage | 8.7 KB | No | No | Abandoned (Aug 2021) |
+| PGlite | ~3 MB WASM | No | No | Full SQL — absurd for this |
+
+**Decision:** Dexie.js v4 for structured data, @solid-primitives/storage for preferences.
+
+| Storage | Use Case | Size |
+|---------|----------|------|
+| Dexie.js v4 (IndexedDB) | Typing results, history, personal bests | 30 KB |
+| @solid-primitives/storage (localStorage) | User preferences (theme, config) | 2 KB |
 
 **Rationale:**
-- Dexie.js v4: ~29 KB, reactive liveQuery, Safari v4 fixes, solid-dexie SolidJS adapter available
-- IndexedDB handles structured queries (filter by mode, sort by WPM, date ranges)
-- localStorage is sufficient for flat key-value preferences
+- Dexie.js v4: 30 KB, reactive `liveQuery`, compound indexes (`[mode+wpm]`), Safari v4 bug workarounds baked in, 1M+ weekly downloads, 14k stars
+- SolidJS integration via built-in `from()` to subscribe to `liveQuery` observables — skip unmaintained `solid-dexie` (last published Jul 2022)
+- IndexedDB handles structured queries efficiently (filter by mode, sort by WPM, date ranges) with no storage ceiling
+- @solid-primitives/storage: 2 KB, native SolidJS `makePersisted()`, actively maintained (Feb 2026), wraps signals with localStorage persistence
+- localStorage alone rejected: 5 MB cap, synchronous I/O blocks main thread, 5,000 results at ~600 bytes = ~3 MB (uncomfortably close to limit)
 - No backend, no accounts, no sync — dramatically simpler architecture
 
-**Why not Supabase/cloud:** Removed from scope. Local-first simplifies everything. Cloud sync can be added later if users request it.
+**Integration pattern:**
+
+```typescript
+// Results — Dexie + SolidJS from()
+import { from } from 'solid-js';
+import { liveQuery } from 'dexie';
+
+const results = from(
+  liveQuery(() => db.results.where('mode').equals('timed-60').reverse().sortBy('wpm'))
+);
+
+// Preferences — @solid-primitives/storage
+import { makePersisted } from '@solid-primitives/storage';
+
+const [theme, setTheme] = makePersisted(createSignal('dark'), { name: 'typer-theme' });
+```
 
 ---
 

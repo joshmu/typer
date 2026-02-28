@@ -58,8 +58,8 @@
 - [ ] Test replay link (re-do same text)
 
 ### Persistence
-- [ ] Dexie.js v4 database for typing results
-- [ ] localStorage for user preferences
+- [ ] Dexie.js v4 database for typing results (liveQuery + SolidJS `from()`)
+- [ ] @solid-primitives/storage for user preferences (makePersisted)
 - [ ] History list with past results
 - [ ] Personal bests tracking (per mode)
 
