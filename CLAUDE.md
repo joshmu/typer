@@ -4,74 +4,88 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Typer is a touch-typing web app that lets users paste in custom text to practice typing. It tracks WPM, accuracy, keystrokes, and displays a progress bar with correct/incorrect portions.
+Typer is a touch-typing web app for practicing with custom text. Tracks WPM, accuracy, and progress. **v1** (tag `v1.0.0`, branch `v1`) is legacy AngularJS 1.x. The **`main` branch** is the v2 full rewrite.
 
-**v1 (tagged `v1.0.0`, branch `v1`)** is the legacy implementation described below. The `main` branch is for the v2 overhaul.
-
-## v1 Architecture (Legacy - AngularJS 1.x + node-webkit)
-
-The v1 app has two layers:
-- **AngularJS web app** (`app/`) — the typing UI, served from `app/views/index.html`
-- **node-webkit wrapper** (`app/package.json`, `app/js/nodewebkit-main.js`) — packages the web app as a desktop app via nw.js
-
-### Key Files
-
-- `app/js/index.js` — Angular module definition (`typerApp`), wires up all dependencies
-- `app/js/typer.services.js` — Two factories: `typerData` (shared state/model) and `typerLogic` (pure calculation functions: WPM, percentage, progress portions)
-- `app/js/typer.controllers.js` — `GlobalCtrl` (keypress handling, timer, progress, finish detection), `StatsCtrl` (timer start/stop), `ModalCtrl` (text input modal, auto-opens on load)
-- `app/js/typer.directives.js` — `letter` directive (one per character, handles keypress matching, mistake tracking, auto-advance after 5 errors), `test` directive (debug button)
-- `app/js/oldTyper.js` — Pre-Angular jQuery/Firebase implementation (not loaded in current app, excluded from tests)
-- `app/views/index.html` — Main template with `ng-repeat` over characters, progress bar, timer
-- `app/views/modal.html` — Text input modal template
-
-### Data Flow
-
-1. Modal opens → user pastes text → `refactorTxt()` normalizes whitespace and trims to 1200 char limit
-2. Text stored in `typerData.textContent`, split into characters via `ng-repeat`
-3. Each character rendered as a `<letter>` directive that listens for `typer-keypress` broadcast
-4. Only the active letter (where `$parent.$index === count`) processes input
-5. Correct keystroke → advances counter; incorrect → increments mistakes (auto-skips after 5)
-6. `GlobalCtrl` watches `letterCount.num` to detect completion, broadcasts `timer-stop`
-
-## Build System (v1)
-
-Uses Grunt + Bower (no npm scripts). Requires `npm install` then `bower install`.
-
-```bash
-grunt check          # JSHint linting
-grunt dist-mac       # Build macOS .app via node-webkit
-grunt dist-linux     # Build Linux distribution
-grunt dist-win       # Build Windows distribution
-```
-
-## Tests (v1)
-
-Karma + Jasmine. Tests cover `typerLogic` service (WPM calculation, percentage, progress portions).
-
-```bash
-npx karma start                    # Watch mode (requires Chrome)
-npx karma start --single-run      # Single run
-```
-
-Test config: `karma.conf.js` — loads Angular + mocks from bower_components.
-
-## Code Style (v1)
-
-- JSHint configured via `.jshintrc` (strict mode, single quotes, camelCase, 4-space indent)
-- `.editorconfig` for consistent formatting
-
-## v2 Stack (main branch)
+## v2 Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Framework | SolidJS + Vite + @solidjs/router |
 | Language | TypeScript (strict) |
-| Styling | Tailwind CSS v4 |
+| Styling | Tailwind CSS v4 + CSS custom properties (themes) |
 | Animation | motion/dom (vanilla) + CSS transitions (caret) |
-| State | SolidJS signals + stores |
-| Testing | Vitest + Playwright |
+| State | SolidJS signals + stores (built-in) |
+| Testing | Vitest (unit/component) + Playwright (E2E) |
 | Linting | Biome (lint + format) |
 | Data | Dexie.js v4 (IndexedDB) + @solid-primitives/storage (localStorage) |
 | Deployment | Vercel |
 
-See `docs/` for architecture, roadmap, tech decisions, and performance guide.
+## Commands (v2)
+
+```bash
+pnpm dev              # Start Vite dev server
+pnpm build            # Production build
+pnpm test             # Vitest watch mode
+pnpm test:run         # Vitest single run
+pnpm test -- path     # Run single test file
+pnpm test:e2e         # Playwright E2E tests
+pnpm lint             # Biome lint
+pnpm format           # Biome format
+pnpm typecheck        # tsc --noEmit
+```
+
+## v2 Architecture
+
+Flat project structure (no monorepo). Path alias `@/` → `src/`.
+
+```
+src/
+  components/
+    typing/           # TypingTest, TextDisplay, Caret
+    results/          # ResultsScreen, StatsCard, WPMChart
+    settings/         # ThemePicker, TestConfig
+    layout/           # Header, Footer
+  lib/core/           # Pure TypeScript — zero framework deps
+    engine/           # Typing engine state machine
+    calc/             # WPM, accuracy, consistency
+    text/             # Text processing, word lists
+    types/            # Shared types
+  routes/             # @solidjs/router pages
+  styles/             # Tailwind config, themes
+e2e/                  # Playwright tests
+```
+
+### Key Architecture Rules
+
+- **Typing engine (`src/lib/core/`) is pure TypeScript** — no SolidJS imports, no DOM. All engine functions are pure and testable with Vitest alone.
+- **O(1) keystroke processing** — cursor-based, not broadcast. Only the current character's DOM node updates per keystroke.
+- **Word-level rendering** — render `<span>` per word, update character CSS classes imperatively. Do NOT create a reactive component per character.
+- **Caret positions pre-computed at render time** — never read `offsetLeft`/`offsetTop` during keystroke handling.
+- **WPM/accuracy computed inline** on the main thread — it's nanosecond math, never offload to Web Workers.
+- **No `requestIdleCallback`** for deferred work during typing — it won't fire during sustained input. Use throttled `rAF` or `setTimeout`.
+
+### Performance Constraint
+
+Every keystroke must process in **<16ms** (one frame at 60fps). See `docs/performance-guide.md` for the full hot path specification.
+
+### Data Layer
+
+- **Dexie.js v4** for typing results (IndexedDB). Reactive queries via `liveQuery` + SolidJS `from()`. Skip `solid-dexie` (unmaintained).
+- **@solid-primitives/storage** (`makePersisted`) for user preferences in localStorage.
+
+### Themes
+
+CSS custom properties (`--bg`, `--text`, `--primary`, `--error`, `--caret`) swapped via `data-theme` attribute. Dark mode is the default.
+
+## v1 Reference (branch `v1`)
+
+AngularJS 1.x + Grunt + Bower + node-webkit. Broadcasts every keypress to all 1200+ character directives (O(n)). Build: `grunt dist-mac`. Tests: `npx karma start --single-run`.
+
+## Detailed Docs
+
+See `docs/` for full specifications:
+- `docs/architecture.md` — project structure, engine design, data strategy
+- `docs/tech-decisions.md` — ADRs with options considered and rationale
+- `docs/roadmap.md` — phased delivery plan (Phase 0–3)
+- `docs/performance-guide.md` — keystroke hot path, rendering rules, bundle budgets
+- `docs/competitive-analysis.md` — Monkeytype, Keybr, TypeRacer comparison
