@@ -17,6 +17,7 @@
 		"prepare": "husky"
 	},
 	"dependencies": {
+		"@solid-primitives/storage": "^4.3.4",
 		"@solidjs/router": "^0.15.4",
 		"@tailwindcss/vite": "^4.2.1",
 		"dexie": "^4.3.0",
