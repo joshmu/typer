@@ -1,5 +1,6 @@
-import { Match, Switch, createSignal } from "solid-js";
+import { Match, Show, Switch, createSignal } from "solid-js";
 import ResultsScreen from "@/components/results/ResultsScreen";
+import ModeSelector from "@/components/typing/ModeSelector";
 import TextInputModal from "@/components/typing/TextInputModal";
 import TypingTest from "@/components/typing/TypingTest";
 import {
@@ -9,7 +10,9 @@ import {
 	calculateWPM,
 	collectPerSecondWPM,
 } from "@/lib/core/calc";
-import type { TypingState } from "@/lib/core/types";
+import { getRandomQuote } from "@/lib/core/text/quotes";
+import { generateWords } from "@/lib/core/text/words";
+import type { TestMode, TypingState } from "@/lib/core/types";
 import { db } from "@/lib/db";
 
 interface TestResult {
@@ -23,8 +26,35 @@ interface TestResult {
 }
 
 export default function Home() {
+	const [mode, setMode] = createSignal<TestMode>({ type: "custom" });
 	const [text, setText] = createSignal<string | null>(null);
 	const [result, setResult] = createSignal<TestResult | null>(null);
+
+	function startWithMode(newMode: TestMode) {
+		setMode(newMode);
+		setResult(null);
+
+		switch (newMode.type) {
+			case "time":
+				setText(generateWords(200));
+				break;
+			case "words":
+				setText(generateWords(newMode.count));
+				break;
+			case "quote": {
+				const quote = getRandomQuote(newMode.length);
+				setText(quote.text);
+				break;
+			}
+			case "custom":
+				setText(null);
+				break;
+		}
+	}
+
+	function handleModeChange(newMode: TestMode) {
+		startWithMode(newMode);
+	}
 
 	function handleComplete(state: TypingState) {
 		const chars = state.words.flatMap((w) => w.characters);
@@ -52,7 +82,6 @@ export default function Home() {
 
 		setResult(testResult);
 
-		// Persist to IndexedDB
 		db.results.add({
 			mode: state.mode.type,
 			wpm,
@@ -69,11 +98,19 @@ export default function Home() {
 
 	function handleRedo() {
 		setResult(null);
-		setText(null);
+		if (mode().type !== "custom") {
+			startWithMode(mode());
+		} else {
+			setText(null);
+		}
 	}
 
 	return (
 		<main class="flex flex-col items-center justify-center flex-1 px-8 py-12">
+			<Show when={!result() && !text()}>
+				<ModeSelector mode={mode()} onModeChange={handleModeChange} />
+			</Show>
+
 			<Switch>
 				<Match when={result()}>
 					{(r) => (
@@ -97,7 +134,7 @@ export default function Home() {
 						/>
 					)}
 				</Match>
-				<Match when={!text()}>
+				<Match when={mode().type === "custom" && !text()}>
 					<TextInputModal onSubmit={(t) => setText(t)} />
 				</Match>
 			</Switch>
