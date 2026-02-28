@@ -26,15 +26,15 @@
 
 ## Phase 2: Results & Polish
 
-- [ ] 2.1–2.2: Core calculations (consistency, breakdown)
-- [ ] 2.3: Dexie.js persistence
-- [ ] 2.4: User preferences
-- [ ] 2.5: Theme engine
-- [ ] 2.6: ResultsScreen
-- [ ] 2.7–2.8: Animations + WPM chart
-- [ ] 2.9: History + personal bests
-- [ ] 2.10: UX polish
-- [ ] 2.11: Theme picker
+- [x] 2.1–2.2: Core calculations (consistency, breakdown)
+- [x] 2.3: Dexie.js persistence
+- [x] 2.4: User preferences
+- [x] 2.5: Theme engine
+- [x] 2.6: ResultsScreen
+- [x] 2.7–2.8: Animations + WPM chart
+- [x] 2.9: History + personal bests
+- [x] 2.10: UX polish
+- [x] 2.11: Theme picker
 
 ## Phase 3: Test Modes & Settings
 
