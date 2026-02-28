@@ -19,6 +19,7 @@ interface TestResult {
 	consistency: number;
 	breakdown: ReturnType<typeof calculateCharBreakdown>;
 	elapsed: number;
+	wpmPerSecond: number[];
 }
 
 export default function Home() {
@@ -46,6 +47,7 @@ export default function Home() {
 			consistency,
 			breakdown,
 			elapsed,
+			wpmPerSecond: snapshots,
 		};
 
 		setResult(testResult);
@@ -82,6 +84,7 @@ export default function Home() {
 							consistency={r().consistency}
 							breakdown={r().breakdown}
 							elapsed={r().elapsed}
+							wpmPerSecond={r().wpmPerSecond}
 							onRedo={handleRedo}
 						/>
 					)}
