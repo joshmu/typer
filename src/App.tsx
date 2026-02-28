@@ -1,5 +1,5 @@
-import { lazy } from "solid-js";
 import { Route } from "@solidjs/router";
+import { lazy } from "solid-js";
 import RootLayout from "./components/layout/RootLayout";
 
 const Home = lazy(() => import("./routes/Home"));
