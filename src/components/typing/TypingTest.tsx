@@ -1,4 +1,4 @@
-import { createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import {
 	calculateAccuracy,
@@ -39,6 +39,7 @@ function initState(text: string): TypingState {
 export default function TypingTest(props: TypingTestProps) {
 	const [state, setState] = createStore<TypingState>(initState(props.text));
 	const [elapsed, setElapsed] = createSignal(0);
+	const [capsLock, setCapsLock] = createSignal(false);
 	let containerRef: HTMLDivElement | undefined;
 	let timerInterval: ReturnType<typeof setInterval> | undefined;
 
@@ -73,9 +74,18 @@ export default function TypingTest(props: TypingTestProps) {
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
+		// Detect Caps Lock state
+		setCapsLock(e.getModifierState("CapsLock"));
+
 		if (complete()) return;
 
 		const key = e.key;
+
+		// Tab+Enter restarts if test hasn't started
+		if (key === "Tab" && !state.startTime) {
+			e.preventDefault();
+			return;
+		}
 
 		// Don't prevent browser shortcuts
 		if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -127,6 +137,12 @@ export default function TypingTest(props: TypingTestProps) {
 			data-testid="typing-test"
 		>
 			<StatsBar wpm={wpm()} accuracy={accuracy()} elapsed={elapsed()} />
+			<Show when={capsLock() && !complete()}>
+				<div class="mb-2 text-sm text-error flex items-center gap-2">
+					<span class="w-2 h-2 rounded-full bg-error" />
+					Caps Lock is on
+				</div>
+			</Show>
 			<TextDisplay
 				words={state.words}
 				currentWordIndex={state.currentWordIndex}
