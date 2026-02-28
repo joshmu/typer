@@ -38,13 +38,13 @@
 
 ## Phase 3: Test Modes & Settings
 
-- [ ] 3.1: Timer infrastructure
-- [ ] 3.2: Word count mode
-- [ ] 3.3: Word generation system
-- [ ] 3.4: Quote mode
+- [x] 3.1: Timer infrastructure
+- [x] 3.2: Word count mode
+- [x] 3.3: Word generation system
+- [x] 3.4: Quote mode
 - [ ] 3.5: Zen mode
-- [ ] 3.6: Test mode selector UI
-- [ ] 3.7: Caret style settings
-- [ ] 3.8: Sound on keypress
-- [ ] 3.9: Settings page
-- [ ] 3.10: Live WPM display toggle
+- [x] 3.6: Test mode selector UI
+- [x] 3.7: Caret style settings
+- [x] 3.8: Sound on keypress
+- [x] 3.9: Settings page
+- [x] 3.10: Live WPM display toggle
