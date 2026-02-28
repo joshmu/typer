@@ -1,6 +1,7 @@
-import { Match, Show, Switch, createSignal } from "solid-js";
-import ResultsScreen from "@/components/results/ResultsScreen";
+import { Match, Show, Switch, createSignal, lazy } from "solid-js";
 import ModeSelector from "@/components/typing/ModeSelector";
+
+const ResultsScreen = lazy(() => import("@/components/results/ResultsScreen"));
 import TextInputModal from "@/components/typing/TextInputModal";
 import TypingTest from "@/components/typing/TypingTest";
 import {
@@ -13,7 +14,7 @@ import {
 import { getRandomQuote } from "@/lib/core/text/quotes";
 import { generateWords } from "@/lib/core/text/words";
 import type { TestMode, TypingState } from "@/lib/core/types";
-import { db } from "@/lib/db";
+import type { TypingResult } from "@/lib/db";
 
 interface TestResult {
 	wpm: number;
@@ -82,17 +83,20 @@ export default function Home() {
 
 		setResult(testResult);
 
-		db.results.add({
-			mode: state.mode.type,
-			wpm,
-			rawWpm,
-			accuracy,
-			consistency,
-			duration: Math.floor(elapsed / 1000),
-			charCount: breakdown.total,
-			errorCount: breakdown.incorrect + breakdown.extra,
-			timestamp: Date.now(),
-			textHash: simpleHash(state.text),
+		// Lazy-load Dexie to keep initial bundle small
+		import("@/lib/db").then(({ db }) => {
+			db.results.add({
+				mode: state.mode.type,
+				wpm,
+				rawWpm,
+				accuracy,
+				consistency,
+				duration: Math.floor(elapsed / 1000),
+				charCount: breakdown.total,
+				errorCount: breakdown.incorrect + breakdown.extra,
+				timestamp: Date.now(),
+				textHash: simpleHash(state.text),
+			} as TypingResult);
 		});
 	}
 
