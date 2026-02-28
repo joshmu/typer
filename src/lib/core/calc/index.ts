@@ -1,4 +1,4 @@
-/** Placeholder — real WPM/accuracy calculations added in Phase 1 */
-export function add(a: number, b: number): number {
-	return a + b;
-}
+export { calculateAccuracy } from "./accuracy";
+export { calculateConsistency } from "./consistency";
+export { isTestComplete } from "./is-test-complete";
+export { calculateWPM } from "./wpm";
