@@ -1,18 +1,113 @@
-import { createSignal, Show } from "solid-js";
+import { Match, Switch, createSignal } from "solid-js";
+import ResultsScreen from "@/components/results/ResultsScreen";
 import TextInputModal from "@/components/typing/TextInputModal";
 import TypingTest from "@/components/typing/TypingTest";
+import {
+	calculateAccuracy,
+	calculateCharBreakdown,
+	calculateConsistency,
+	calculateWPM,
+	collectPerSecondWPM,
+} from "@/lib/core/calc";
+import type { TypingState } from "@/lib/core/types";
+import { db } from "@/lib/db";
+
+interface TestResult {
+	wpm: number;
+	rawWpm: number;
+	accuracy: number;
+	consistency: number;
+	breakdown: ReturnType<typeof calculateCharBreakdown>;
+	elapsed: number;
+}
 
 export default function Home() {
 	const [text, setText] = createSignal<string | null>(null);
+	const [result, setResult] = createSignal<TestResult | null>(null);
+
+	function handleComplete(state: TypingState) {
+		const chars = state.words.flatMap((w) => w.characters);
+		const elapsed =
+			state.startTime && state.endTime
+				? state.endTime - state.startTime
+				: 0;
+
+		const wpm = calculateWPM(chars, elapsed);
+		const rawWpm = calculateWPM(chars, elapsed);
+		const accuracy = calculateAccuracy(chars);
+		const snapshots = collectPerSecondWPM(chars, state.startTime ?? 0);
+		const consistency = calculateConsistency(snapshots);
+		const breakdown = calculateCharBreakdown(chars);
+
+		const testResult: TestResult = {
+			wpm,
+			rawWpm,
+			accuracy,
+			consistency,
+			breakdown,
+			elapsed,
+		};
+
+		setResult(testResult);
+
+		// Persist to IndexedDB
+		db.results.add({
+			mode: state.mode.type,
+			wpm,
+			rawWpm,
+			accuracy,
+			consistency,
+			duration: Math.floor(elapsed / 1000),
+			charCount: breakdown.total,
+			errorCount: breakdown.incorrect + breakdown.extra,
+			timestamp: Date.now(),
+			textHash: simpleHash(state.text),
+		});
+	}
+
+	function handleRedo() {
+		setResult(null);
+		setText(null);
+	}
 
 	return (
 		<main class="flex flex-col items-center justify-center flex-1 px-8 py-12">
-			<Show
-				when={text()}
-				fallback={<TextInputModal onSubmit={(t) => setText(t)} />}
-			>
-				{(t) => <TypingTest text={t()} onRestart={() => setText(null)} />}
-			</Show>
+			<Switch>
+				<Match when={result()}>
+					{(r) => (
+						<ResultsScreen
+							wpm={r().wpm}
+							rawWpm={r().rawWpm}
+							accuracy={r().accuracy}
+							consistency={r().consistency}
+							breakdown={r().breakdown}
+							elapsed={r().elapsed}
+							onRedo={handleRedo}
+						/>
+					)}
+				</Match>
+				<Match when={text()}>
+					{(t) => (
+						<TypingTest
+							text={t()}
+							onComplete={handleComplete}
+						/>
+					)}
+				</Match>
+				<Match when={!text()}>
+					<TextInputModal onSubmit={(t) => setText(t)} />
+				</Match>
+			</Switch>
 		</main>
 	);
+}
+
+function simpleHash(str: string): string {
+	let hash = 0;
+	for (let i = 0; i < str.length; i++) {
+		const char = str.charCodeAt(i);
+		hash = (hash << 5) - hash + char;
+		hash |= 0;
+	}
+	return hash.toString(36);
 }

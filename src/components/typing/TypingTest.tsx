@@ -18,7 +18,6 @@ import TextDisplay from "./TextDisplay";
 interface TypingTestProps {
 	text: string;
 	onComplete?: (state: TypingState) => void;
-	onRestart?: () => void;
 }
 
 function initState(text: string): TypingState {
@@ -109,14 +108,6 @@ export default function TypingTest(props: TypingTestProps) {
 		}
 	}
 
-	function restart() {
-		stopTimer();
-		setState(initState(props.text));
-		setElapsed(0);
-		containerRef?.focus();
-		props.onRestart?.();
-	}
-
 	onMount(() => {
 		containerRef?.focus();
 	});
@@ -145,13 +136,6 @@ export default function TypingTest(props: TypingTestProps) {
 				<div class="mt-8 text-center">
 					<p class="text-2xl text-primary mb-2">{wpm()} WPM</p>
 					<p class="text-text-sub mb-4">{accuracy()}% accuracy</p>
-					<button
-						type="button"
-						class="px-6 py-2 bg-primary text-bg rounded font-bold hover:opacity-80"
-						onClick={restart}
-					>
-						Redo
-					</button>
 				</div>
 			)}
 		</div>
