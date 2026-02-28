@@ -1,35 +1,39 @@
 import { createEffect, createSignal } from "solid-js";
 import type { WordState } from "@/lib/core/types";
 
+export type CaretStyle = "line" | "block" | "underline";
+
 interface CaretProps {
 	words: WordState[];
 	currentWordIndex: number;
 	currentCharIndex: number;
 	containerRef: () => HTMLDivElement | undefined;
+	style?: CaretStyle;
+	smooth?: boolean;
 }
 
 export default function Caret(props: CaretProps) {
 	const [left, setLeft] = createSignal(0);
 	const [top, setTop] = createSignal(0);
+	const [charWidth, setCharWidth] = createSignal(0);
 	const [isIdle, setIsIdle] = createSignal(true);
 	let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
+	const caretStyle = () => props.style ?? "line";
+	const smooth = () => props.smooth ?? true;
+
 	createEffect(() => {
-		// Access reactive deps
 		const wordIdx = props.currentWordIndex;
 		const charIdx = props.currentCharIndex;
 		const container = props.containerRef();
 
 		if (!container) return;
 
-		// Reset idle state
 		setIsIdle(false);
 		if (idleTimer) clearTimeout(idleTimer);
 		idleTimer = setTimeout(() => setIsIdle(true), 1500);
 
-		// Find the target character element
 		const wordElements = container.children;
-		// Skip first child (caret itself) to get word elements
 		const wordEl = wordElements[wordIdx + 1] as HTMLElement | undefined;
 		if (!wordEl) return;
 
@@ -37,28 +41,55 @@ export default function Caret(props: CaretProps) {
 		const charEl = charEls[charIdx] as HTMLElement | undefined;
 
 		if (charEl) {
-			// Position at the start of the current character
 			setLeft(charEl.offsetLeft);
 			setTop(charEl.offsetTop);
+			setCharWidth(charEl.offsetWidth);
 		} else if (charEls.length > 0) {
-			// Past last char — position at end of last char
 			const lastChar = charEls[charEls.length - 1] as HTMLElement;
 			setLeft(lastChar.offsetLeft + lastChar.offsetWidth);
 			setTop(lastChar.offsetTop);
+			setCharWidth(lastChar.offsetWidth);
 		}
 	});
 
+	const styleProps = () => {
+		const base = {
+			left: `${left()}px`,
+			top: `${top()}px`,
+		};
+
+		switch (caretStyle()) {
+			case "block":
+				return {
+					...base,
+					width: `${charWidth() || 10}px`,
+					height: "1.5em",
+				};
+			case "underline":
+				return {
+					...base,
+					top: `calc(${top()}px + 1.35em)`,
+					width: `${charWidth() || 10}px`,
+					height: "2px",
+				};
+			default: // line
+				return {
+					...base,
+					width: "2px",
+					height: "1.5em",
+				};
+		}
+	};
+
 	return (
 		<div
-			class="absolute w-[2px] bg-caret transition-[left,top] duration-[80ms] will-change-transform"
+			class="absolute bg-caret will-change-transform"
 			classList={{
 				"animate-blink": isIdle(),
+				"transition-[left,top] duration-[80ms]": smooth(),
+				"opacity-50": caretStyle() === "block",
 			}}
-			style={{
-				left: `${left()}px`,
-				top: `${top()}px`,
-				height: "1.5em",
-			}}
+			style={styleProps()}
 			data-testid="caret"
 		/>
 	);

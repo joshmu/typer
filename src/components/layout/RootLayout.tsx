@@ -23,8 +23,11 @@ export default function RootLayout(props: ParentProps) {
 					<a href="/" class="text-text-sub hover:text-text no-underline">
 						Home
 					</a>
-					<a href="/about" class="text-text-sub hover:text-text no-underline">
-						About
+					<a
+						href="/settings"
+						class="text-text-sub hover:text-text no-underline"
+					>
+						Settings
 					</a>
 					<button
 						type="button"

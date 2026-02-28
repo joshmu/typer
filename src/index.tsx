@@ -8,6 +8,7 @@ import App from "./App";
 
 const Home = lazy(() => import("./routes/Home"));
 const About = lazy(() => import("./routes/About"));
+const Settings = lazy(() => import("./routes/Settings"));
 
 const root = document.getElementById("root");
 
@@ -22,6 +23,7 @@ render(
 		<Router root={App}>
 			<Route path="/" component={Home} />
 			<Route path="/about" component={About} />
+			<Route path="/settings" component={Settings} />
 		</Router>
 	),
 	root!,
