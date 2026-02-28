@@ -13,16 +13,16 @@
 
 ## Phase 1: Core Typing Experience
 
-- [ ] 1.1: Type definitions + test fixtures
-- [ ] 1.2: Text normalizer (TDD)
-- [ ] 1.3: processKeystroke() (TDD)
-- [ ] 1.4: Calculation functions (TDD)
-- [ ] 1.5: TypingTest container + keydown handler
-- [ ] 1.6: TextDisplay + word-level rendering
-- [ ] 1.7: Caret component
-- [ ] 1.8: Text input modal (custom paste)
-- [ ] 1.9: Stats bar + completion detection
-- [ ] 1.10: E2E test + performance validation
+- [x] 1.1: Type definitions + test fixtures
+- [x] 1.2: Text normalizer (TDD)
+- [x] 1.3: processKeystroke() (TDD)
+- [x] 1.4: Calculation functions (TDD)
+- [x] 1.5: TypingTest container + keydown handler
+- [x] 1.6: TextDisplay + word-level rendering
+- [x] 1.7: Caret component
+- [x] 1.8: Text input modal (custom paste)
+- [x] 1.9: Stats bar + completion detection
+- [x] 1.10: E2E test + performance validation
 
 ## Phase 2: Results & Polish
 
