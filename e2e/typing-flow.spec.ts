@@ -28,8 +28,8 @@ test("full typing flow: paste text → type → see results", async ({ page }) =
 	// Step 5: Verify results screen appears
 	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
 	// Results screen shows WPM label and accuracy stat
-	await expect(page.getByText("wpm")).toBeVisible();
-	await expect(page.getByText("accuracy")).toBeVisible();
+	await expect(page.getByText("wpm", { exact: true })).toBeVisible();
+	await expect(page.getByText("accuracy", { exact: true })).toBeVisible();
 });
 
 test("redo button restarts the flow", async ({ page }) => {
