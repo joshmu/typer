@@ -7,6 +7,9 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"typecheck": "tsc --noEmit",
+		"test": "vitest",
+		"test:run": "vitest run",
+		"test:e2e": "playwright test",
 		"lint": "biome lint .",
 		"format": "biome format . --write",
 		"check": "biome check .",
@@ -22,11 +25,16 @@
 		"@biomejs/biome": "^2.4.4",
 		"@commitlint/cli": "^20.4.2",
 		"@commitlint/config-conventional": "^20.4.2",
+		"@playwright/test": "^1.58.2",
+		"@solidjs/testing-library": "^0.8.10",
+		"@testing-library/jest-dom": "^6.9.1",
 		"husky": "^9.1.7",
+		"jsdom": "^28.1.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1",
 		"vite-plugin-solid": "^2.11.10",
-		"vite-tsconfig-paths": "^6.1.1"
+		"vite-tsconfig-paths": "^6.1.1",
+		"vitest": "^4.0.18"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [

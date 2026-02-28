@@ -1,15 +1,6 @@
-import { Route } from "@solidjs/router";
-import { lazy } from "solid-js";
+import type { RouteSectionProps } from "@solidjs/router";
 import RootLayout from "./components/layout/RootLayout";
 
-const Home = lazy(() => import("./routes/Home"));
-const About = lazy(() => import("./routes/About"));
-
-export default function App() {
-	return (
-		<RootLayout>
-			<Route path="/" component={Home} />
-			<Route path="/about" component={About} />
-		</RootLayout>
-	);
+export default function App(props: RouteSectionProps) {
+	return <RootLayout>{props.children}</RootLayout>;
 }
