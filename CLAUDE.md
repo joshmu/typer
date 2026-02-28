@@ -59,3 +59,19 @@ Test config: `karma.conf.js` — loads Angular + mocks from bower_components.
 
 - JSHint configured via `.jshintrc` (strict mode, single quotes, camelCase, 4-space indent)
 - `.editorconfig` for consistent formatting
+
+## v2 Stack (main branch)
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | SolidJS + Vite + @solidjs/router |
+| Language | TypeScript (strict) |
+| Styling | Tailwind CSS v4 |
+| Animation | motion/dom (vanilla) + CSS transitions (caret) |
+| State | SolidJS signals + stores |
+| Testing | Vitest + Playwright |
+| Linting | Biome (lint + format) |
+| Data | Dexie.js v4 (IndexedDB) + localStorage |
+| Deployment | Vercel |
+
+See `docs/` for architecture, roadmap, tech decisions, and performance guide.
