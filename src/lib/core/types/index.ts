@@ -21,7 +21,8 @@ export type TestMode =
 	| { type: "time"; seconds: 15 | 30 | 60 | 120 }
 	| { type: "words"; count: 10 | 25 | 50 | 100 }
 	| { type: "quote"; length: "short" | "medium" | "long" }
-	| { type: "custom" };
+	| { type: "custom" }
+	| { type: "zen" };
 
 export type StopOnError = "off" | "word" | "letter";
 

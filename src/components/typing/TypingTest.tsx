@@ -6,8 +6,10 @@ import {
 	isTestComplete,
 } from "@/lib/core/calc";
 import { processKeystroke } from "@/lib/core/engine/process-keystroke";
+import { appendWordsToState, needsMoreWords } from "@/lib/core/engine/zen";
 import { normalizeText, textToWords } from "@/lib/core/text/normalizer";
-import type { TypingState } from "@/lib/core/types";
+import { generateWords } from "@/lib/core/text/words";
+import type { TestMode, TypingState } from "@/lib/core/types";
 import {
 	createTestConfig,
 	createTestMode,
@@ -17,10 +19,11 @@ import TextDisplay from "./TextDisplay";
 
 interface TypingTestProps {
 	text: string;
+	mode?: TestMode;
 	onComplete?: (state: TypingState) => void;
 }
 
-function initState(text: string): TypingState {
+function initState(text: string, mode?: TestMode): TypingState {
 	const normalized = normalizeText(text);
 	const words = textToWords(normalized);
 	if (words.length > 0) words[0].isActive = true;
@@ -31,13 +34,15 @@ function initState(text: string): TypingState {
 		currentCharIndex: 0,
 		startTime: null,
 		endTime: null,
-		mode: createTestMode(),
+		mode: mode ?? createTestMode(),
 		config: createTestConfig(),
 	};
 }
 
 export default function TypingTest(props: TypingTestProps) {
-	const [state, setState] = createStore<TypingState>(initState(props.text));
+	const [state, setState] = createStore<TypingState>(
+		initState(props.text, props.mode),
+	);
 	const [elapsed, setElapsed] = createSignal(0);
 	const [capsLock, setCapsLock] = createSignal(false);
 	let containerRef: HTMLDivElement | undefined;
@@ -55,7 +60,10 @@ export default function TypingTest(props: TypingTestProps) {
 		return calculateAccuracy(chars);
 	});
 
-	const complete = createMemo(() => isTestComplete(state));
+	const complete = createMemo(() => {
+		if (state.mode.type === "zen") return state.endTime !== null;
+		return isTestComplete(state);
+	});
 
 	function startTimer() {
 		if (timerInterval) return;
@@ -73,6 +81,16 @@ export default function TypingTest(props: TypingTestProps) {
 		}
 	}
 
+	function finishZen() {
+		const now = Date.now();
+		setState("endTime", now);
+		stopTimer();
+		if (state.startTime) {
+			setElapsed(now - state.startTime);
+		}
+		props.onComplete?.(state);
+	}
+
 	function handleKeydown(e: KeyboardEvent) {
 		// Detect Caps Lock state
 		setCapsLock(e.getModifierState("CapsLock"));
@@ -80,6 +98,13 @@ export default function TypingTest(props: TypingTestProps) {
 		if (complete()) return;
 
 		const key = e.key;
+
+		// Zen mode: Escape finishes the test
+		if (key === "Escape" && state.mode.type === "zen" && state.startTime) {
+			e.preventDefault();
+			finishZen();
+			return;
+		}
 
 		// Tab+Enter restarts if test hasn't started
 		if (key === "Tab" && !state.startTime) {
@@ -109,7 +134,18 @@ export default function TypingTest(props: TypingTestProps) {
 			startTimer();
 		}
 
-		if (isTestComplete(state)) {
+		// Zen mode: append more words when running low
+		if (state.mode.type === "zen" && needsMoreWords(state)) {
+			const newText = generateWords(20);
+			setState(
+				produce((s) => {
+					const updated = appendWordsToState(s, newText);
+					Object.assign(s, updated);
+				}),
+			);
+		}
+
+		if (state.mode.type !== "zen" && isTestComplete(state)) {
 			stopTimer();
 			if (state.startTime && state.endTime) {
 				setElapsed(state.endTime - state.startTime);
@@ -141,6 +177,11 @@ export default function TypingTest(props: TypingTestProps) {
 				<div class="mb-2 text-sm text-error flex items-center gap-2">
 					<span class="w-2 h-2 rounded-full bg-error" />
 					Caps Lock is on
+				</div>
+			</Show>
+			<Show when={state.mode.type === "zen" && !complete() && state.startTime}>
+				<div class="mb-2 text-xs text-text-sub">
+					Press <kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text">Esc</kbd> to finish
 				</div>
 			</Show>
 			<TextDisplay

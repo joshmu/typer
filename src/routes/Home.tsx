@@ -47,6 +47,9 @@ export default function Home() {
 				setText(quote.text);
 				break;
 			}
+			case "zen":
+				setText(generateWords(30));
+				break;
 			case "custom":
 				setText(null);
 				break;
@@ -134,6 +137,7 @@ export default function Home() {
 					{(t) => (
 						<TypingTest
 							text={t()}
+							mode={mode()}
 							onComplete={handleComplete}
 						/>
 					)}

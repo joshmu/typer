@@ -42,7 +42,7 @@
 - [x] 3.2: Word count mode
 - [x] 3.3: Word generation system
 - [x] 3.4: Quote mode
-- [ ] 3.5: Zen mode
+- [x] 3.5: Zen mode
 - [x] 3.6: Test mode selector UI
 - [x] 3.7: Caret style settings
 - [x] 3.8: Sound on keypress
