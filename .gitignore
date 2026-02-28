@@ -1,9 +1,30 @@
-logs/*
-!.gitkeep
+# Dependencies
 node_modules/
-bower_components/
-tmp
-.DS_Store
-.idea
-resources/
+
+# Build output
 dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright
+test-results/
+playwright-report/
+
+# Vercel
+.vercel/
+
+# Logs
+*.log
