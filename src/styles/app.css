@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* Default theme: serika dark */
+:root {
+	--bg: #323437;
+	--bg-secondary: #2c2e31;
+	--text: #d1d0c5;
+	--text-sub: #646669;
+	--primary: #e2b714;
+	--error: #ca4754;
+	--error-extra: #7e2a33;
+	--caret: #e2b714;
+	--correct: #d1d0c5;
+}
+
+@theme inline {
+	--color-bg: var(--bg);
+	--color-bg-secondary: var(--bg-secondary);
+	--color-text: var(--text);
+	--color-text-sub: var(--text-sub);
+	--color-primary: var(--primary);
+	--color-error: var(--error);
+	--color-error-extra: var(--error-extra);
+	--color-caret: var(--caret);
+	--color-correct: var(--correct);
+}
+
+/* Base styles */
+body {
+	background-color: var(--bg);
+	color: var(--text);
+	font-family:
+		"Roboto Mono",
+		ui-monospace,
+		SFMono-Regular,
+		Menlo,
+		Monaco,
+		Consolas,
+		monospace;
+	margin: 0;
+	min-height: 100vh;
+}
