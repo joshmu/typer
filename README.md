@@ -24,6 +24,14 @@ pnpm lint       # Biome linting
 pnpm format     # Biome formatting
 ```
 
+## Version History
+
+| Version | Branch | Tech Stack |
+|---------|--------|------------|
+| v1.0.0 | `v1` | jQuery + Bootstrap |
+| v2.0.0 | `v2` | AngularJS 1.x + Grunt |
+| v3.0.0 | `main` | SolidJS + Vite |
+
 ## License
 
 See [LICENCE.md](LICENCE.md).
