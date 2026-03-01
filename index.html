@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TYPER</title>
+    <meta
+      name="description"
+      content="Paste in your own text and improve your typing!  Great for increasing your typing speed whilst you read!"
+    />
+    <meta
+      name="keywords"
+      content="type, typing, touch typing, keyboard, reader, read, typing tutor, tutor, learn, improve, typing speed"
+    />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+    <meta name="robots" content="index, follow" />
+    <link href="favicon.ico" rel="shortcut icon" type="image/x-icon" />
+
+    <!--JS-->
+    <script type="text/javascript" src="public/js/production.js"></script>
+    <!--<script type="text/javascript" src="js/ga.js"></script>-->
+    <!--<script type="text/javascript" src="js/libs/1-jquery.js"></script>-->
+    <!--<script type="text/javascript" src="js/libs/bootstrap.js"></script>-->
+    <!--<script type="text/javascript" src="js/libs/firebase.js"></script>-->
+    <!--<script type="text/javascript" src="js/libs/modal.js"></script>-->
+    <!--<script type="text/javascript" src="js/global.js"></script>-->
+
+    <!--CSS-->
+    <link rel="stylesheet" href="public/css/production.css" />
+    <!--<link rel="stylesheet" href="css/imports.css"/>-->
+    <!--<link rel="stylesheet" href="css/libs/bootstrap.css"/>-->
+    <!--<link rel="stylesheet" href="css/global.css"/>-->
+  </head>
+  <body class="container">
+    <!-- Header -->
+    <div class="top row">
+      <!-- logo -->
+      <h1 class="logo col-md-2 col-xs-4 text-primary">TYPER</h1>
+
+      <!-- input -->
+      <div class="pasteTxtWrapper col-md-8">
+        <button
+          id="genBtn"
+          style="background:white;margin-top:2.2em;border:1px solid grey;border-radius:1px"
+        >
+          generate
+        </button>
+        <input
+          class="col-md-6"
+          type="text"
+          name="userText"
+          id="userText"
+          class="box"
+          rows="1"
+          placeholder="Paste text"
+        />
+      </div>
+
+      <!-- statitics -->
+      <div class="status col-md-2 col-md-offset-8 col-xs-8">
+        <div class="typed">0</div>
+        <div class="wordCount">0</div>
+        <div class="mistakes">0</div>
+        <div class="average">100</div>
+        <div class="completion">0</div>
+        <div class="wpm">0</div>
+        <div class="timer notPaused">0:00</div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="wrapper row">
+      <div class="content col-md-10 col-md-offset-1"></div>
+    </div>
+
+    <!-- Finish modal -->
+    <div
+      class="modal fade"
+      id="finishModal"
+      tabindex="-1"
+      role="dialog"
+      aria-labelledby="myModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button
+              type="button"
+              class="close"
+              data-dismiss="modal"
+              aria-hidden="true"
+            >
+              &times;
+            </button>
+            <h4 class="modal-title text-center" id="myModalLabel">
+              <i class="glyphicon glyphicon-ok-circle"></i> FINISHED
+              <i class="glyphicon glyphicon-ok-circle"></i>
+            </h4>
+          </div>
+          <div class="modal-body">
+            <!-- modal content -->
+            <div class="progress progress-striped active">
+              <div
+                class="progress-bar progress-bar-success"
+                role="progressbar"
+                aria-valuenow="0"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                style="width: 0"
+              >
+                <!--<span class="sr-only">' + STATS.average + '% (success)</span>-->
+              </div>
+              <div class="progress-bar progress-bar-danger" style="width: 0">
+                <!--<span class="sr-only">' + (100 - STATS.average) + '% (warning)</span>-->
+              </div>
+            </div>
+            <h2 class="text-center"><span class="finish-wpm">0</span> WPM</h2>
+          </div>
+          <div class="modal-footer">
+            <ul class="list-unstyled statHistory text-center"></ul>
+          </div>
+        </div>
+        <!-- /.modal-content -->
+      </div>
+      <!-- /.modal-dialog -->
+    </div>
+    <!-- /.modal -->
+  </body>
+</html>
