@@ -100,4 +100,30 @@ describe("preferences", () => {
 
 			dispose();
 		}));
+
+	it("fills missing fields from defaults when loading old preferences", () =>
+		createRoot((dispose) => {
+			const storage = createMockStorage();
+			// Simulate old preferences saved before stopOnError was added
+			const oldPrefs = {
+				theme: "dracula",
+				soundEnabled: true,
+				smoothCaret: false,
+				caretStyle: "block",
+				fontSize: 18,
+				fontFamily: "monospace",
+				showLiveWpm: false,
+			};
+			storage.setItem("typer-preferences", JSON.stringify(oldPrefs));
+
+			const [prefs] = createPreferences(storage);
+
+			// Existing values preserved
+			expect(prefs.theme).toBe("dracula");
+			expect(prefs.fontSize).toBe(18);
+			// Missing field gets default
+			expect(prefs.stopOnError).toBe("off");
+
+			dispose();
+		}));
 });

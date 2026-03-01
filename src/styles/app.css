@@ -40,17 +40,6 @@
 	animation: blink 1s step-end infinite;
 }
 
-/* Progressive error feedback tiers — derived from --error via color-mix */
-.text-error-warn-1 {
-	color: color-mix(in srgb, var(--error) 50%, transparent);
-}
-.text-error-warn-2 {
-	color: color-mix(in srgb, var(--error) 70%, transparent);
-}
-.text-error-warn-3 {
-	color: color-mix(in srgb, var(--error) 90%, transparent);
-}
-
 /* Base styles */
 body {
 	background-color: var(--bg);
