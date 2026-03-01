@@ -40,6 +40,25 @@
 	animation: blink 1s step-end infinite;
 }
 
+/* Progressive error tiers — theme-consistent via color-mix */
+.text-error-1 {
+	color: color-mix(in srgb, var(--error) 70%, var(--text-sub));
+}
+.text-error-2 {
+	color: color-mix(in srgb, var(--error) 85%, var(--text-sub));
+}
+.text-error-3 {
+	color: var(--error);
+}
+
+/* Correct characters with prior mistakes — error-tinted */
+.text-correct-tint {
+	color: color-mix(in srgb, var(--correct) 80%, var(--error));
+}
+.text-correct-tint-heavy {
+	color: color-mix(in srgb, var(--correct) 60%, var(--error));
+}
+
 /* Base styles */
 body {
 	background-color: var(--bg);

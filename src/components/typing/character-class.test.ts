@@ -7,31 +7,37 @@ describe("characterClass", () => {
 			expect(characterClass("correct", 0)).toBe("text-correct");
 		});
 
-		it("returns dimmed correct for 1-2 prior mistakes", () => {
-			expect(characterClass("correct", 1)).toBe("text-correct opacity-80");
-			expect(characterClass("correct", 2)).toBe("text-correct opacity-80");
+		it("returns error-tinted correct for 1-2 prior mistakes", () => {
+			expect(characterClass("correct", 1)).toBe("text-correct-tint");
+			expect(characterClass("correct", 2)).toBe("text-correct-tint");
 		});
 
-		it("returns more dimmed correct for 3+ prior mistakes", () => {
-			expect(characterClass("correct", 3)).toBe("text-correct opacity-60");
-			expect(characterClass("correct", 5)).toBe("text-correct opacity-60");
+		it("returns heavier error-tinted correct for 3+ prior mistakes", () => {
+			expect(characterClass("correct", 3)).toBe("text-correct-tint-heavy");
+			expect(characterClass("correct", 5)).toBe("text-correct-tint-heavy");
 		});
 	});
 
-	describe("incorrect characters", () => {
-		it("returns full text-error for first mistake", () => {
-			expect(characterClass("incorrect", 1)).toBe("text-error");
+	describe("incorrect characters — progressive scale", () => {
+		it("returns tier 1 error for first mistake", () => {
+			expect(characterClass("incorrect", 1)).toBe("text-error-1");
 		});
 
-		it("returns full text-error for any mistake count", () => {
-			expect(characterClass("incorrect", 2)).toBe("text-error");
-			expect(characterClass("incorrect", 3)).toBe("text-error");
+		it("returns tier 2 error for second mistake", () => {
+			expect(characterClass("incorrect", 2)).toBe("text-error-2");
+		});
+
+		it("returns tier 3 error for 3-4 mistakes", () => {
+			expect(characterClass("incorrect", 3)).toBe("text-error-3");
+			expect(characterClass("incorrect", 4)).toBe("text-error-3");
+		});
+
+		it("returns full error for 5+ mistakes (auto-advance threshold)", () => {
 			expect(characterClass("incorrect", 5)).toBe("text-error");
 		});
 
-		it("returns full text-error even for mistakeCount 0", () => {
-			// Edge case: shouldn't happen, but be safe
-			expect(characterClass("incorrect", 0)).toBe("text-error");
+		it("returns tier 1 for mistakeCount 0 edge case", () => {
+			expect(characterClass("incorrect", 0)).toBe("text-error-1");
 		});
 	});
 
