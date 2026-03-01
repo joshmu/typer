@@ -122,7 +122,7 @@ describe("preferences", () => {
 			expect(prefs.theme).toBe("dracula");
 			expect(prefs.fontSize).toBe(18);
 			// Missing field gets default
-			expect(prefs.stopOnError).toBe("off");
+			expect(prefs.stopOnError).toBe("letter");
 
 			dispose();
 		}));

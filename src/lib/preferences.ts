@@ -21,7 +21,7 @@ export const defaultPreferences: UserPreferences = {
 	fontSize: 16,
 	fontFamily: "monospace",
 	showLiveWpm: true,
-	stopOnError: "off",
+	stopOnError: "letter",
 };
 
 export function createPreferences(storage?: Storage) {
