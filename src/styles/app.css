@@ -7,6 +7,7 @@
 	--text: #d1d0c5;
 	--text-sub: #646669;
 	--primary: #e2b714;
+	--warning: #e8a020;
 	--error: #ca4754;
 	--error-extra: #7e2a33;
 	--caret: #e2b714;
@@ -19,6 +20,7 @@
 	--color-text: var(--text);
 	--color-text-sub: var(--text-sub);
 	--color-primary: var(--primary);
+	--color-warning: var(--warning);
 	--color-error: var(--error);
 	--color-error-extra: var(--error-extra);
 	--color-caret: var(--caret);
@@ -40,23 +42,23 @@
 	animation: blink 1s step-end infinite;
 }
 
-/* Progressive error tiers — theme-consistent via color-mix */
+/* Progressive error tiers — warning (amber) → error (red) */
 .text-error-1 {
-	color: color-mix(in srgb, var(--error) 70%, var(--text-sub));
+	color: var(--warning);
 }
 .text-error-2 {
-	color: color-mix(in srgb, var(--error) 85%, var(--text-sub));
+	color: color-mix(in srgb, var(--error) 50%, var(--warning));
 }
 .text-error-3 {
 	color: var(--error);
 }
 
-/* Correct characters with prior mistakes — error-tinted */
+/* Correct characters with prior mistakes — warning-tinted */
 .text-correct-tint {
-	color: color-mix(in srgb, var(--correct) 80%, var(--error));
+	color: color-mix(in srgb, var(--correct) 70%, var(--warning));
 }
 .text-correct-tint-heavy {
-	color: color-mix(in srgb, var(--correct) 60%, var(--error));
+	color: color-mix(in srgb, var(--correct) 50%, var(--warning));
 }
 
 /* Base styles */

@@ -9,6 +9,7 @@ const REQUIRED_KEYS: (keyof Theme)[] = [
 	"text",
 	"textSub",
 	"primary",
+	"warning",
 	"error",
 	"errorExtra",
 	"caret",

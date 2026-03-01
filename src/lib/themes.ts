@@ -6,6 +6,7 @@ export interface Theme {
 	text: string;
 	textSub: string;
 	primary: string;
+	warning: string;
 	error: string;
 	errorExtra: string;
 	caret: string;
@@ -20,6 +21,7 @@ const serikaDark: Theme = {
 	text: "#d1d0c5",
 	textSub: "#646669",
 	primary: "#e2b714",
+	warning: "#e8a020",
 	error: "#ca4754",
 	errorExtra: "#7e2a33",
 	caret: "#e2b714",
@@ -34,6 +36,7 @@ const serikaLight: Theme = {
 	text: "#323437",
 	textSub: "#aaaeb3",
 	primary: "#e2b714",
+	warning: "#d4921a",
 	error: "#ca4754",
 	errorExtra: "#7e2a33",
 	caret: "#e2b714",
@@ -48,6 +51,7 @@ const dracula: Theme = {
 	text: "#f8f8f2",
 	textSub: "#6272a4",
 	primary: "#bd93f9",
+	warning: "#ffb86c",
 	error: "#ff5555",
 	errorExtra: "#8b0000",
 	caret: "#bd93f9",
@@ -62,6 +66,7 @@ const monokai: Theme = {
 	text: "#f8f8f2",
 	textSub: "#75715e",
 	primary: "#a6e22e",
+	warning: "#e6db74",
 	error: "#f92672",
 	errorExtra: "#8b0045",
 	caret: "#a6e22e",
@@ -76,6 +81,7 @@ const nord: Theme = {
 	text: "#d8dee9",
 	textSub: "#4c566a",
 	primary: "#88c0d0",
+	warning: "#ebcb8b",
 	error: "#bf616a",
 	errorExtra: "#8b3a42",
 	caret: "#88c0d0",
@@ -90,6 +96,7 @@ const solarizedDark: Theme = {
 	text: "#839496",
 	textSub: "#586e75",
 	primary: "#b58900",
+	warning: "#cb4b16",
 	error: "#dc322f",
 	errorExtra: "#8b1a18",
 	caret: "#b58900",
@@ -104,6 +111,7 @@ const tokyoNight: Theme = {
 	text: "#a9b1d6",
 	textSub: "#565f89",
 	primary: "#7aa2f7",
+	warning: "#e0af68",
 	error: "#f7768e",
 	errorExtra: "#8b3a4a",
 	caret: "#7aa2f7",
@@ -118,6 +126,7 @@ const catppuccinMocha: Theme = {
 	text: "#cdd6f4",
 	textSub: "#585b70",
 	primary: "#cba6f7",
+	warning: "#fab387",
 	error: "#f38ba8",
 	errorExtra: "#8b4560",
 	caret: "#cba6f7",
@@ -132,6 +141,7 @@ const gruvboxDark: Theme = {
 	text: "#ebdbb2",
 	textSub: "#665c54",
 	primary: "#fabd2f",
+	warning: "#fe8019",
 	error: "#fb4934",
 	errorExtra: "#8b2820",
 	caret: "#fabd2f",
@@ -146,6 +156,7 @@ const oneDark: Theme = {
 	text: "#abb2bf",
 	textSub: "#5c6370",
 	primary: "#61afef",
+	warning: "#e5c07b",
 	error: "#e06c75",
 	errorExtra: "#8b4046",
 	caret: "#61afef",
@@ -160,6 +171,7 @@ const rosePine: Theme = {
 	text: "#e0def4",
 	textSub: "#6e6a86",
 	primary: "#c4a7e7",
+	warning: "#f6c177",
 	error: "#eb6f92",
 	errorExtra: "#8b4058",
 	caret: "#c4a7e7",
@@ -174,6 +186,7 @@ const carbonDark: Theme = {
 	text: "#f4f4f4",
 	textSub: "#525252",
 	primary: "#0f62fe",
+	warning: "#f1c21b",
 	error: "#da1e28",
 	errorExtra: "#8b1218",
 	caret: "#0f62fe",
@@ -209,6 +222,7 @@ export function applyTheme(theme: Theme): void {
 	root.style.setProperty("--text", theme.text);
 	root.style.setProperty("--text-sub", theme.textSub);
 	root.style.setProperty("--primary", theme.primary);
+	root.style.setProperty("--warning", theme.warning);
 	root.style.setProperty("--error", theme.error);
 	root.style.setProperty("--error-extra", theme.errorExtra);
 	root.style.setProperty("--caret", theme.caret);
