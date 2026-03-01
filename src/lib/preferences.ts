@@ -1,5 +1,6 @@
 import { makePersisted } from "@solid-primitives/storage";
 import { createStore } from "solid-js/store";
+import type { StopOnError } from "@/lib/core/types";
 
 export interface UserPreferences {
 	theme: string;
@@ -9,6 +10,7 @@ export interface UserPreferences {
 	fontSize: number;
 	fontFamily: string;
 	showLiveWpm: boolean;
+	stopOnError: StopOnError;
 }
 
 export const defaultPreferences: UserPreferences = {
@@ -19,6 +21,7 @@ export const defaultPreferences: UserPreferences = {
 	fontSize: 16,
 	fontFamily: "monospace",
 	showLiveWpm: true,
+	stopOnError: "off",
 };
 
 export function createPreferences(storage?: Storage) {

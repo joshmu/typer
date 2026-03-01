@@ -13,6 +13,7 @@ export function createCharState(
 		typed: null,
 		status: "pending",
 		timestamp: null,
+		mistakeCount: 0,
 		...overrides,
 	};
 }

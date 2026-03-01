@@ -10,6 +10,7 @@ export interface CharacterState {
 	typed: string | null;
 	status: CharacterStatus;
 	timestamp: number | null;
+	mistakeCount: number;
 }
 
 export interface WordState {

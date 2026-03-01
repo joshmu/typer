@@ -48,5 +48,6 @@ export function textToCharacters(text: string): CharacterState[] {
 		typed: null,
 		status: "pending" as const,
 		timestamp: null,
+		mistakeCount: 0,
 	}));
 }

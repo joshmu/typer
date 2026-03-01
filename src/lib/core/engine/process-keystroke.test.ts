@@ -163,5 +163,126 @@ describe("processKeystroke", () => {
 			expect(state.words[0].characters[0].status).toBe("pending");
 			expect(state.currentCharIndex).toBe(0);
 		});
+
+		it("increments mistakeCount on each wrong attempt", () => {
+			let state = createTypingState("abc");
+			state.config.stopOnError = "letter";
+
+			state = processKeystroke(state, "x", 1000);
+			expect(state.words[0].characters[0].mistakeCount).toBe(1);
+			expect(state.currentCharIndex).toBe(0);
+
+			state = processKeystroke(state, "y", 1001);
+			expect(state.words[0].characters[0].mistakeCount).toBe(2);
+			expect(state.currentCharIndex).toBe(0);
+		});
+
+		it("preserves mistakeCount on backspace", () => {
+			let state = createTypingState("abc");
+			state.config.stopOnError = "letter";
+
+			state = processKeystroke(state, "x", 1000);
+			state = processKeystroke(state, "Backspace", 1001);
+			expect(state.words[0].characters[0].mistakeCount).toBe(1);
+			expect(state.words[0].characters[0].status).toBe("pending");
+		});
+
+		it("preserves mistakeCount after correct keystroke following mistakes", () => {
+			let state = createTypingState("abc");
+			state.config.stopOnError = "letter";
+
+			state = processKeystroke(state, "x", 1000);
+			state = processKeystroke(state, "Backspace", 1001);
+			state = processKeystroke(state, "a", 1002);
+			expect(state.words[0].characters[0].status).toBe("correct");
+			expect(state.words[0].characters[0].mistakeCount).toBe(1);
+			expect(state.currentCharIndex).toBe(1);
+		});
+
+		it("auto-advances after 5 mistakes", () => {
+			let state = createTypingState("abc");
+			state.config.stopOnError = "letter";
+
+			for (let i = 0; i < 4; i++) {
+				state = processKeystroke(state, "x", 1000 + i);
+				expect(state.currentCharIndex).toBe(0);
+			}
+			expect(state.words[0].characters[0].mistakeCount).toBe(4);
+
+			state = processKeystroke(state, "x", 1005);
+			expect(state.words[0].characters[0].mistakeCount).toBe(5);
+			expect(state.words[0].characters[0].status).toBe("incorrect");
+			expect(state.currentCharIndex).toBe(1);
+		});
+	});
+
+	describe("mistake counting in off mode", () => {
+		it("sets mistakeCount on incorrect character", () => {
+			const state = createTypingState("abc");
+			const next = processKeystroke(state, "x", 1000);
+			expect(next.words[0].characters[0].mistakeCount).toBe(1);
+			expect(next.currentCharIndex).toBe(1);
+		});
+
+		it("does not increment mistakeCount on correct character", () => {
+			const state = createTypingState("abc");
+			const next = processKeystroke(state, "a", 1000);
+			expect(next.words[0].characters[0].mistakeCount).toBe(0);
+		});
+	});
+
+	describe("stop on error: word", () => {
+		it("allows typing within current word normally", () => {
+			let state = createTypingState("ab cd");
+			state.config.stopOnError = "word";
+
+			state = processKeystroke(state, "a", 1000);
+			expect(state.currentCharIndex).toBe(1);
+
+			state = processKeystroke(state, "x", 1001);
+			expect(state.currentCharIndex).toBe(2);
+			expect(state.words[0].characters[1].status).toBe("incorrect");
+		});
+
+		it("blocks word transition when current word has errors", () => {
+			let state = createTypingState("ab cd");
+			state.config.stopOnError = "word";
+
+			state = processKeystroke(state, "a", 1000);
+			state = processKeystroke(state, "x", 1001);
+			state = processKeystroke(state, " ", 1002);
+
+			expect(state.currentWordIndex).toBe(0);
+			expect(state.currentCharIndex).toBe(0);
+			for (const char of state.words[0].characters) {
+				if (char.expected !== " ") {
+					expect(char.status).toBe("pending");
+				}
+			}
+		});
+
+		it("allows word transition when all chars correct", () => {
+			let state = createTypingState("ab cd");
+			state.config.stopOnError = "word";
+
+			state = processKeystroke(state, "a", 1000);
+			state = processKeystroke(state, "b", 1001);
+			state = processKeystroke(state, " ", 1002);
+
+			expect(state.currentWordIndex).toBe(1);
+			expect(state.currentCharIndex).toBe(0);
+		});
+
+		it("resets mistakeCount on word characters when word is reset", () => {
+			let state = createTypingState("ab cd");
+			state.config.stopOnError = "word";
+
+			state = processKeystroke(state, "x", 1000);
+			state = processKeystroke(state, "b", 1001);
+			state = processKeystroke(state, " ", 1002);
+
+			expect(state.words[0].characters[0].mistakeCount).toBe(0);
+			expect(state.words[0].characters[1].mistakeCount).toBe(0);
+		});
 	});
 });

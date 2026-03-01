@@ -9,7 +9,7 @@ import { processKeystroke } from "@/lib/core/engine/process-keystroke";
 import { appendWordsToState, needsMoreWords } from "@/lib/core/engine/zen";
 import { normalizeText, textToWords } from "@/lib/core/text/normalizer";
 import { generateWords } from "@/lib/core/text/words";
-import type { TestMode, TypingState } from "@/lib/core/types";
+import type { StopOnError, TestMode, TypingState } from "@/lib/core/types";
 import {
 	createTestConfig,
 	createTestMode,
@@ -20,10 +20,15 @@ import TextDisplay from "./TextDisplay";
 interface TypingTestProps {
 	text: string;
 	mode?: TestMode;
+	stopOnError?: StopOnError;
 	onComplete?: (state: TypingState) => void;
 }
 
-function initState(text: string, mode?: TestMode): TypingState {
+function initState(
+	text: string,
+	mode?: TestMode,
+	stopOnError?: StopOnError,
+): TypingState {
 	const normalized = normalizeText(text);
 	const words = textToWords(normalized);
 	if (words.length > 0) words[0].isActive = true;
@@ -35,13 +40,13 @@ function initState(text: string, mode?: TestMode): TypingState {
 		startTime: null,
 		endTime: null,
 		mode: mode ?? createTestMode(),
-		config: createTestConfig(),
+		config: createTestConfig({ stopOnError: stopOnError ?? "off" }),
 	};
 }
 
 export default function TypingTest(props: TypingTestProps) {
 	const [state, setState] = createStore<TypingState>(
-		initState(props.text, props.mode),
+		initState(props.text, props.mode, props.stopOnError),
 	);
 	const [elapsed, setElapsed] = createSignal(0);
 	const [capsLock, setCapsLock] = createSignal(false);

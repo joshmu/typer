@@ -7,11 +7,16 @@ interface WordProps {
 	activeCharIndex: number;
 }
 
-function characterClass(status: string): string {
+function characterClass(status: string, mistakeCount: number): string {
 	switch (status) {
 		case "correct":
-			return "text-correct";
+			if (mistakeCount === 0) return "text-correct";
+			if (mistakeCount <= 2) return "text-correct opacity-80";
+			return "text-correct opacity-60";
 		case "incorrect":
+			if (mistakeCount <= 1) return "text-error-warn-1";
+			if (mistakeCount === 2) return "text-error-warn-2";
+			if (mistakeCount <= 4) return "text-error-warn-3";
 			return "text-error";
 		case "extra":
 			return "text-error-extra";
@@ -33,6 +38,7 @@ export default function Word(props: WordProps) {
 		for (let i = 0; i < word.characters.length && i < chars.length; i++) {
 			(chars[i] as HTMLElement).className = characterClass(
 				word.characters[i].status,
+				word.characters[i].mistakeCount,
 			);
 		}
 	});
@@ -41,7 +47,9 @@ export default function Word(props: WordProps) {
 		<span ref={wordRef} class="inline" data-word-active={props.isActive}>
 			<For each={props.word.characters}>
 				{(char) => (
-					<span class={characterClass(char.status)}>{char.expected}</span>
+					<span class={characterClass(char.status, char.mistakeCount)}>
+						{char.expected}
+					</span>
 				)}
 			</For>
 		</span>

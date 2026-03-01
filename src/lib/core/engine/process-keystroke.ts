@@ -25,6 +25,8 @@ const IGNORED_KEYS = new Set([
 	"ContextMenu",
 ]);
 
+const AUTO_ADVANCE_MISTAKE_THRESHOLD = 5;
+
 function isIgnoredKey(key: string): boolean {
 	return IGNORED_KEYS.has(key) || key.startsWith("F");
 }
@@ -38,87 +40,88 @@ export function processKeystroke(
 	key: string,
 	timestamp: number,
 ): TypingState {
-	// Ignore modifier/function/navigation keys
 	if (isIgnoredKey(key)) return state;
-
-	// Test already complete — ignore all input
 	if (state.endTime !== null) return state;
 
+	if (key === "Backspace") return handleBackspace(state);
+
 	const { currentWordIndex, currentCharIndex, words } = state;
-	const currentWord = words[currentWordIndex];
-
-	// Handle backspace
-	if (key === "Backspace") {
-		return handleBackspace(state);
-	}
-
-	// No current word (shouldn't happen but guard)
-	if (!currentWord) return state;
-
-	const currentChar = currentWord.characters[currentCharIndex];
+	const currentChar = words[currentWordIndex]?.characters[currentCharIndex];
 	if (!currentChar) return state;
 
-	// Determine if correct
 	const isCorrect = key === currentChar.expected;
+	const newMistakeCount = isCorrect
+		? currentChar.mistakeCount
+		: currentChar.mistakeCount + 1;
 
-	// Stop on error: letter mode — don't advance on incorrect
-	if (state.config.stopOnError === "letter" && !isCorrect) {
-		const newWords = cloneWords(words);
-		newWords[currentWordIndex].characters[currentCharIndex] = {
-			...currentChar,
-			typed: key,
-			status: "incorrect",
-			timestamp,
-		};
-		return {
-			...state,
-			words: newWords,
-			startTime: state.startTime ?? timestamp,
-		};
-	}
-
-	// Update the character
 	const newWords = cloneWords(words);
 	newWords[currentWordIndex].characters[currentCharIndex] = {
 		...currentChar,
 		typed: key,
 		status: isCorrect ? "correct" : "incorrect",
 		timestamp,
+		mistakeCount: newMistakeCount,
 	};
 
-	// Advance cursor
-	let nextWordIndex = currentWordIndex;
-	let nextCharIndex = currentCharIndex + 1;
-
-	// Check if we've finished the current word
-	if (nextCharIndex >= currentWord.characters.length) {
-		// Check if we've finished the entire test
-		if (nextWordIndex >= words.length - 1) {
-			// Test complete
-			newWords[currentWordIndex].isActive = false;
-			return {
-				...state,
-				words: newWords,
-				currentWordIndex: nextWordIndex,
-				currentCharIndex: nextCharIndex,
-				startTime: state.startTime ?? timestamp,
-				endTime: timestamp,
-			};
-		}
-		// Move to next word
-		newWords[currentWordIndex].isActive = false;
-		nextWordIndex++;
-		nextCharIndex = 0;
-		newWords[nextWordIndex].isActive = true;
-	}
-
-	return {
+	const updated: TypingState = {
 		...state,
 		words: newWords,
-		currentWordIndex: nextWordIndex,
-		currentCharIndex: nextCharIndex,
 		startTime: state.startTime ?? timestamp,
 	};
+
+	// Letter mode: block cursor on incorrect unless auto-advance threshold reached
+	const isLetterMode = state.config.stopOnError === "letter";
+	if (isLetterMode && !isCorrect && newMistakeCount < AUTO_ADVANCE_MISTAKE_THRESHOLD) {
+		return updated;
+	}
+
+	return advanceCursor(updated, timestamp);
+}
+
+function advanceCursor(state: TypingState, timestamp: number): TypingState {
+	const { currentWordIndex, currentCharIndex, words } = state;
+	const currentWord = words[currentWordIndex];
+	const nextCharIndex = currentCharIndex + 1;
+
+	// Still within the current word
+	if (nextCharIndex < currentWord.characters.length) {
+		return { ...state, currentCharIndex: nextCharIndex };
+	}
+
+	// Word complete: if word mode has errors, reset the word
+	if (state.config.stopOnError === "word") {
+		const hasErrors = words[currentWordIndex].characters.some(
+			(c) => c.status === "incorrect",
+		);
+		if (hasErrors) {
+			return resetWord(state, currentWordIndex);
+		}
+	}
+
+	// Last word complete: end test
+	if (currentWordIndex >= words.length - 1) {
+		words[currentWordIndex].isActive = false;
+		return { ...state, currentCharIndex: nextCharIndex, endTime: timestamp };
+	}
+
+	// Move to next word
+	const nextWordIndex = currentWordIndex + 1;
+	words[currentWordIndex].isActive = false;
+	words[nextWordIndex].isActive = true;
+
+	return { ...state, currentWordIndex: nextWordIndex, currentCharIndex: 0 };
+}
+
+function resetWord(state: TypingState, wordIndex: number): TypingState {
+	const words = state.words;
+	words[wordIndex].characters = words[wordIndex].characters.map((c) => ({
+		...c,
+		typed: null,
+		status: "pending" as const,
+		timestamp: null,
+		mistakeCount: 0,
+	}));
+	return { ...state, currentCharIndex: 0 };
 }
 
 function handleBackspace(state: TypingState): TypingState {

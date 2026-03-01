@@ -1,5 +1,6 @@
 import { Match, Show, Switch, createSignal, lazy } from "solid-js";
 import ModeSelector from "@/components/typing/ModeSelector";
+import { usePreferences } from "@/lib/preferences-context";
 
 const ResultsScreen = lazy(() => import("@/components/results/ResultsScreen"));
 import TextInputModal from "@/components/typing/TextInputModal";
@@ -27,6 +28,7 @@ interface TestResult {
 }
 
 export default function Home() {
+	const [prefs] = usePreferences();
 	const [mode, setMode] = createSignal<TestMode>({ type: "custom" });
 	const [text, setText] = createSignal<string | null>(null);
 	const [result, setResult] = createSignal<TestResult | null>(null);
@@ -138,6 +140,7 @@ export default function Home() {
 						<TypingTest
 							text={t()}
 							mode={mode()}
+							stopOnError={prefs.stopOnError}
 							onComplete={handleComplete}
 						/>
 					)}
