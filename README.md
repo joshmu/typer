@@ -2,6 +2,8 @@
 
 A touch-typing web app for practicing with custom text. Track your WPM, accuracy, and progress.
 
+**Live:** [typer.joshmu.dev](https://typer.joshmu.dev)
+
 ## Tech Stack
 
 - **Framework:** SolidJS + Vite

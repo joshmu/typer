@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Typer is a touch-typing web app for practicing with custom text. Tracks WPM, accuracy, and progress. **v1** (tag `v1.0.0`, branch `v1`) is legacy AngularJS 1.x. The **`main` branch** is the v2 full rewrite.
+Typer is a touch-typing web app for practicing with custom text. Tracks WPM, accuracy, and progress. **Live:** [typer.joshmu.dev](https://typer.joshmu.dev). **v1** (tag `v1.0.0`, branch `v1`) is jQuery, **v2** (tag `v2.0.0`, branch `v2`) is AngularJS 1.x. The **`main` branch** is the v3 full rewrite.
 
-## v2 Tech Stack
+## v3 Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -20,7 +20,7 @@ Typer is a touch-typing web app for practicing with custom text. Tracks WPM, acc
 | Data | Dexie.js v4 (IndexedDB) + @solid-primitives/storage (localStorage) |
 | Deployment | Vercel |
 
-## Commands (v2)
+## Commands (v3)
 
 ```bash
 pnpm dev              # Start Vite dev server
@@ -34,7 +34,7 @@ pnpm format           # Biome format
 pnpm typecheck        # tsc --noEmit
 ```
 
-## v2 Architecture
+## v3 Architecture
 
 Flat project structure (no monorepo). Path alias `@/` → `src/`.
 
@@ -76,6 +76,10 @@ Every keystroke must process in **<16ms** (one frame at 60fps). See `docs/perfor
 ### Themes
 
 CSS custom properties (`--bg`, `--text`, `--primary`, `--error`, `--caret`) swapped via `data-theme` attribute. Dark mode is the default.
+
+## Browser Validation
+
+Use the `agent-browser` skill for any browser-based validation (visual checks, interaction testing, screenshot comparison). Always define a session: `agent-browser --session <name> <command>`.
 
 ## v1 Reference (branch `v1`)
 
