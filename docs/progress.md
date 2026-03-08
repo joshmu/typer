@@ -48,3 +48,11 @@
 - [x] 3.8: Sound on keypress
 - [x] 3.9: Settings page
 - [x] 3.10: Live WPM display toggle
+
+## Phase 4: Book Mode & Hardening
+
+- [x] 4.1: Book mode (Standard Ebooks integration)
+- [x] 4.2: Progressive error colors (warning → error)
+- [x] 4.3: Diacritics-aware character matching (NFD decomposition)
+- [x] 4.4: Book resume at exact word position
+- [x] 4.5: Backwards-compatible DB error recovery

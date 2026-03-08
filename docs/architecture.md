@@ -135,6 +135,24 @@ function calculateConsistency(perSecondWPM: number[]): number
 function isTestComplete(state: TypingState): boolean
 ```
 
+### Character Matching — Diacritics Support
+
+`processKeystroke` uses `isCharMatch()` (src/lib/core/text/char-match.ts) instead of strict `===` for character comparison. This enables typing base characters to match accented book text:
+
+```typescript
+// Unicode NFD decomposition: "ž" → "z" + combining caron → base "z"
+isCharMatch("z", "ž")  // true — z matches ž
+isCharMatch("e", "é")  // true — e matches é
+isCharMatch("Z", "Ž")  // true — case preserved
+isCharMatch("z", "Ž")  // false — case mismatch
+```
+
+This is critical for book mode where Standard Ebooks texts contain diacritics that users can't type on standard keyboards.
+
+### Book Resume — Exact Word Position
+
+Book mode saves progress using `computeBookResumePosition()` (src/lib/core/engine/book-resume.ts) which computes the resume offset from actual typed words, not the feeder's pre-fetched position. The book feeder pre-loads words ahead of the user's typing cursor; the resume function creates a temporary feeder and advances it by exactly the number of completed words to find the correct chapter/offset for next session.
+
 ## Reactive UI Layer
 
 The Solid components wrap the pure engine:
@@ -236,7 +254,7 @@ All data stays in the browser. No backend, no accounts, no sync.
 
 ```
 ┌─────────┐    ┌───────────┐
-│  Typing  │───▶│ Dexie.js  │  Reactive via liveQuery + SolidJS from()
+│  Typing  │───▶│ Dexie.js  │  Reactive via safeFrom(liveQuery) + SolidJS
 │  Engine  │    │(IndexedDB)│  Indexed queries: [mode+wpm], timestamp
 └─────────┘    └───────────┘
 
@@ -245,6 +263,10 @@ All data stays in the browser. No backend, no accounts, no sync.
 │  (prefs) │    │      (localStorage)       │  with automatic persistence
 └─────────┘    └───────────────────────────┘
 ```
+
+### Error Recovery
+
+All Dexie reactive queries use `safeFrom()` (src/lib/safe-query.ts) which catches liveQuery errors and returns fallback values instead of crashing the SolidJS render tree. All DB mutations are wrapped in try-catch. If the DB fails to open (corrupted state, blocked upgrade), it auto-deletes and reloads — a one-time recovery for users with incompatible IndexedDB state.
 
 ## Performance Budgets
 
