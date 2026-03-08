@@ -22,6 +22,7 @@ export default {
 				"deploy",
 				"e2e",
 				"deps",
+				"book",
 			],
 		],
 	},
