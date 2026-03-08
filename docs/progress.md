@@ -56,3 +56,7 @@
 - [x] 4.3: Diacritics-aware character matching (NFD decomposition)
 - [x] 4.4: Book resume at exact word position
 - [x] 4.5: Backwards-compatible DB error recovery
+- [x] 4.6: Book title in history results
+- [x] 4.7: Default to book mode
+- [x] 4.8: Pre-commit hook (typecheck + lint)
+- [x] 4.9: Commitlint CI validation + book scope
