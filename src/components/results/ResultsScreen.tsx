@@ -14,6 +14,7 @@ interface ResultsScreenProps {
 	elapsed: number;
 	wpmPerSecond: number[];
 	onRedo: () => void;
+	redoLabel?: string;
 }
 
 function formatTime(ms: number): string {
@@ -189,7 +190,7 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 				class="redo-section mt-4 px-8 py-3 bg-bg-secondary text-text-sub rounded border border-text-sub/20 hover:text-primary hover:border-primary/40 transition-colors text-sm uppercase tracking-widest opacity-0"
 				onClick={props.onRedo}
 			>
-				Redo
+				{props.redoLabel ?? "Redo"}
 			</button>
 
 			{/* History */}
