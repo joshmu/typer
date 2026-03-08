@@ -5,10 +5,10 @@ const LOOK_AHEAD = 5;
 
 /**
  * Returns true when the user is within LOOK_AHEAD words of the end
- * and the mode is zen. Used to trigger dynamic word appending.
+ * and the mode is zen or book. Used to trigger dynamic word appending.
  */
 export function needsMoreWords(state: TypingState): boolean {
-	if (state.mode.type !== "zen") return false;
+	if (state.mode.type !== "zen" && state.mode.type !== "book") return false;
 	return state.words.length - state.currentWordIndex <= LOOK_AHEAD;
 }
 
