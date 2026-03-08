@@ -45,7 +45,11 @@ interface TestResult {
 
 export default function Home() {
 	const [prefs] = usePreferences();
-	const [mode, setMode] = createSignal<TestMode>({ type: "custom" });
+	const [mode, setMode] = createSignal<TestMode>({
+		type: "book",
+		bookId: "",
+		chapterIndex: 0,
+	});
 	const [text, setText] = createSignal<string | null>(null);
 	const [result, setResult] = createSignal<TestResult | null>(null);
 
