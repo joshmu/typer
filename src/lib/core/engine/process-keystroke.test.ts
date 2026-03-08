@@ -231,6 +231,27 @@ describe("processKeystroke", () => {
 		});
 	});
 
+	describe("diacritics matching", () => {
+		it("accepts base character for diacritical expected character", () => {
+			// "caf\u00E9" = "café" — last char is é (e-acute)
+			const state = createTypingState("caf\u00E9");
+			let next = processKeystroke(state, "c", 1000);
+			next = processKeystroke(next, "a", 1001);
+			next = processKeystroke(next, "f", 1002);
+			next = processKeystroke(next, "e", 1003); // "e" should match "é"
+
+			expect(next.words[0].characters[3].status).toBe("correct");
+			expect(next.endTime).not.toBeNull();
+		});
+
+		it("rejects wrong base character for diacritical expected", () => {
+			const state = createTypingState("\u017E"); // ž (z-caron)
+			const next = processKeystroke(state, "a", 1000);
+
+			expect(next.words[0].characters[0].status).toBe("incorrect");
+		});
+	});
+
 	describe("stop on error: word", () => {
 		it("allows typing within current word normally", () => {
 			let state = createTypingState("ab cd");

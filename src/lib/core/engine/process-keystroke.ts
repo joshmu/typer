@@ -1,3 +1,4 @@
+import { isCharMatch } from "../text/char-match";
 import type { TypingState } from "../types";
 
 const IGNORED_KEYS = new Set([
@@ -49,7 +50,7 @@ export function processKeystroke(
 	const currentChar = words[currentWordIndex]?.characters[currentCharIndex];
 	if (!currentChar) return state;
 
-	const isCorrect = key === currentChar.expected;
+	const isCorrect = isCharMatch(key, currentChar.expected);
 	const newMistakeCount = isCorrect
 		? currentChar.mistakeCount
 		: currentChar.mistakeCount + 1;
