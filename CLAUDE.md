@@ -79,6 +79,38 @@ Every keystroke must process in **<16ms** (one frame at 60fps). See `docs/perfor
 
 CSS custom properties (`--bg`, `--text`, `--primary`, `--error`, `--caret`) swapped via `data-theme` attribute. Dark mode is the default.
 
+## Development Practices
+
+### TDD (Test-Driven Development)
+
+All new features and bug fixes **must** follow red-green-refactor:
+1. **Red** — Write a failing test first
+2. **Green** — Write the minimum code to pass
+3. **Refactor** — Clean up while keeping tests green
+
+Pure engine functions (`src/lib/core/`) are the primary TDD targets. UI components are tested via E2E (Playwright) when behaviour is user-facing.
+
+### Commits
+
+**Atomic commits** — each commit is a single logical change that passes all checks independently. Never bundle unrelated changes.
+
+**Commitlint** with required scope is enforced via husky `commit-msg` hook:
+```
+type(scope): description
+```
+Allowed scopes: `scaffold`, `engine`, `calc`, `text`, `types`, `typing`, `results`, `settings`, `layout`, `theme`, `db`, `prefs`, `ci`, `deploy`, `e2e`, `deps`, `book`
+
+### Git Hooks (husky)
+
+| Hook | Action |
+|------|--------|
+| `pre-commit` | `pnpm typecheck && pnpm lint` |
+| `commit-msg` | `pnpm commitlint --edit $1` |
+
+### CI Pipeline
+
+GitHub Actions runs on push to `main` and PRs: typecheck, lint, commitlint (PRs), unit tests, build, E2E tests. All must pass before merge.
+
 ## Browser Validation
 
 Use the `agent-browser` skill for any browser-based validation (visual checks, interaction testing, screenshot comparison). Always define a session: `agent-browser --session <name> <command>`.
