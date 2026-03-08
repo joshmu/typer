@@ -101,8 +101,12 @@ export async function fetchAndCacheBook(
 		cachedAt: Date.now(),
 	};
 
-	// Save to IndexedDB
-	await db.cachedBooks.put(cachedBook);
+	// Save to IndexedDB (non-fatal if cache fails)
+	try {
+		await db.cachedBooks.put(cachedBook);
+	} catch (err) {
+		console.error("Failed to cache book:", err);
+	}
 
 	return cachedBook;
 }
@@ -113,21 +117,34 @@ export async function fetchAndCacheBook(
 export async function getCachedBook(
 	bookId: string,
 ): Promise<CachedBook | null> {
-	const cached = await db.cachedBooks.get(bookId);
-	return cached ?? null;
+	try {
+		const cached = await db.cachedBooks.get(bookId);
+		return cached ?? null;
+	} catch (err) {
+		console.error("Failed to read cached book:", err);
+		return null;
+	}
 }
 
 /**
  * Check if a book is cached in IndexedDB.
  */
 export async function isBookCached(bookId: string): Promise<boolean> {
-	const count = await db.cachedBooks.where("bookId").equals(bookId).count();
-	return count > 0;
+	try {
+		const count = await db.cachedBooks.where("bookId").equals(bookId).count();
+		return count > 0;
+	} catch {
+		return false;
+	}
 }
 
 /**
  * Delete a cached book from IndexedDB.
  */
 export async function deleteCachedBook(bookId: string): Promise<void> {
-	await db.cachedBooks.where("bookId").equals(bookId).delete();
+	try {
+		await db.cachedBooks.where("bookId").equals(bookId).delete();
+	} catch (err) {
+		console.error("Failed to delete cached book:", err);
+	}
 }

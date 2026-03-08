@@ -36,3 +36,21 @@ export class TyperDB extends Dexie {
 }
 
 export const db = new TyperDB();
+
+// Warn if another tab blocks the upgrade
+db.on("blocked", () => {
+	console.warn(
+		"TyperDB upgrade blocked by another tab. Close other tabs and reload.",
+	);
+});
+
+// Attempt to open with error recovery — delete corrupted DB and reload
+db.open().catch(async (err) => {
+	console.error("TyperDB failed to open:", err);
+	try {
+		await Dexie.delete("TyperDB");
+		window.location.reload();
+	} catch (deleteErr) {
+		console.error("Failed to recover TyperDB:", deleteErr);
+	}
+});

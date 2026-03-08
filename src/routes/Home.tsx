@@ -163,20 +163,22 @@ export default function Home() {
 		setResult(testResult);
 
 		// Save typing result to Dexie
-		import("@/lib/db").then(({ db }) => {
-			db.results.add({
-				mode: state.mode.type,
-				wpm,
-				rawWpm,
-				accuracy,
-				consistency,
-				duration: Math.floor(elapsed / 1000),
-				charCount: breakdown.total,
-				errorCount: breakdown.incorrect + breakdown.extra,
-				timestamp: Date.now(),
-				textHash: simpleHash(state.text),
-			} as TypingResult);
-		});
+		import("@/lib/db")
+			.then(({ db }) =>
+				db.results.add({
+					mode: state.mode.type,
+					wpm,
+					rawWpm,
+					accuracy,
+					consistency,
+					duration: Math.floor(elapsed / 1000),
+					charCount: breakdown.total,
+					errorCount: breakdown.incorrect + breakdown.extra,
+					timestamp: Date.now(),
+					textHash: simpleHash(state.text),
+				} as TypingResult),
+			)
+			.catch((err) => console.error("Failed to save result:", err));
 
 		// Save book progress if in book mode
 		if (state.mode.type === "book" && activeBook() && bookFeeder()) {

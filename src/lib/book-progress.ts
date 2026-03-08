@@ -1,16 +1,14 @@
-import { from } from "solid-js";
-import { liveQuery } from "dexie";
 import type { BookProgress } from "./core/types/book";
 import { db } from "./db";
+import { safeFrom } from "./safe-query";
 
 /**
  * Reactive query: get progress for a specific book.
  */
 export function useBookProgress(bookId: () => string) {
-	return from<BookProgress | undefined>(
-		liveQuery(() =>
-			db.bookProgress.where("bookId").equals(bookId()).first(),
-		),
+	return safeFrom<BookProgress | undefined>(
+		() => db.bookProgress.where("bookId").equals(bookId()).first(),
+		undefined,
 	);
 }
 
@@ -18,10 +16,9 @@ export function useBookProgress(bookId: () => string) {
  * Reactive query: get all book progress records, sorted by last accessed.
  */
 export function useAllBookProgress() {
-	return from<BookProgress[]>(
-		liveQuery(() =>
-			db.bookProgress.orderBy("lastAccessedAt").reverse().toArray(),
-		),
+	return safeFrom<BookProgress[]>(
+		() => db.bookProgress.orderBy("lastAccessedAt").reverse().toArray(),
+		[],
 	);
 }
 
@@ -32,15 +29,19 @@ export function useAllBookProgress() {
 export async function saveBookProgress(
 	progress: Omit<BookProgress, "id">,
 ): Promise<void> {
-	const existing = await db.bookProgress
-		.where("bookId")
-		.equals(progress.bookId)
-		.first();
+	try {
+		const existing = await db.bookProgress
+			.where("bookId")
+			.equals(progress.bookId)
+			.first();
 
-	if (existing?.id) {
-		await db.bookProgress.update(existing.id, progress);
-	} else {
-		await db.bookProgress.add(progress as BookProgress);
+		if (existing?.id) {
+			await db.bookProgress.update(existing.id, progress);
+		} else {
+			await db.bookProgress.add(progress as BookProgress);
+		}
+	} catch (err) {
+		console.error("Failed to save book progress:", err);
 	}
 }
 
@@ -48,6 +49,10 @@ export async function saveBookProgress(
  * Delete progress and cached book data for a book.
  */
 export async function deleteBook(bookId: string): Promise<void> {
-	await db.bookProgress.where("bookId").equals(bookId).delete();
-	await db.cachedBooks.where("bookId").equals(bookId).delete();
+	try {
+		await db.bookProgress.where("bookId").equals(bookId).delete();
+		await db.cachedBooks.where("bookId").equals(bookId).delete();
+	} catch (err) {
+		console.error("Failed to delete book:", err);
+	}
 }

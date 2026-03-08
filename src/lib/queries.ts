@@ -1,18 +1,16 @@
-import { from } from "solid-js";
-import { liveQuery } from "dexie";
 import { db, type TypingResult } from "./db";
+import { safeFrom } from "./safe-query";
 
 export function useRecentResults(limit = 20) {
-	return from<TypingResult[]>(
-		liveQuery(() =>
-			db.results.orderBy("timestamp").reverse().limit(limit).toArray(),
-		),
+	return safeFrom<TypingResult[]>(
+		() => db.results.orderBy("timestamp").reverse().limit(limit).toArray(),
+		[],
 	);
 }
 
 export function usePersonalBest(mode?: string) {
-	return from<TypingResult | undefined>(
-		liveQuery(() => {
+	return safeFrom<TypingResult | undefined>(
+		() => {
 			if (mode) {
 				return db.results
 					.where("mode")
@@ -25,10 +23,11 @@ export function usePersonalBest(mode?: string) {
 				.orderBy("wpm")
 				.reverse()
 				.first();
-		}),
+		},
+		undefined,
 	);
 }
 
 export function useResultCount() {
-	return from<number>(liveQuery(() => db.results.count()));
+	return safeFrom<number>(() => db.results.count(), 0);
 }
