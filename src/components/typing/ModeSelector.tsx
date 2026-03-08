@@ -6,7 +6,7 @@ interface ModeSelectorProps {
 	onModeChange: (mode: TestMode) => void;
 }
 
-const modeTypes = ["time", "words", "quote", "zen", "custom"] as const;
+const modeTypes = ["time", "words", "quote", "zen", "custom", "book"] as const;
 const timeOptions = [15, 30, 60, 120] as const;
 const wordOptions = [10, 25, 50, 100] as const;
 const quoteOptions = ["short", "medium", "long"] as const;
@@ -41,6 +41,13 @@ export default function ModeSelector(props: ModeSelectorProps) {
 										break;
 									case "custom":
 										props.onModeChange({ type: "custom" });
+										break;
+									case "book":
+										props.onModeChange({
+											type: "book",
+											bookId: "",
+											chapterIndex: 0,
+										});
 										break;
 								}
 							}}

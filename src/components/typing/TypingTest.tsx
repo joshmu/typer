@@ -5,6 +5,7 @@ import {
 	calculateWPM,
 	isTestComplete,
 } from "@/lib/core/calc";
+import type { BookFeeder } from "@/lib/core/engine/book-feeder";
 import { processKeystroke } from "@/lib/core/engine/process-keystroke";
 import { appendWordsToState, needsMoreWords } from "@/lib/core/engine/zen";
 import { normalizeText, textToWords } from "@/lib/core/text/normalizer";
@@ -22,6 +23,8 @@ interface TypingTestProps {
 	mode?: TestMode;
 	stopOnError?: StopOnError;
 	onComplete?: (state: TypingState) => void;
+	/** Book feeder for continuous book typing (used in book mode) */
+	bookFeeder?: BookFeeder;
 }
 
 function initState(
@@ -65,8 +68,11 @@ export default function TypingTest(props: TypingTestProps) {
 		return calculateAccuracy(chars);
 	});
 
+	const isContinuousMode =
+		state.mode.type === "zen" || state.mode.type === "book";
+
 	const complete = createMemo(() => {
-		if (state.mode.type === "zen") return state.endTime !== null;
+		if (isContinuousMode) return state.endTime !== null;
 		return isTestComplete(state);
 	});
 
@@ -104,8 +110,8 @@ export default function TypingTest(props: TypingTestProps) {
 
 		const key = e.key;
 
-		// Zen mode: Escape finishes the test
-		if (key === "Escape" && state.mode.type === "zen" && state.startTime) {
+		// Zen/Book mode: Escape finishes the test
+		if (key === "Escape" && isContinuousMode && state.startTime) {
 			e.preventDefault();
 			finishZen();
 			return;
@@ -139,18 +145,25 @@ export default function TypingTest(props: TypingTestProps) {
 			startTimer();
 		}
 
-		// Zen mode: append more words when running low
-		if (state.mode.type === "zen" && needsMoreWords(state)) {
-			const newText = generateWords(20);
-			setState(
-				produce((s) => {
-					const updated = appendWordsToState(s, newText);
-					Object.assign(s, updated);
-				}),
-			);
+		// Continuous modes: append more words when running low
+		if (isContinuousMode && needsMoreWords(state)) {
+			let newText: string;
+			if (state.mode.type === "book" && props.bookFeeder) {
+				newText = props.bookFeeder.getNextWords(20);
+			} else {
+				newText = generateWords(20);
+			}
+			if (newText) {
+				setState(
+					produce((s) => {
+						const updated = appendWordsToState(s, newText);
+						Object.assign(s, updated);
+					}),
+				);
+			}
 		}
 
-		if (state.mode.type !== "zen" && isTestComplete(state)) {
+		if (!isContinuousMode && isTestComplete(state)) {
 			stopTimer();
 			if (state.startTime && state.endTime) {
 				setElapsed(state.endTime - state.startTime);
@@ -184,9 +197,9 @@ export default function TypingTest(props: TypingTestProps) {
 					Caps Lock is on
 				</div>
 			</Show>
-			<Show when={state.mode.type === "zen" && !complete() && state.startTime}>
+			<Show when={isContinuousMode && !complete() && state.startTime}>
 				<div class="mb-2 text-xs text-text-sub">
-					Press <kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text">Esc</kbd> to finish
+					Press <kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text">Esc</kbd> to {state.mode.type === "book" ? "stop & save" : "finish"}
 				</div>
 			</Show>
 			<TextDisplay
