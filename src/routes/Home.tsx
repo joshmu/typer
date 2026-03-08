@@ -18,6 +18,10 @@ import {
 	type BookFeeder,
 	createBookFeeder,
 } from "@/lib/core/engine/book-feeder";
+import {
+	computeBookResumePosition,
+	countCompletedWords,
+} from "@/lib/core/engine/book-resume";
 import { getRandomQuote } from "@/lib/core/text/quotes";
 import { generateWords } from "@/lib/core/text/words";
 import type { TestMode, TypingState } from "@/lib/core/types";
@@ -180,9 +184,20 @@ export default function Home() {
 			const feeder = bookFeeder()!;
 			const prev = currentBookProgress();
 
+			// Compute resume position from actual typing progress, not
+			// pre-fetched feeder position (which may be far ahead)
+			const wordsTyped = countCompletedWords(state);
+			const startCh = prev?.chapterIndex ?? 0;
+			const startOff = prev?.wordOffset ?? 0;
+			const resume = computeBookResumePosition(
+				book.chapters,
+				startCh,
+				startOff,
+				wordsTyped,
+			);
+
 			const completedChapters = prev?.completedChapters ?? [];
-			// Mark chapters as complete if feeder passed them
-			for (let i = 0; i < feeder.currentChapter; i++) {
+			for (let i = 0; i < resume.chapterIndex; i++) {
 				if (!completedChapters.includes(i)) {
 					completedChapters.push(i);
 				}
@@ -190,8 +205,8 @@ export default function Home() {
 
 			const newProgress: Omit<BookProgress, "id"> = {
 				bookId: book.bookId,
-				chapterIndex: feeder.currentChapter,
-				wordOffset: feeder.currentWordOffset,
+				chapterIndex: resume.chapterIndex,
+				wordOffset: resume.wordOffset,
 				completedChapters,
 				totalCharsTyped:
 					(prev?.totalCharsTyped ?? 0) + breakdown.total,
