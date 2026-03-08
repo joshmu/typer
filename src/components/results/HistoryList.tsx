@@ -51,6 +51,11 @@ export default function HistoryList() {
 										{result.accuracy}%
 									</span>
 									<span class="text-text-sub w-12">{result.mode}</span>
+								{result.bookTitle && (
+									<span class="text-text-sub text-xs truncate max-w-32">
+										{result.bookTitle}
+									</span>
+								)}
 									<span class="text-text-sub ml-auto text-xs">
 										{formatDate(result.timestamp)}
 									</span>

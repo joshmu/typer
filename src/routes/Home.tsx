@@ -185,7 +185,6 @@ export default function Home() {
 		// Save book progress if in book mode
 		if (state.mode.type === "book" && activeBook() && bookFeeder()) {
 			const book = activeBook()!;
-			const feeder = bookFeeder()!;
 			const prev = currentBookProgress();
 
 			// Compute resume position from actual typing progress, not
