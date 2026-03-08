@@ -13,6 +13,7 @@ export interface TypingResult {
 	errorCount: number;
 	timestamp: number;
 	textHash: string;
+	bookTitle?: string;
 }
 
 export class TyperDB extends Dexie {

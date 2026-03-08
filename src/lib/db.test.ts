@@ -84,6 +84,27 @@ describe("TyperDB", () => {
 		expect(ordered.map((r) => r.wpm)).toEqual([80, 100, 60]);
 	});
 
+	it("stores and retrieves bookTitle for book mode results", async () => {
+		const result = createResult({
+			mode: "book",
+			bookTitle: "The Great Gatsby",
+			wpm: 85,
+		});
+		const id = await db.results.add(result);
+		const retrieved = await db.results.get(id);
+
+		expect(retrieved?.bookTitle).toBe("The Great Gatsby");
+		expect(retrieved?.mode).toBe("book");
+	});
+
+	it("leaves bookTitle undefined for non-book results", async () => {
+		const result = createResult({ mode: "time", wpm: 100 });
+		const id = await db.results.add(result);
+		const retrieved = await db.results.get(id);
+
+		expect(retrieved?.bookTitle).toBeUndefined();
+	});
+
 	it("emits updates via liveQuery", async () => {
 		const emissions: TypingResult[][] = [];
 

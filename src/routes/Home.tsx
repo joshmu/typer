@@ -176,6 +176,8 @@ export default function Home() {
 					errorCount: breakdown.incorrect + breakdown.extra,
 					timestamp: Date.now(),
 					textHash: simpleHash(state.text),
+					bookTitle:
+						state.mode.type === "book" ? activeBook()?.meta.title : undefined,
 				} as TypingResult),
 			)
 			.catch((err) => console.error("Failed to save result:", err));
