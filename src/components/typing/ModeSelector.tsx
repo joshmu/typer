@@ -2,9 +2,13 @@ import { For, Show, createEffect, onMount } from "solid-js";
 import type { TestMode } from "@/lib/core/types";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
 
+const wordListOptions = ["200", "1k", "5k"] as const;
+
 interface ModeSelectorProps {
 	mode: TestMode;
 	onModeChange: (mode: TestMode) => void;
+	wordListSize: "200" | "1k" | "5k";
+	onWordListSizeChange: (size: "200" | "1k" | "5k") => void;
 }
 
 const modeTypes = ["time", "words", "quote", "zen", "custom", "book"] as const;
@@ -149,6 +153,26 @@ export default function ModeSelector(props: ModeSelectorProps) {
 								}
 							>
 								{count}
+							</button>
+						)}
+					</For>
+				</div>
+			</Show>
+
+			<Show when={props.mode.type === "time" || props.mode.type === "words"}>
+				<div class="flex gap-2">
+					<For each={[...wordListOptions]}>
+						{(size) => (
+							<button
+								type="button"
+								class={`px-3 py-1 text-xs rounded transition-colors ${
+									props.wordListSize === size
+										? "text-primary bg-primary/10"
+										: "text-text-sub hover:text-text"
+								}`}
+								onClick={() => props.onWordListSizeChange(size)}
+							>
+								{size}
 							</button>
 						)}
 					</For>

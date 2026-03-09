@@ -24,6 +24,7 @@ import {
 	countCompletedWords,
 } from "@/lib/core/engine/book-resume";
 import { getRandomQuote, loadExpandedQuotes } from "@/lib/core/text/quotes";
+import { loadWordList } from "@/lib/core/text/word-list-loader";
 import { generateWords } from "@/lib/core/text/words";
 import type { TestMode, TypingState } from "@/lib/core/types";
 import type {
@@ -45,7 +46,7 @@ interface TestResult {
 }
 
 export default function Home() {
-	const [prefs] = usePreferences();
+	const [prefs, setPrefs] = usePreferences();
 
 	// Eagerly load expanded quotes (fire-and-forget)
 	loadExpandedQuotes();
@@ -67,17 +68,21 @@ export default function Home() {
 	// All book progress from IndexedDB
 	const allBookProgress = useAllBookProgress();
 
-	function startWithMode(newMode: TestMode) {
+	async function startWithMode(newMode: TestMode) {
 		setMode(newMode);
 		setResult(null);
 
 		switch (newMode.type) {
-			case "time":
-				setText(generateWords(200));
+			case "time": {
+				const wordList = await loadWordList(prefs.wordListSize);
+				setText(generateWords(200, { wordList }));
 				break;
-			case "words":
-				setText(generateWords(newMode.count));
+			}
+			case "words": {
+				const wordList = await loadWordList(prefs.wordListSize);
+				setText(generateWords(newMode.count, { wordList }));
 				break;
+			}
 			case "quote": {
 				const quote = getRandomQuote(newMode.length);
 				setText(quote.text);
@@ -278,7 +283,15 @@ export default function Home() {
 	return (
 		<main class="flex flex-col items-center justify-center flex-1 px-8 py-12">
 			<Show when={!result() && !text()}>
-				<ModeSelector mode={mode()} onModeChange={handleModeChange} />
+				<ModeSelector
+					mode={mode()}
+					onModeChange={handleModeChange}
+					wordListSize={prefs.wordListSize}
+					onWordListSizeChange={(size) => {
+						setPrefs("wordListSize", size);
+						startWithMode(mode());
+					}}
+				/>
 			</Show>
 
 			<Switch>
