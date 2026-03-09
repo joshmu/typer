@@ -66,7 +66,8 @@ describe("zipfWeightedIndex", () => {
 			if (idx < length * 0.2) counts.bottom20++;
 			else counts.rest++;
 		}
-		expect(counts.bottom20 / runs).toBeGreaterThan(0.5);
+		// Power law (x^1.5) gives bottom 20% about 34% of picks — well above uniform 20%
+		expect(counts.bottom20 / runs).toBeGreaterThan(0.25);
 	});
 });
 

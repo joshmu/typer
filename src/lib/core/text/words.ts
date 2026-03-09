@@ -1,6 +1,6 @@
 // Top 200 common English words for typing practice
 // Source: Monkeytype (MIT licensed) + curated
-const top200 = [
+export const top200 = [
 	"the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
 	"it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
 	"this", "but", "his", "by", "from", "they", "we", "say", "her", "she",
@@ -23,14 +23,21 @@ const top200 = [
 	"read", "run", "close", "ask", "learn", "let", "door", "line", "being",
 ];
 
+export function zipfWeightedIndex(length: number): number {
+	return Math.floor(length * (Math.random() ** 1.5));
+}
+
 export function generateWords(
 	count: number,
 	options?: {
 		punctuation?: boolean;
 		numbers?: boolean;
+		wordList?: string[];
 	},
 ): string {
-	const { punctuation = false, numbers = false } = options ?? {};
+	const { punctuation = false, numbers = false, wordList } = options ?? {};
+	const source = wordList ?? top200;
+	const useZipf = source.length > 200;
 	const words: string[] = [];
 	let lastWord = "";
 
@@ -38,7 +45,10 @@ export function generateWords(
 		let word: string;
 		// No immediate repetition
 		do {
-			word = top200[Math.floor(Math.random() * top200.length)];
+			const idx = useZipf
+				? zipfWeightedIndex(source.length)
+				: Math.floor(Math.random() * source.length);
+			word = source[idx];
 		} while (word === lastWord);
 		lastWord = word;
 
