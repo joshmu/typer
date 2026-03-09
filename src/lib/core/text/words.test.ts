@@ -97,6 +97,38 @@ describe("generateWords with custom word list", () => {
 	});
 });
 
+describe("word list data files", () => {
+	it("english-1k contains 1000 unique words", async () => {
+		const data = (await import("./data/english-1k.json")).default;
+		expect(data).toHaveLength(1000);
+		expect(new Set(data).size).toBe(1000);
+	});
+
+	it("english-5k contains 5000 unique words", async () => {
+		const data = (await import("./data/english-5k.json")).default;
+		expect(data).toHaveLength(5000);
+		expect(new Set(data).size).toBe(5000);
+	});
+
+	it("1k list words are all lowercase strings", async () => {
+		const data = (await import("./data/english-1k.json")).default;
+		for (const word of data) {
+			expect(typeof word).toBe("string");
+			expect(word).toBe(word.toLowerCase());
+			expect(word.trim()).toBe(word);
+		}
+	});
+
+	it("5k list words are all lowercase strings", async () => {
+		const data = (await import("./data/english-5k.json")).default;
+		for (const word of data) {
+			expect(typeof word).toBe("string");
+			expect(word).toBe(word.toLowerCase());
+			expect(word.trim()).toBe(word);
+		}
+	});
+});
+
 describe("truncateToWordCount", () => {
 	it("truncates to the specified word count", () => {
 		const result = truncateToWordCount("the quick brown fox jumps", 3);
