@@ -15,6 +15,7 @@ import {
 	createTestConfig,
 	createTestMode,
 } from "@/lib/core/types/test-fixtures";
+import { setTypingActive } from "@/lib/typing-focus";
 import StatsBar from "./StatsBar";
 import TextDisplay from "./TextDisplay";
 
@@ -143,6 +144,7 @@ export default function TypingTest(props: TypingTestProps) {
 
 		if (!wasStarted && state.startTime !== null) {
 			startTimer();
+			setTypingActive(true);
 		}
 
 		// Continuous modes: append more words when running low
@@ -178,6 +180,7 @@ export default function TypingTest(props: TypingTestProps) {
 
 	onCleanup(() => {
 		stopTimer();
+		setTypingActive(false);
 	});
 
 	return (
