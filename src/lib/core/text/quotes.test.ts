@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	getQuotesByLength,
 	getRandomQuote,
+	loadExpandedQuotes,
 	resetQuoteHistory,
 } from "./quotes";
 
@@ -129,5 +130,18 @@ describe("expanded quotes data", () => {
 		expect(short).toBeGreaterThanOrEqual(20);
 		expect(medium).toBeGreaterThanOrEqual(30);
 		expect(long).toBeGreaterThanOrEqual(15);
+	});
+});
+
+describe("loadExpandedQuotes", () => {
+	it("expands the quote pool to at least 128 quotes", async () => {
+		await loadExpandedQuotes();
+		resetQuoteHistory();
+		const all = [
+			...getQuotesByLength("short"),
+			...getQuotesByLength("medium"),
+			...getQuotesByLength("long"),
+		];
+		expect(all.length).toBeGreaterThanOrEqual(128);
 	});
 });

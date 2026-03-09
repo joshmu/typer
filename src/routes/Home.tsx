@@ -23,7 +23,7 @@ import {
 	computeBookResumePosition,
 	countCompletedWords,
 } from "@/lib/core/engine/book-resume";
-import { getRandomQuote } from "@/lib/core/text/quotes";
+import { getRandomQuote, loadExpandedQuotes } from "@/lib/core/text/quotes";
 import { generateWords } from "@/lib/core/text/words";
 import type { TestMode, TypingState } from "@/lib/core/types";
 import type {
@@ -46,6 +46,9 @@ interface TestResult {
 
 export default function Home() {
 	const [prefs] = usePreferences();
+
+	// Eagerly load expanded quotes (fire-and-forget)
+	loadExpandedQuotes();
 	const [mode, setMode] = createSignal<TestMode>({
 		type: "book",
 		bookId: "",

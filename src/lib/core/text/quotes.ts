@@ -71,3 +71,24 @@ export function getQuotesByLength(length: "short" | "medium" | "long"): Quote[] 
 export function resetQuoteHistory(): void {
 	usedIds.clear();
 }
+
+let expandedLoaded = false;
+
+export async function loadExpandedQuotes(): Promise<void> {
+	if (expandedLoaded) return;
+	const data = (
+		await import("./data/quotes.json")
+	).default as Array<{
+		id: number;
+		text: string;
+		source: string;
+		author: string;
+		length: "short" | "medium" | "long";
+	}>;
+	for (const q of data) {
+		if (!quotes.some((existing) => existing.id === q.id)) {
+			quotes.push(q);
+		}
+	}
+	expandedLoaded = true;
+}
