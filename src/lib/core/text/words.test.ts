@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateWords, truncateToWordCount } from "./words";
+import { generateWords, truncateToWordCount, zipfWeightedIndex } from "./words";
 
 describe("generateWords", () => {
 	it("generates the requested number of words", () => {
@@ -44,6 +44,54 @@ describe("generateWords", () => {
 				}
 			}
 			if (found) break;
+		}
+	});
+});
+
+describe("zipfWeightedIndex", () => {
+	it("returns index within bounds", () => {
+		for (let i = 0; i < 100; i++) {
+			const idx = zipfWeightedIndex(1000);
+			expect(idx).toBeGreaterThanOrEqual(0);
+			expect(idx).toBeLessThan(1000);
+		}
+	});
+
+	it("biases toward lower indices", () => {
+		const counts = { bottom20: 0, rest: 0 };
+		const length = 100;
+		const runs = 10_000;
+		for (let i = 0; i < runs; i++) {
+			const idx = zipfWeightedIndex(length);
+			if (idx < length * 0.2) counts.bottom20++;
+			else counts.rest++;
+		}
+		expect(counts.bottom20 / runs).toBeGreaterThan(0.5);
+	});
+});
+
+describe("generateWords with custom word list", () => {
+	it("accepts custom wordList", () => {
+		const customList = [
+			"alpha", "bravo", "charlie", "delta", "echo",
+			"foxtrot", "golf", "hotel", "india", "juliet",
+		];
+		const result = generateWords(20, { wordList: customList });
+		const words = result.split(" ");
+		for (const w of words) {
+			expect(customList).toContain(w);
+		}
+	});
+
+	it("with custom list prevents consecutive repeats", () => {
+		const customList = [
+			"alpha", "bravo", "charlie", "delta", "echo",
+			"foxtrot", "golf", "hotel", "india", "juliet",
+		];
+		const result = generateWords(50, { wordList: customList });
+		const words = result.split(" ");
+		for (let i = 1; i < words.length; i++) {
+			expect(words[i]).not.toBe(words[i - 1]);
 		}
 	});
 });
