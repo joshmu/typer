@@ -89,3 +89,45 @@ describe("no-repeat selection", () => {
 		expect(q).toHaveProperty("id");
 	});
 });
+
+describe("expanded quotes data", () => {
+	it("contains at least 100 entries", async () => {
+		const data = (await import("./data/quotes.json")).default;
+		expect(data.length).toBeGreaterThanOrEqual(100);
+	});
+
+	it("all ids are unique", async () => {
+		const data = (await import("./data/quotes.json")).default;
+		const ids = data.map((q: { id: number }) => q.id);
+		expect(new Set(ids).size).toBe(data.length);
+	});
+
+	it("ids do not overlap with inline quotes", async () => {
+		const data = (await import("./data/quotes.json")).default;
+		const expandedIds = new Set(data.map((q: { id: number }) => q.id));
+		const inlineQuotes = [
+			...getQuotesByLength("short"),
+			...getQuotesByLength("medium"),
+			...getQuotesByLength("long"),
+		];
+		for (const q of inlineQuotes) {
+			expect(expandedIds.has(q.id)).toBe(false);
+		}
+	});
+
+	it("has length distribution: at least 20 short, 30 medium, 15 long", async () => {
+		const data = (await import("./data/quotes.json")).default;
+		const short = data.filter(
+			(q: { length: string }) => q.length === "short",
+		).length;
+		const medium = data.filter(
+			(q: { length: string }) => q.length === "medium",
+		).length;
+		const long = data.filter(
+			(q: { length: string }) => q.length === "long",
+		).length;
+		expect(short).toBeGreaterThanOrEqual(20);
+		expect(medium).toBeGreaterThanOrEqual(30);
+		expect(long).toBeGreaterThanOrEqual(15);
+	});
+});
