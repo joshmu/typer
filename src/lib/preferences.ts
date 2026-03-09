@@ -11,6 +11,7 @@ export interface UserPreferences {
 	fontFamily: string;
 	showLiveWpm: boolean;
 	stopOnError: StopOnError;
+	wordListSize: "200" | "1k" | "5k";
 }
 
 export const defaultPreferences: UserPreferences = {
@@ -22,6 +23,7 @@ export const defaultPreferences: UserPreferences = {
 	fontFamily: "monospace",
 	showLiveWpm: true,
 	stopOnError: "letter",
+	wordListSize: "200",
 };
 
 export function createPreferences(storage?: Storage) {
