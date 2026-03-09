@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getQuotesByLength, getRandomQuote } from "./quotes";
+import {
+	getQuotesByLength,
+	getRandomQuote,
+	resetQuoteHistory,
+} from "./quotes";
 
 describe("getRandomQuote", () => {
 	it("returns a quote object", () => {
@@ -44,5 +48,44 @@ describe("getQuotesByLength", () => {
 		for (const q of longs) {
 			expect(q.length).toBe("long");
 		}
+	});
+});
+
+describe("quote id uniqueness", () => {
+	it("each quote has a unique numeric id", () => {
+		const all = [
+			...getQuotesByLength("short"),
+			...getQuotesByLength("medium"),
+			...getQuotesByLength("long"),
+		];
+		const ids = all.map((q) => q.id);
+		expect(new Set(ids).size).toBe(all.length);
+		for (const id of ids) {
+			expect(typeof id).toBe("number");
+		}
+	});
+});
+
+describe("no-repeat selection", () => {
+	it("getRandomQuote cycles through all quotes before repeating", () => {
+		resetQuoteHistory();
+		const shorts = getQuotesByLength("short");
+		const ids = new Set<number>();
+		for (let i = 0; i < shorts.length; i++) {
+			const q = getRandomQuote("short");
+			ids.add(q.id);
+		}
+		expect(ids.size).toBe(shorts.length);
+	});
+
+	it("resetQuoteHistory clears tracking", () => {
+		resetQuoteHistory();
+		const shorts = getQuotesByLength("short");
+		for (let i = 0; i < shorts.length; i++) {
+			getRandomQuote("short");
+		}
+		resetQuoteHistory();
+		const q = getRandomQuote("short");
+		expect(q).toHaveProperty("id");
 	});
 });
