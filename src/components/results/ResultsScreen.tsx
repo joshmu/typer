@@ -27,7 +27,7 @@ function formatTime(ms: number): string {
 function StatCard(props: { label: string; value: string; sub?: string }) {
 	return (
 		<div class="stat-card flex flex-col gap-1 opacity-0">
-			<span class="text-xs uppercase tracking-widest text-text-sub">
+			<span class="font-display text-xs uppercase tracking-widest text-text-sub">
 				{props.label}
 			</span>
 			<span class="text-3xl font-bold text-text">
@@ -118,13 +118,17 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 			class="w-full max-w-2xl mx-auto flex flex-col items-center gap-10"
 		>
 			{/* Hero WPM */}
-			<div class="flex flex-col items-center gap-1">
-				<span class="text-xs uppercase tracking-widest text-text-sub">
+			<div class="relative flex flex-col items-center gap-1">
+				<div
+					class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[200px] pointer-events-none rounded-full"
+					style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)", opacity: "0.06" }}
+				/>
+				<span class="font-display text-xs uppercase tracking-widest text-text-sub">
 					wpm
 				</span>
 				<span
 					ref={heroRef}
-					class="text-8xl font-bold text-primary leading-none"
+					class="font-display text-9xl font-light text-primary leading-none"
 				>
 					0
 				</span>
@@ -145,7 +149,7 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 			{/* WPM Chart */}
 			<Show when={props.wpmPerSecond.length > 1}>
 				<div class="chart-section w-full opacity-0">
-					<span class="text-xs uppercase tracking-widest text-text-sub mb-2 block">
+					<span class="font-display text-xs uppercase tracking-widest text-text-sub mb-2 block">
 						wpm over time
 					</span>
 					<WPMChart data={props.wpmPerSecond} />
@@ -157,7 +161,7 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 
 			{/* Character breakdown */}
 			<div class="flex flex-col gap-3">
-				<span class="text-xs uppercase tracking-widest text-text-sub">
+				<span class="font-display text-xs uppercase tracking-widest text-text-sub">
 					characters
 				</span>
 				<div class="flex gap-8">
@@ -185,13 +189,20 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 			</div>
 
 			{/* Redo button */}
-			<button
-				type="button"
-				class="redo-section mt-4 px-8 py-3 bg-bg-secondary text-text-sub rounded border border-text-sub/20 hover:text-primary hover:border-primary/40 transition-colors text-sm uppercase tracking-widest opacity-0"
-				onClick={props.onRedo}
-			>
-				{props.redoLabel ?? "Redo"}
-			</button>
+			<div class="redo-section flex flex-col items-center gap-2 mt-4 opacity-0">
+				<button
+					type="button"
+					class="px-8 py-3 bg-bg-secondary text-text-sub rounded border border-text-sub/20 hover:text-primary hover:border-primary/40 transition-colors text-sm uppercase tracking-widest btn-glow"
+					onClick={props.onRedo}
+				>
+					{props.redoLabel ?? "Redo"}
+				</button>
+				<span class="text-xs text-text-sub/60">
+					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text-sub text-[10px]">Tab</kbd>
+					{" + "}
+					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text-sub text-[10px]">Enter</kbd>
+				</span>
+			</div>
 
 			{/* History */}
 			<div class="redo-section w-full mt-4 opacity-0">

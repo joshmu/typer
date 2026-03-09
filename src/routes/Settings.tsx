@@ -22,7 +22,7 @@ function ButtonGroup<T extends string | number>(props: {
 }) {
 	return (
 		<div class="flex flex-col gap-3">
-			<span class="text-xs uppercase tracking-widest text-text-sub">
+			<span class="font-display text-xs uppercase tracking-widest text-text-sub">
 				{props.label}
 			</span>
 			{props.description && (
@@ -57,13 +57,14 @@ function ToggleRow(props: {
 			</div>
 			<button
 				type="button"
-				class={`w-12 h-6 rounded-full transition-colors relative ${
+				class={`w-12 h-6 rounded-full transition-all duration-200 relative ${
 					props.value ? "bg-primary" : "bg-text-sub/30"
 				}`}
+				style={props.value ? { "box-shadow": `0 0 10px color-mix(in srgb, var(--primary) 30%, transparent)` } : {}}
 				onClick={() => props.onChange(!props.value)}
 			>
 				<span
-					class={`absolute top-1 w-4 h-4 rounded-full bg-bg transition-[left] ${
+					class={`absolute top-1 w-4 h-4 rounded-full bg-bg transition-[left] duration-200 ease-out ${
 						props.value ? "left-7" : "left-1"
 					}`}
 				/>
@@ -78,59 +79,64 @@ export default function Settings() {
 	return (
 		<main class="flex flex-col items-center flex-1 px-8 py-12">
 			<div class="w-full max-w-2xl flex flex-col gap-10">
-				<h1 class="text-2xl font-bold text-primary">Settings</h1>
+				<h1 class="font-display text-2xl font-bold text-primary">Settings</h1>
 
-				<ThemePicker
-					currentTheme={prefs.theme}
-					onSelect={(name) => {
-						setPrefs("theme", name);
-						applyTheme(getTheme(name));
-					}}
-				/>
+				<div class="bg-bg-secondary/30 rounded-xl p-6 border border-text-sub/10">
+					<ThemePicker
+						currentTheme={prefs.theme}
+						onSelect={(name) => {
+							setPrefs("theme", name);
+							applyTheme(getTheme(name));
+						}}
+					/>
+				</div>
 
-				<ButtonGroup
-					label="caret style"
-					options={["line", "block", "underline"] as const}
-					value={prefs.caretStyle}
-					onSelect={(v) => setPrefs("caretStyle", v as CaretStyle)}
-				/>
+				<div class="bg-bg-secondary/30 rounded-xl p-6 border border-text-sub/10 flex flex-col gap-6">
+					<ButtonGroup
+						label="caret style"
+						options={["line", "block", "underline"] as const}
+						value={prefs.caretStyle}
+						onSelect={(v) => setPrefs("caretStyle", v as CaretStyle)}
+					/>
+					<ToggleRow
+						label="Smooth caret"
+						description="Animate caret movement between characters"
+						value={prefs.smoothCaret}
+						onChange={(v) => setPrefs("smoothCaret", v)}
+					/>
+				</div>
 
-				<ButtonGroup
-					label="stop on error"
-					description="Control cursor behavior when you mistype a character"
-					options={["off", "letter", "word"] as const}
-					value={prefs.stopOnError}
-					onSelect={(v) => setPrefs("stopOnError", v as StopOnError)}
-				/>
+				<div class="bg-bg-secondary/30 rounded-xl p-6 border border-text-sub/10 flex flex-col gap-6">
+					<ButtonGroup
+						label="stop on error"
+						description="Control cursor behavior when you mistype a character"
+						options={["off", "letter", "word"] as const}
+						value={prefs.stopOnError}
+						onSelect={(v) => setPrefs("stopOnError", v as StopOnError)}
+					/>
+					<ToggleRow
+						label="Live WPM"
+						description="Show WPM counter during typing"
+						value={prefs.showLiveWpm}
+						onChange={(v) => setPrefs("showLiveWpm", v)}
+					/>
+					<ToggleRow
+						label="Sound on keypress"
+						description="Play a sound when typing"
+						value={prefs.soundEnabled}
+						onChange={(v) => setPrefs("soundEnabled", v)}
+					/>
+				</div>
 
-				<ToggleRow
-					label="Smooth caret"
-					description="Animate caret movement between characters"
-					value={prefs.smoothCaret}
-					onChange={(v) => setPrefs("smoothCaret", v)}
-				/>
-
-				<ToggleRow
-					label="Live WPM"
-					description="Show WPM counter during typing"
-					value={prefs.showLiveWpm}
-					onChange={(v) => setPrefs("showLiveWpm", v)}
-				/>
-
-				<ToggleRow
-					label="Sound on keypress"
-					description="Play a sound when typing"
-					value={prefs.soundEnabled}
-					onChange={(v) => setPrefs("soundEnabled", v)}
-				/>
-
-				<ButtonGroup
-					label="font size"
-					options={[14, 16, 18, 20, 24] as const}
-					value={prefs.fontSize}
-					onSelect={(v) => setPrefs("fontSize", v)}
-					renderLabel={(v) => `${v}px`}
-				/>
+				<div class="bg-bg-secondary/30 rounded-xl p-6 border border-text-sub/10">
+					<ButtonGroup
+						label="font size"
+						options={[14, 16, 18, 20, 24] as const}
+						value={prefs.fontSize}
+						onSelect={(v) => setPrefs("fontSize", v)}
+						renderLabel={(v) => `${v}px`}
+					/>
+				</div>
 			</div>
 		</main>
 	);

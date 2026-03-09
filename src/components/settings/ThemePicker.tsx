@@ -48,7 +48,7 @@ function ThemeSwatch(props: {
 export default function ThemePicker(props: ThemePickerProps) {
 	return (
 		<div class="flex flex-col gap-3">
-			<span class="text-xs uppercase tracking-widest text-text-sub">
+			<span class="font-display text-xs uppercase tracking-widest text-text-sub">
 				theme
 			</span>
 			<div class="grid grid-cols-4 gap-2">

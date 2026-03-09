@@ -67,6 +67,14 @@ export default function WPMChart(props: WPMChartProps) {
 			role="img"
 			aria-label="WPM over time chart"
 		>
+			{/* Gradient definition for area fill */}
+			<defs>
+				<linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" stop-color="var(--primary)" stop-opacity="0.15" />
+					<stop offset="100%" stop-color="var(--primary)" stop-opacity="0" />
+				</linearGradient>
+			</defs>
+
 			{/* Y-axis grid lines and labels */}
 			{yTicks().map((tick) => {
 				const y =
@@ -129,7 +137,7 @@ export default function WPMChart(props: WPMChartProps) {
 
 			{/* Area fill */}
 			{areaPath() && (
-				<path d={areaPath()} fill="var(--primary)" fill-opacity="0.08" />
+				<path d={areaPath()} fill="url(#areaGradient)" />
 			)}
 
 			{/* Line */}
