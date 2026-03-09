@@ -4,4 +4,4 @@ export type { CharBreakdown } from "./breakdown";
 export { calculateConsistency } from "./consistency";
 export { isTestComplete } from "./is-test-complete";
 export { collectPerSecondWPM } from "./snapshots";
-export { calculateWPM } from "./wpm";
+export { calculateRawWPM, calculateWPM } from "./wpm";

@@ -11,6 +11,7 @@ import {
 	calculateAccuracy,
 	calculateCharBreakdown,
 	calculateConsistency,
+	calculateRawWPM,
 	calculateWPM,
 	collectPerSecondWPM,
 } from "@/lib/core/calc";
@@ -148,7 +149,7 @@ export default function Home() {
 				: 0;
 
 		const wpm = calculateWPM(chars, elapsed);
-		const rawWpm = calculateWPM(chars, elapsed);
+		const rawWpm = calculateRawWPM(chars, elapsed);
 		const accuracy = calculateAccuracy(chars);
 		const snapshots = collectPerSecondWPM(chars, state.startTime ?? 0);
 		const consistency = calculateConsistency(snapshots);
