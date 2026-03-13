@@ -6,6 +6,7 @@ import { render } from "solid-js/web";
 import "./styles/app.css";
 import App from "./App";
 
+const Landing = lazy(() => import("./routes/Landing"));
 const Home = lazy(() => import("./routes/Home"));
 const About = lazy(() => import("./routes/About"));
 const Settings = lazy(() => import("./routes/Settings"));
@@ -21,7 +22,8 @@ if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
 render(
 	() => (
 		<Router root={App}>
-			<Route path="/" component={Home} />
+			<Route path="/" component={Landing} />
+			<Route path="/app" component={Home} />
 			<Route path="/about" component={About} />
 			<Route path="/settings" component={Settings} />
 		</Router>
