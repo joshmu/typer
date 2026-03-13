@@ -21,6 +21,7 @@
 		"@solidjs/router": "^0.15.4",
 		"@tailwindcss/vite": "^4.2.1",
 		"dexie": "^4.3.0",
+		"gsap": "^3.14.2",
 		"motion": "^12.34.3",
 		"solid-js": "^1.9.11",
 		"tailwindcss": "^4.2.1"
