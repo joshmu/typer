@@ -60,7 +60,13 @@ function ToggleRow(props: {
 				class={`w-12 h-6 rounded-full transition-all duration-200 relative ${
 					props.value ? "bg-primary" : "bg-text-sub/30"
 				}`}
-				style={props.value ? { "box-shadow": `0 0 10px color-mix(in srgb, var(--primary) 30%, transparent)` } : {}}
+				style={
+					props.value
+						? {
+								"box-shadow": `0 0 10px color-mix(in srgb, var(--primary) 30%, transparent)`,
+							}
+						: {}
+				}
 				onClick={() => props.onChange(!props.value)}
 			>
 				<span

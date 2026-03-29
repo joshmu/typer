@@ -1,12 +1,6 @@
-import {
-	For,
-	Show,
-	createEffect,
-	createSignal,
-	onCleanup,
-} from "solid-js";
-import type { BookMeta, BookProgress } from "@/lib/core/types/book";
+import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { browseCatalog, searchBooks } from "@/lib/book-service";
+import type { BookMeta, BookProgress } from "@/lib/core/types/book";
 import BookCard from "./BookCard";
 import BookDetail from "./BookDetail";
 

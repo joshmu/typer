@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { describe, expect, it } from "vitest";
 import {
 	parseBookDetail,
 	parseCatalogPage,
@@ -60,9 +60,7 @@ describe("parseCatalogPage", () => {
 		const books = parseCatalogPage(xhtml);
 
 		// Search was for "dickens", should find Dickens books
-		const dickensBooks = books.filter(
-			(b) => b.author === "Charles Dickens",
-		);
+		const dickensBooks = books.filter((b) => b.author === "Charles Dickens");
 		expect(dickensBooks.length).toBeGreaterThan(0);
 	});
 });

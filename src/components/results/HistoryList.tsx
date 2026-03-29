@@ -44,18 +44,14 @@ export default function HistoryList() {
 						<For each={results()}>
 							{(result: TypingResult) => (
 								<div class="flex items-center gap-4 px-4 py-2 bg-bg-secondary/50 rounded text-sm">
-									<span class="text-text font-bold w-16">
-										{result.wpm} wpm
-									</span>
-									<span class="text-text-sub w-16">
-										{result.accuracy}%
-									</span>
+									<span class="text-text font-bold w-16">{result.wpm} wpm</span>
+									<span class="text-text-sub w-16">{result.accuracy}%</span>
 									<span class="text-text-sub w-12">{result.mode}</span>
-								{result.bookTitle && (
-									<span class="text-text-sub text-xs truncate max-w-32">
-										{result.bookTitle}
-									</span>
-								)}
+									{result.bookTitle && (
+										<span class="text-text-sub text-xs truncate max-w-32">
+											{result.bookTitle}
+										</span>
+									)}
 									<span class="text-text-sub ml-auto text-xs">
 										{formatDate(result.timestamp)}
 									</span>

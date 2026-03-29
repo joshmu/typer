@@ -74,8 +74,16 @@ describe("zipfWeightedIndex", () => {
 describe("generateWords with custom word list", () => {
 	it("accepts custom wordList", () => {
 		const customList = [
-			"alpha", "bravo", "charlie", "delta", "echo",
-			"foxtrot", "golf", "hotel", "india", "juliet",
+			"alpha",
+			"bravo",
+			"charlie",
+			"delta",
+			"echo",
+			"foxtrot",
+			"golf",
+			"hotel",
+			"india",
+			"juliet",
 		];
 		const result = generateWords(20, { wordList: customList });
 		const words = result.split(" ");
@@ -86,8 +94,16 @@ describe("generateWords with custom word list", () => {
 
 	it("with custom list prevents consecutive repeats", () => {
 		const customList = [
-			"alpha", "bravo", "charlie", "delta", "echo",
-			"foxtrot", "golf", "hotel", "india", "juliet",
+			"alpha",
+			"bravo",
+			"charlie",
+			"delta",
+			"echo",
+			"foxtrot",
+			"golf",
+			"hotel",
+			"india",
+			"juliet",
 		];
 		const result = generateWords(50, { wordList: customList });
 		const words = result.split(" ");

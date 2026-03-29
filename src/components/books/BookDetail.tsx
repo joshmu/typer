@@ -57,7 +57,7 @@ export default function BookDetail(props: BookDetailProps) {
 							<div class="mt-2">
 								<div class="flex justify-between text-xs text-text-sub mb-1">
 									<span>
-										Chapter {(props.progress!.chapterIndex + 1)} of{" "}
+										Chapter {props.progress!.chapterIndex + 1} of{" "}
 										{props.book.chapters.length}
 									</span>
 									<span>{progressPercent()}% complete</span>
@@ -72,7 +72,8 @@ export default function BookDetail(props: BookDetailProps) {
 									{props.progress!.averageWpm > 0 && (
 										<>Avg {Math.round(props.progress!.averageWpm)} WPM · </>
 									)}
-									{props.progress!.sessionCount} session{props.progress!.sessionCount !== 1 ? "s" : ""}
+									{props.progress!.sessionCount} session
+									{props.progress!.sessionCount !== 1 ? "s" : ""}
 								</p>
 							</div>
 						</Show>
@@ -105,7 +106,9 @@ export default function BookDetail(props: BookDetailProps) {
 										}`}
 									>
 										<span class="w-4 text-center">
-											{props.progress?.completedChapters.includes(i()) ? "✓" : (i() + 1)}
+											{props.progress?.completedChapters.includes(i())
+												? "✓"
+												: i() + 1}
 										</span>
 										<span class="truncate">
 											{chapter.replace("chapter-", "Chapter ")}

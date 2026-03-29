@@ -1,6 +1,5 @@
 import "fake-indexeddb/auto";
-import Dexie from "dexie";
-import { liveQuery } from "dexie";
+import Dexie, { liveQuery } from "dexie";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TyperDB, type TypingResult } from "./db";
 
@@ -49,10 +48,7 @@ describe("TyperDB", () => {
 			createResult({ mode: "words", wpm: 90 }),
 		]);
 
-		const timeResults = await db.results
-			.where("mode")
-			.equals("time")
-			.toArray();
+		const timeResults = await db.results.where("mode").equals("time").toArray();
 
 		expect(timeResults).toHaveLength(2);
 	});

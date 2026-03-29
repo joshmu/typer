@@ -1,5 +1,6 @@
 {
 	"compilerOptions": {
+		"ignoreDeprecations": "6.0",
 		"jsx": "preserve",
 		"jsxImportSource": "solid-js",
 		"target": "ESNext",

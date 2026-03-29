@@ -31,10 +31,7 @@ export function appendWordsToState(
 		const lastWord = existingWords[existingWords.length - 1];
 		const lastChar = lastWord.characters[lastWord.characters.length - 1];
 		if (lastChar.expected !== " ") {
-			lastWord.characters = [
-				...lastWord.characters,
-				...textToCharacters(" "),
-			];
+			lastWord.characters = [...lastWord.characters, ...textToCharacters(" ")];
 		}
 	}
 

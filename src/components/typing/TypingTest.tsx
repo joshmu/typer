@@ -1,4 +1,4 @@
-import { Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import {
 	calculateAccuracy,
@@ -202,7 +202,9 @@ export default function TypingTest(props: TypingTestProps) {
 			</Show>
 			<Show when={isContinuousMode && !complete() && state.startTime}>
 				<div class="mb-2 text-xs text-text-sub">
-					Press <kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text">Esc</kbd> to {state.mode.type === "book" ? "stop & save" : "finish"}
+					Press{" "}
+					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text">Esc</kbd>{" "}
+					to {state.mode.type === "book" ? "stop & save" : "finish"}
 				</div>
 			</Show>
 			<TextDisplay

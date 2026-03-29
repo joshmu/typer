@@ -1,10 +1,13 @@
-import type { BookChapter, BookMeta, CachedBook } from "./core/types/book";
 import {
 	parseBookDetail,
 	parseCatalogPage,
 	parseChapterList,
 } from "./core/text/se-catalog-parser";
-import { extractChapterTitle, extractTextFromXHTML } from "./core/text/xhtml-extractor";
+import {
+	extractChapterTitle,
+	extractTextFromXHTML,
+} from "./core/text/xhtml-extractor";
+import type { BookChapter, BookMeta, CachedBook } from "./core/types/book";
 import { db } from "./db";
 
 const SE_BASE = "https://standardebooks.org";
@@ -23,7 +26,8 @@ export async function searchBooks(
 	});
 	const url = `${SE_BASE}/ebooks?${params}`;
 	const response = await fetch(url);
-	if (!response.ok) throw new Error(`Failed to fetch catalog: ${response.status}`);
+	if (!response.ok)
+		throw new Error(`Failed to fetch catalog: ${response.status}`);
 	const xhtml = await response.text();
 	return parseCatalogPage(xhtml);
 }
@@ -41,7 +45,8 @@ export async function browseCatalog(page = 1): Promise<BookMeta[]> {
 export async function fetchBookDetail(bookId: string): Promise<BookMeta> {
 	const url = `${SE_BASE}/ebooks/${bookId}`;
 	const response = await fetch(url);
-	if (!response.ok) throw new Error(`Failed to fetch book detail: ${response.status}`);
+	if (!response.ok)
+		throw new Error(`Failed to fetch book detail: ${response.status}`);
 	const xhtml = await response.text();
 	const meta = parseBookDetail(xhtml, bookId);
 
@@ -66,7 +71,8 @@ export async function fetchChapter(
 ): Promise<BookChapter> {
 	const url = `${SE_BASE}/ebooks/${bookId}/text/${chapterFile}`;
 	const response = await fetch(url);
-	if (!response.ok) throw new Error(`Failed to fetch chapter: ${response.status}`);
+	if (!response.ok)
+		throw new Error(`Failed to fetch chapter: ${response.status}`);
 	const xhtml = await response.text();
 
 	const text = extractTextFromXHTML(xhtml);
@@ -79,9 +85,7 @@ export async function fetchChapter(
 /**
  * Fetch all chapters of a book and cache in IndexedDB.
  */
-export async function fetchAndCacheBook(
-	bookId: string,
-): Promise<CachedBook> {
+export async function fetchAndCacheBook(bookId: string): Promise<CachedBook> {
 	// Check cache first
 	const cached = await getCachedBook(bookId);
 	if (cached) return cached;

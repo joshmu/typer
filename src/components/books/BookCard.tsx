@@ -48,9 +48,7 @@ export default function BookCard(props: BookCardProps) {
 			</div>
 
 			<div class="w-[140px]">
-				<p class="text-sm text-text truncate font-medium">
-					{props.book.title}
-				</p>
+				<p class="text-sm text-text truncate font-medium">{props.book.title}</p>
 				<p class="text-xs text-text-sub truncate">{props.book.author}</p>
 				{props.progress ? (
 					<p class="text-xs text-primary">

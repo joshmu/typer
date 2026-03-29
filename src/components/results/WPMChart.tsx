@@ -36,8 +36,7 @@ export default function WPMChart(props: WPMChartProps) {
 		return props.data
 			.map((val, i) => {
 				const x = padding.left + i * xStep;
-				const y =
-					padding.top + chartHeight() - (val / yMax()) * chartHeight();
+				const y = padding.top + chartHeight() - (val / yMax()) * chartHeight();
 				return `${x},${y}`;
 			})
 			.join(" ");
@@ -77,8 +76,7 @@ export default function WPMChart(props: WPMChartProps) {
 
 			{/* Y-axis grid lines and labels */}
 			{yTicks().map((tick) => {
-				const y =
-					padding.top + chartHeight() - (tick / yMax()) * chartHeight();
+				const y = padding.top + chartHeight() - (tick / yMax()) * chartHeight();
 				return (
 					<>
 						<line
@@ -118,12 +116,7 @@ export default function WPMChart(props: WPMChartProps) {
 						1s
 					</text>
 					<text
-						x={
-							padding.left +
-							(props.data.length > 1
-								? chartWidth()
-								: 0)
-						}
+						x={padding.left + (props.data.length > 1 ? chartWidth() : 0)}
 						y={padding.top + chartHeight() + 20}
 						text-anchor="middle"
 						fill="var(--text-sub)"
@@ -136,9 +129,7 @@ export default function WPMChart(props: WPMChartProps) {
 			)}
 
 			{/* Area fill */}
-			{areaPath() && (
-				<path d={areaPath()} fill="url(#areaGradient)" />
-			)}
+			{areaPath() && <path d={areaPath()} fill="url(#areaGradient)" />}
 
 			{/* Line */}
 			{points() && (
@@ -155,12 +146,9 @@ export default function WPMChart(props: WPMChartProps) {
 			{/* Data points */}
 			{props.data.map((val, i) => {
 				const xStep =
-					props.data.length > 1
-						? chartWidth() / (props.data.length - 1)
-						: 0;
+					props.data.length > 1 ? chartWidth() / (props.data.length - 1) : 0;
 				const x = padding.left + i * xStep;
-				const y =
-					padding.top + chartHeight() - (val / yMax()) * chartHeight();
+				const y = padding.top + chartHeight() - (val / yMax()) * chartHeight();
 				return (
 					<circle
 						cx={x}

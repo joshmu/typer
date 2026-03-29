@@ -72,7 +72,11 @@ export function processKeystroke(
 
 	// Letter mode: block cursor on incorrect unless auto-advance threshold reached
 	const isLetterMode = state.config.stopOnError === "letter";
-	if (isLetterMode && !isCorrect && newMistakeCount < AUTO_ADVANCE_MISTAKE_THRESHOLD) {
+	if (
+		isLetterMode &&
+		!isCorrect &&
+		newMistakeCount < AUTO_ADVANCE_MISTAKE_THRESHOLD
+	) {
 		return updated;
 	}
 

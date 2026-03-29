@@ -27,12 +27,15 @@ export const defaultPreferences: UserPreferences = {
 };
 
 export function createPreferences(storage?: Storage) {
-	return makePersisted(createStore<UserPreferences>({ ...defaultPreferences }), {
-		name: "typer-preferences",
-		...(storage ? { storage } : {}),
-		deserialize: (raw: string): UserPreferences => {
-			const stored = JSON.parse(raw) as Partial<UserPreferences>;
-			return { ...defaultPreferences, ...stored };
+	return makePersisted(
+		createStore<UserPreferences>({ ...defaultPreferences }),
+		{
+			name: "typer-preferences",
+			...(storage ? { storage } : {}),
+			deserialize: (raw: string): UserPreferences => {
+				const stored = JSON.parse(raw) as Partial<UserPreferences>;
+				return { ...defaultPreferences, ...stored };
+			},
 		},
-	});
+	);
 }

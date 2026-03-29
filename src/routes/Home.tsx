@@ -1,12 +1,15 @@
-import { Match, Show, Switch, createSignal, lazy } from "solid-js";
+import { createSignal, lazy, Match, Show, Switch } from "solid-js";
 import ModeSelector from "@/components/typing/ModeSelector";
 import { usePreferences } from "@/lib/preferences-context";
 
 const ResultsScreen = lazy(() => import("@/components/results/ResultsScreen"));
+
 import BookBrowser from "@/components/books/BookBrowser";
 import BookHeader from "@/components/books/BookHeader";
 import TextInputModal from "@/components/typing/TextInputModal";
 import TypingTest from "@/components/typing/TypingTest";
+import { saveBookProgress, useAllBookProgress } from "@/lib/book-progress";
+import { fetchAndCacheBook } from "@/lib/book-service";
 import {
 	calculateAccuracy,
 	calculateCharBreakdown,
@@ -27,12 +30,7 @@ import { getRandomQuote, loadExpandedQuotes } from "@/lib/core/text/quotes";
 import { loadWordList } from "@/lib/core/text/word-list-loader";
 import { generateWords } from "@/lib/core/text/words";
 import type { TestMode, TypingState } from "@/lib/core/types";
-import type {
-	BookProgress,
-	CachedBook,
-} from "@/lib/core/types/book";
-import { saveBookProgress, useAllBookProgress } from "@/lib/book-progress";
-import { fetchAndCacheBook } from "@/lib/book-service";
+import type { BookProgress, CachedBook } from "@/lib/core/types/book";
 import type { TypingResult } from "@/lib/db";
 
 interface TestResult {
@@ -107,10 +105,7 @@ export default function Home() {
 		startWithMode(newMode);
 	}
 
-	async function handleSelectBook(
-		bookId: string,
-		progress?: BookProgress,
-	) {
+	async function handleSelectBook(bookId: string, progress?: BookProgress) {
 		setBookLoading(true);
 		try {
 			// Fetch and cache the book
@@ -152,9 +147,7 @@ export default function Home() {
 	function handleComplete(state: TypingState) {
 		const chars = state.words.flatMap((w) => w.characters);
 		const elapsed =
-			state.startTime && state.endTime
-				? state.endTime - state.startTime
-				: 0;
+			state.startTime && state.endTime ? state.endTime - state.startTime : 0;
 
 		const wpm = calculateWPM(chars, elapsed);
 		const rawWpm = calculateRawWPM(chars, elapsed);
@@ -224,8 +217,7 @@ export default function Home() {
 				chapterIndex: resume.chapterIndex,
 				wordOffset: resume.wordOffset,
 				completedChapters,
-				totalCharsTyped:
-					(prev?.totalCharsTyped ?? 0) + breakdown.total,
+				totalCharsTyped: (prev?.totalCharsTyped ?? 0) + breakdown.total,
 				totalTimeMs: (prev?.totalTimeMs ?? 0) + elapsed,
 				averageWpm: prev
 					? Math.round(
@@ -272,10 +264,7 @@ export default function Home() {
 		const book = activeBook();
 		const feeder = bookFeeder();
 		if (!book || !feeder) return 0;
-		const totalWords = book.chapters.reduce(
-			(sum, ch) => sum + ch.wordCount,
-			0,
-		);
+		const totalWords = book.chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
 		if (totalWords === 0) return 0;
 		return Math.round((feeder.totalWordOffset / totalWords) * 100);
 	};
@@ -302,8 +291,8 @@ export default function Home() {
 							<Show when={mode().type === "book" && activeBook()}>
 								<div class="text-center mb-6">
 									<p class="text-sm text-text-sub mb-2">
-										{activeBook()!.meta.title} ·{" "}
-										Chapter {bookFeeder()?.currentChapter !== undefined
+										{activeBook()!.meta.title} · Chapter{" "}
+										{bookFeeder()?.currentChapter !== undefined
 											? bookFeeder()!.currentChapter + 1
 											: "?"}
 									</p>
@@ -347,9 +336,8 @@ export default function Home() {
 									book={activeBook()!.meta}
 									chapterIndex={bookFeeder()?.currentChapter ?? 0}
 									chapterTitle={
-										activeBook()!.chapters[
-											bookFeeder()?.currentChapter ?? 0
-										]?.title
+										activeBook()!.chapters[bookFeeder()?.currentChapter ?? 0]
+											?.title
 									}
 									progressPercent={bookProgressPercent()}
 								/>

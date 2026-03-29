@@ -1,5 +1,5 @@
-import { Show, onMount } from "solid-js";
-import { animate, stagger, spring } from "motion";
+import { animate, spring, stagger } from "motion";
+import { onMount, Show } from "solid-js";
 import type { CharBreakdown } from "@/lib/core/calc";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
 import HistoryList from "./HistoryList";
@@ -40,11 +40,7 @@ function StatCard(props: { label: string; value: string; sub?: string }) {
 	);
 }
 
-function BreakdownItem(props: {
-	label: string;
-	count: number;
-	color: string;
-}) {
+function BreakdownItem(props: { label: string; count: number; color: string }) {
 	return (
 		<div class="breakdown-item flex items-center gap-3 opacity-0">
 			<span class={`w-2 h-2 rounded-full ${props.color}`} />
@@ -64,7 +60,9 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 		if (reduced) {
 			heroRef.textContent = String(props.wpm);
 			containerRef
-				.querySelectorAll(".stat-card, .breakdown-item, .chart-section, .redo-section")
+				.querySelectorAll(
+					".stat-card, .breakdown-item, .chart-section, .redo-section",
+				)
 				.forEach((el) => {
 					(el as HTMLElement).style.opacity = "1";
 				});
@@ -121,7 +119,11 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 			<div class="relative flex flex-col items-center gap-1">
 				<div
 					class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[200px] pointer-events-none rounded-full"
-					style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)", opacity: "0.06" }}
+					style={{
+						background:
+							"radial-gradient(circle, var(--primary) 0%, transparent 70%)",
+						opacity: "0.06",
+					}}
 				/>
 				<span class="font-display text-xs uppercase tracking-widest text-text-sub">
 					wpm
@@ -137,11 +139,7 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 			{/* Stat cards row */}
 			<div class="flex gap-12 justify-center">
 				<StatCard label="accuracy" value={`${props.accuracy}`} sub="%" />
-				<StatCard
-					label="consistency"
-					value={`${props.consistency}`}
-					sub="%"
-				/>
+				<StatCard label="consistency" value={`${props.consistency}`} sub="%" />
 				<StatCard label="raw" value={`${props.rawWpm}`} />
 				<StatCard label="time" value={formatTime(props.elapsed)} />
 			</div>
@@ -198,9 +196,13 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 					{props.redoLabel ?? "Redo"}
 				</button>
 				<span class="text-xs text-text-sub/60">
-					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text-sub text-[10px]">Tab</kbd>
+					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text-sub text-[10px]">
+						Tab
+					</kbd>
 					{" + "}
-					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text-sub text-[10px]">Enter</kbd>
+					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text-sub text-[10px]">
+						Enter
+					</kbd>
 				</span>
 			</div>
 

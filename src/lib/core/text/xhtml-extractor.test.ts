@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { describe, expect, it } from "vitest";
 import { extractChapterTitle, extractTextFromXHTML } from "./xhtml-extractor";
 
 const fixturesDir = join(__dirname, "__fixtures__");
@@ -92,9 +92,7 @@ describe("extractTextFromXHTML", () => {
 		// Should have substantial content
 		expect(text.length).toBeGreaterThan(1000);
 		// First line of the novel
-		expect(text).toContain(
-			"In my younger and more vulnerable years",
-		);
+		expect(text).toContain("In my younger and more vulnerable years");
 		// Should not contain any nav/header content
 		expect(text).not.toContain("Standard Ebooks");
 		expect(text).not.toContain("Back to ebook");

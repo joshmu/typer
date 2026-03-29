@@ -9,23 +9,17 @@ export function useRecentResults(limit = 20) {
 }
 
 export function usePersonalBest(mode?: string) {
-	return safeFrom<TypingResult | undefined>(
-		() => {
-			if (mode) {
-				return db.results
-					.where("mode")
-					.equals(mode)
-					.reverse()
-					.sortBy("wpm")
-					.then((results) => results[0]);
-			}
+	return safeFrom<TypingResult | undefined>(() => {
+		if (mode) {
 			return db.results
-				.orderBy("wpm")
+				.where("mode")
+				.equals(mode)
 				.reverse()
-				.first();
-		},
-		undefined,
-	);
+				.sortBy("wpm")
+				.then((results) => results[0]);
+		}
+		return db.results.orderBy("wpm").reverse().first();
+	}, undefined);
 }
 
 export function useResultCount() {

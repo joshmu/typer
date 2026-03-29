@@ -1,14 +1,6 @@
-import {
-	type ParentProps,
-	createContext,
-	onMount,
-	useContext,
-} from "solid-js";
+import { createContext, onMount, type ParentProps, useContext } from "solid-js";
 import type { SetStoreFunction, Store } from "solid-js/store";
-import {
-	type UserPreferences,
-	createPreferences,
-} from "@/lib/preferences";
+import { createPreferences, type UserPreferences } from "@/lib/preferences";
 import { applyTheme, getTheme } from "@/lib/themes";
 
 type PreferencesContextValue = [
@@ -34,6 +26,7 @@ export function PreferencesProvider(props: ParentProps) {
 
 export function usePreferences(): PreferencesContextValue {
 	const ctx = useContext(PreferencesContext);
-	if (!ctx) throw new Error("usePreferences must be used within PreferencesProvider");
+	if (!ctx)
+		throw new Error("usePreferences must be used within PreferencesProvider");
 	return ctx;
 }

@@ -18,20 +18,18 @@ export function parseCatalogPage(xhtml: string): BookMeta[] {
 		const content = match[2];
 
 		// Extract title: <span property="schema:name">Title</span>
-		const titleMatch = /property="schema:name">([^<]+)<\/span>/i.exec(
-			content,
-		);
+		const titleMatch = /property="schema:name">([^<]+)<\/span>/i.exec(content);
 		const title = titleMatch?.[1]?.trim() ?? "";
 
 		// Extract author: within property="schema:author" context
-		const authorSection =
-			/property="schema:author"([\s\S]*?)<\/p>/i.exec(content);
+		const authorSection = /property="schema:author"([\s\S]*?)<\/p>/i.exec(
+			content,
+		);
 		let author = "";
 		if (authorSection) {
-			const authorName =
-				/property="schema:name">([^<]+)<\/span>/i.exec(
-					authorSection[1],
-				);
+			const authorName = /property="schema:name">([^<]+)<\/span>/i.exec(
+				authorSection[1],
+			);
 			author = authorName?.[1]?.trim() ?? "";
 		}
 
@@ -94,19 +92,18 @@ export function parseBookDetail(xhtml: string, bookId: string): BookMeta {
 	}
 
 	// Title: h1 with schema:name property
-	const titleMatch =
-		/<h1[^>]*property="schema:name"[^>]*>([^<]+)<\/h1>/i.exec(xhtml);
+	const titleMatch = /<h1[^>]*property="schema:name"[^>]*>([^<]+)<\/h1>/i.exec(
+		xhtml,
+	);
 	const title = titleMatch?.[1]?.trim() ?? "";
 
 	// Author: within schema:author context
-	const authorSection =
-		/property="schema:author"([\s\S]*?)<\/p>/i.exec(xhtml);
+	const authorSection = /property="schema:author"([\s\S]*?)<\/p>/i.exec(xhtml);
 	let author = "";
 	if (authorSection) {
-		const authorName =
-			/property="schema:name">([^<]+)<\/span>/i.exec(
-				authorSection[1],
-			);
+		const authorName = /property="schema:name">([^<]+)<\/span>/i.exec(
+			authorSection[1],
+		);
 		author = authorName?.[1]?.trim() ?? "";
 	}
 

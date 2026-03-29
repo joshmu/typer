@@ -1,4 +1,4 @@
-import { For, Show, createEffect, onMount } from "solid-js";
+import { createEffect, For, onMount, Show } from "solid-js";
 import type { TestMode } from "@/lib/core/types";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
 
@@ -32,7 +32,8 @@ export default function ModeSelector(props: ModeSelectorProps) {
 		if (!hasMounted || prefersReducedMotion()) {
 			pillRef.style.transition = "none";
 		} else {
-			pillRef.style.transition = "transform 200ms ease-out, width 200ms ease-out";
+			pillRef.style.transition =
+				"transform 200ms ease-out, width 200ms ease-out";
 		}
 	}
 
@@ -66,7 +67,9 @@ export default function ModeSelector(props: ModeSelectorProps) {
 								<div class="w-px h-4 bg-text-sub/20 mx-0.5" />
 							)}
 							<button
-								ref={(el) => { buttonRefs[type] = el; }}
+								ref={(el) => {
+									buttonRefs[type] = el;
+								}}
 								type="button"
 								class={`relative z-10 px-4 py-1.5 text-sm rounded transition-colors ${
 									props.mode.type === type
@@ -74,34 +77,34 @@ export default function ModeSelector(props: ModeSelectorProps) {
 										: "text-text-sub hover:text-text"
 								}`}
 								onClick={() => {
-								switch (type) {
-									case "time":
-										props.onModeChange({ type: "time", seconds: 30 });
-										break;
-									case "words":
-										props.onModeChange({ type: "words", count: 25 });
-										break;
-									case "quote":
-										props.onModeChange({ type: "quote", length: "medium" });
-										break;
-									case "zen":
-										props.onModeChange({ type: "zen" });
-										break;
-									case "custom":
-										props.onModeChange({ type: "custom" });
-										break;
-									case "book":
-										props.onModeChange({
-											type: "book",
-											bookId: "",
-											chapterIndex: 0,
-										});
-										break;
-								}
-							}}
-						>
-							{type}
-						</button>
+									switch (type) {
+										case "time":
+											props.onModeChange({ type: "time", seconds: 30 });
+											break;
+										case "words":
+											props.onModeChange({ type: "words", count: 25 });
+											break;
+										case "quote":
+											props.onModeChange({ type: "quote", length: "medium" });
+											break;
+										case "zen":
+											props.onModeChange({ type: "zen" });
+											break;
+										case "custom":
+											props.onModeChange({ type: "custom" });
+											break;
+										case "book":
+											props.onModeChange({
+												type: "book",
+												bookId: "",
+												chapterIndex: 0,
+											});
+											break;
+									}
+								}}
+							>
+								{type}
+							</button>
 						</>
 					)}
 				</For>
@@ -115,8 +118,7 @@ export default function ModeSelector(props: ModeSelectorProps) {
 							<button
 								type="button"
 								class={`px-3 py-1 text-xs rounded transition-colors ${
-									props.mode.type === "time" &&
-									props.mode.seconds === seconds
+									props.mode.type === "time" && props.mode.seconds === seconds
 										? "text-primary bg-primary/10"
 										: "text-text-sub hover:text-text"
 								}`}
