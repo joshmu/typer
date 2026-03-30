@@ -3,7 +3,8 @@ import { expect, test } from "@playwright/test";
 test("full typing flow: paste text → type → see results", async ({ page }) => {
 	await page.goto("/");
 
-	// Step 1: Paste custom text
+	// Step 1: Switch to custom mode and paste text
+	await page.getByRole("button", { name: "custom" }).click();
 	const textInput = page.getByTestId("text-input");
 	await expect(textInput).toBeVisible();
 	await textInput.fill("the quick brown fox");
@@ -35,6 +36,8 @@ test("full typing flow: paste text → type → see results", async ({ page }) =
 test("redo button restarts the flow", async ({ page }) => {
 	await page.goto("/");
 
+	// Switch to custom mode
+	await page.getByRole("button", { name: "custom" }).click();
 	const textInput = page.getByTestId("text-input");
 	await textInput.fill("ab");
 	await page.getByTestId("start-button").click();
