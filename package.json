@@ -40,7 +40,7 @@
 		"markdownlint-cli2": "^0.22.0",
 		"typescript": "^6.0.2",
 		"vite": "^7.3.1",
-		"vite-plugin-solid": "^2.11.10",
+		"vite-plugin-solid": "^2.11.11",
 		"vite-tsconfig-paths": "^6.1.1",
 		"vitest": "^4.1.2"
 	},
