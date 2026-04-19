@@ -39,7 +39,7 @@
 		"lint-staged": "^16.4.0",
 		"markdownlint-cli2": "^0.22.0",
 		"typescript": "^6.0.2",
-		"vite": "^7.3.1",
+		"vite": "^8.0.8",
 		"vite-plugin-solid": "^2.11.11",
 		"vite-tsconfig-paths": "^6.1.1",
 		"vitest": "^4.1.4"
