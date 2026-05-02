@@ -1,4 +1,5 @@
 import { createEffect, createSignal, For } from "solid-js";
+import { getWordTop } from "@/lib/core/layout/layout-cache";
 import type { WordState } from "@/lib/core/types";
 import Caret from "./Caret";
 import { useLayoutCache } from "./use-layout-cache";
@@ -22,21 +23,13 @@ export default function TextDisplay(props: TextDisplayProps) {
 		() => props.words,
 	);
 
+	// Scroll when the active word moves past the first visible line.
+	// Pure lookup against the layout cache — no DOM read per keystroke.
 	createEffect(() => {
-		if (!innerRef) return;
-		const activeWordIndex = props.currentWordIndex;
-		const wordElements = innerRef.children;
-		if (activeWordIndex >= wordElements.length) return;
-
-		const activeEl = wordElements[activeWordIndex] as HTMLElement;
-		const containerTop = innerRef.offsetTop;
-		const wordTop = activeEl.offsetTop - containerTop;
-
-		// Scroll when active word goes past the first visible line
-		const scrollThreshold = lineHeight;
-		if (wordTop > scrollThreshold + translateY()) {
-			const newTranslate = wordTop - scrollThreshold;
-			setTranslateY(newTranslate);
+		const wordTop = getWordTop(layoutCache(), props.currentWordIndex);
+		if (wordTop === null) return;
+		if (wordTop > lineHeight + translateY()) {
+			setTranslateY(wordTop - lineHeight);
 		}
 	});
 
