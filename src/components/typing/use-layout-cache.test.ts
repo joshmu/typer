@@ -9,10 +9,7 @@ function trackingMeasurer() {
 	const measurer: Measurer = {
 		measure: () => {
 			calls++;
-			return {
-				containerTop: calls,
-				words: [{ top: calls, endLeft: 0, chars: [] }],
-			};
+			return { words: [{ top: calls, endLeft: 0, chars: [] }] };
 		},
 	};
 	return { measurer, getCalls: () => calls };
@@ -73,7 +70,7 @@ describe("useLayoutCache", () => {
 			await flush();
 
 			expect(getCalls()).toBeGreaterThanOrEqual(1);
-			expect(cache().containerTop).toBeGreaterThan(0);
+			expect(cache().words.length).toBe(1);
 			dispose();
 		});
 	});

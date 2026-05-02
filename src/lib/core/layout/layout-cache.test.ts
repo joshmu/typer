@@ -8,7 +8,6 @@ import {
 } from "./layout-cache";
 
 const sampleCache: LayoutCache = {
-	containerTop: 100,
 	words: [
 		{
 			top: 0,
@@ -31,10 +30,8 @@ const sampleCache: LayoutCache = {
 };
 
 describe("emptyCache", () => {
-	it("returns a cache with no words and zero containerTop", () => {
-		const c = emptyCache();
-		expect(c.words).toEqual([]);
-		expect(c.containerTop).toBe(0);
+	it("returns a cache with no words", () => {
+		expect(emptyCache().words).toEqual([]);
 	});
 });
 
@@ -101,7 +98,6 @@ describe("getCaretPosition", () => {
 
 	it("returns null when the word has no chars", () => {
 		const cache: LayoutCache = {
-			containerTop: 0,
 			words: [{ top: 0, endLeft: 0, chars: [] }],
 		};
 		expect(getCaretPosition(cache, 0, 0)).toBeNull();

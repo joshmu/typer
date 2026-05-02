@@ -24,7 +24,6 @@ export interface Measurer {
  */
 export const domMeasurer: Measurer = {
 	measure: (container) => {
-		const containerTop = container.offsetTop;
 		const wordEls = container.querySelectorAll<HTMLElement>(":scope > span");
 		const words = Array.from(wordEls).map((wordEl) => {
 			const charEls = wordEl.querySelectorAll<HTMLElement>(":scope > span");
@@ -38,7 +37,7 @@ export const domMeasurer: Measurer = {
 			const endLeft = last ? last.left + last.width : 0;
 			return { top, endLeft, chars };
 		});
-		return { words, containerTop };
+		return { words };
 	},
 };
 

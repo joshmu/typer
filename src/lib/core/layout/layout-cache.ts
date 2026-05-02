@@ -23,7 +23,6 @@ export interface WordLayout {
 
 export interface LayoutCache {
 	words: WordLayout[];
-	containerTop: number;
 }
 
 export interface CaretPosition {
@@ -33,7 +32,7 @@ export interface CaretPosition {
 }
 
 export function emptyCache(): LayoutCache {
-	return { words: [], containerTop: 0 };
+	return { words: [] };
 }
 
 export function getCharLayout(

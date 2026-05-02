@@ -23,8 +23,8 @@ export default function TextDisplay(props: TextDisplayProps) {
 		() => props.words,
 	);
 
-	// Scroll when the active word moves past the first visible line.
-	// Pure lookup against the layout cache — no DOM read per keystroke.
+	// Read wordTop from the cache, not offsetTop — the keystroke hot path
+	// must not force a layout recalc.
 	createEffect(() => {
 		const wordTop = getWordTop(layoutCache(), props.currentWordIndex);
 		if (wordTop === null) return;
