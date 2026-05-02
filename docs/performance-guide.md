@@ -75,6 +75,27 @@ DON'T:
   - Read offsetLeft/offsetTop per keystroke (pre-compute at render time)
 ```
 
+## Layout Cache
+
+Caret position and word tops are read from a `LayoutCache` snapshot that is rebuilt only when the layout could have changed — never on cursor moves. Cursor reads against the cache are pure data lookups, so the keystroke hot path does **zero** geometry reads.
+
+**Three triggers rebuild the cache:**
+
+| Trigger | Why it's needed |
+|---|---|
+| `onMount` | Initial measurement after the words first render. |
+| `createEffect` on the words array reference | Zen/book mode appends words; the array reference changes but the container's bounding box may not — `ResizeObserver` would miss this. |
+| `ResizeObserver` on the container | Font-size, window-resize, or zoom changes that don't replace the words array. |
+
+All three coalesce through a single `requestAnimationFrame` token so multiple triggers in the same frame produce one read.
+
+**Module split:**
+
+- `src/lib/core/layout/layout-cache.ts` — pure data + lookup functions (`getCaretPosition`, `getWordTop`, `emptyCache`). Zero framework deps; fully unit-tested.
+- `src/components/typing/use-layout-cache.ts` — SolidJS hook + `Measurer` interface. The `Measurer` is injected so tests can substitute a synthetic measurer (jsdom returns `0` for offset properties).
+
+This is the implementation of the "pre-compute caret positions at render time" rule above.
+
 ## Bundle Size Budgets
 
 | Chunk | Budget | Contents |

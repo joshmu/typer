@@ -1,6 +1,8 @@
 import { createEffect, createSignal, For } from "solid-js";
+import { getWordTop } from "@/lib/core/layout/layout-cache";
 import type { WordState } from "@/lib/core/types";
 import Caret from "./Caret";
+import { useLayoutCache } from "./use-layout-cache";
 import Word from "./Word";
 
 interface TextDisplayProps {
@@ -16,21 +18,18 @@ export default function TextDisplay(props: TextDisplayProps) {
 	const lineHeight = 48;
 	const visibleLines = 3;
 
+	const layoutCache = useLayoutCache(
+		() => innerRef,
+		() => props.words,
+	);
+
+	// Read wordTop from the cache, not offsetTop — the keystroke hot path
+	// must not force a layout recalc.
 	createEffect(() => {
-		if (!innerRef) return;
-		const activeWordIndex = props.currentWordIndex;
-		const wordElements = innerRef.children;
-		if (activeWordIndex >= wordElements.length) return;
-
-		const activeEl = wordElements[activeWordIndex] as HTMLElement;
-		const containerTop = innerRef.offsetTop;
-		const wordTop = activeEl.offsetTop - containerTop;
-
-		// Scroll when active word goes past the first visible line
-		const scrollThreshold = lineHeight;
-		if (wordTop > scrollThreshold + translateY()) {
-			const newTranslate = wordTop - scrollThreshold;
-			setTranslateY(newTranslate);
+		const wordTop = getWordTop(layoutCache(), props.currentWordIndex);
+		if (wordTop === null) return;
+		if (wordTop > lineHeight + translateY()) {
+			setTranslateY(wordTop - lineHeight);
 		}
 	});
 
@@ -47,10 +46,9 @@ export default function TextDisplay(props: TextDisplayProps) {
 				style={{ transform: `translateY(-${translateY()}px)` }}
 			>
 				<Caret
-					words={props.words}
+					layoutCache={layoutCache}
 					currentWordIndex={props.currentWordIndex}
 					currentCharIndex={props.currentCharIndex}
-					containerRef={() => innerRef}
 				/>
 				<For each={props.words}>
 					{(word, index) => (
