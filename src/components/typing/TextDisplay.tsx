@@ -1,6 +1,7 @@
 import { createEffect, createSignal, For } from "solid-js";
 import type { WordState } from "@/lib/core/types";
 import Caret from "./Caret";
+import { useLayoutCache } from "./use-layout-cache";
 import Word from "./Word";
 
 interface TextDisplayProps {
@@ -15,6 +16,11 @@ export default function TextDisplay(props: TextDisplayProps) {
 	const [translateY, setTranslateY] = createSignal(0);
 	const lineHeight = 48;
 	const visibleLines = 3;
+
+	const layoutCache = useLayoutCache(
+		() => innerRef,
+		() => props.words,
+	);
 
 	createEffect(() => {
 		if (!innerRef) return;
@@ -47,10 +53,9 @@ export default function TextDisplay(props: TextDisplayProps) {
 				style={{ transform: `translateY(-${translateY()}px)` }}
 			>
 				<Caret
-					words={props.words}
+					layoutCache={layoutCache}
 					currentWordIndex={props.currentWordIndex}
 					currentCharIndex={props.currentCharIndex}
-					containerRef={() => innerRef}
 				/>
 				<For each={props.words}>
 					{(word, index) => (
