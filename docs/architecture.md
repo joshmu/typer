@@ -15,6 +15,7 @@ typer/
         engine/             # Typing engine (state machine)
         calc/               # WPM, accuracy, consistency calculations
         text/               # Text processing, word lists
+        layout/             # Caret/word position cache (pure lookups)
         types/              # Shared TypeScript types
     routes/                 # @solidjs/router pages
     styles/                 # Tailwind config, theme definitions
@@ -179,7 +180,7 @@ function handleKeydown(e: KeyboardEvent) {
 
 ## Caret
 
-The caret is an absolutely-positioned element that transitions to the current character's position. Character positions are **pre-computed at render time** to avoid per-keystroke layout reflow.
+The caret is an absolutely-positioned element that transitions to the current character's position. Character positions live in a `LayoutCache` (`src/lib/core/layout/layout-cache.ts`) so the keystroke hot path never reads `offsetLeft`/`offsetTop`.
 
 ```
 ┌──────────────────────────────────────┐
@@ -187,10 +188,14 @@ The caret is an absolutely-positioned element that transitions to the current ch
 │       ▏← caret (CSS transition)      │
 │                                      │
 │  CSS: transition: transform 80ms;    │
-│  Position: pre-computed offsetLeft   │
-│  Update: requestAnimationFrame       │
+│  Position: getCaretPosition(cache,   │
+│            wordIdx, charIdx)         │
+│  Cache rebuilt: mount, words change, │
+│                 ResizeObserver       │
 └──────────────────────────────────────┘
 ```
+
+The cache lives in pure TypeScript (`src/lib/core/layout/`); the DOM measurer that populates it lives in the component layer (`src/components/typing/use-layout-cache.ts`) so the engine layer's purity rule holds. See `docs/performance-guide.md` for the full trigger model.
 
 The caret blinks when idle (no keypress for 1.5s) using CSS `animation: blink 1s step-end infinite`.
 
@@ -213,8 +218,10 @@ Scroll mechanism:
 - Container: overflow: hidden; height: 3 * lineHeight
 - Inner wrapper: transform: translateY(-${lineOffset}px)
 - Transition: transform 150ms ease-out
-- Triggers when active word's top > first visible line's bottom
+- Triggers when getWordTop(layoutCache, currentWordIndex) > first visible line's bottom
 ```
+
+Like the caret, the scroll calculation reads from the shared `LayoutCache` — never from `offsetTop` per keystroke.
 
 ## Theme System
 
