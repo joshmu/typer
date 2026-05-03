@@ -23,7 +23,7 @@
 		"dexie": "^4.4.2",
 		"motion": "^12.38.0",
 		"solid-js": "^1.9.12",
-		"tailwindcss": "^4.2.2"
+		"tailwindcss": "^4.2.4"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.13",
