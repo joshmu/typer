@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import type { BookProgress, CachedBook } from "./core/types/book";
+import { DatabaseError } from "./core/types/errors";
 
 export interface TypingResult {
 	id?: number;
@@ -47,11 +48,13 @@ db.on("blocked", () => {
 
 // Attempt to open with error recovery — delete corrupted DB and reload
 db.open().catch(async (err) => {
-	console.error("TyperDB failed to open:", err);
+	console.error(new DatabaseError("TyperDB failed to open", { cause: err }));
 	try {
 		await Dexie.delete("TyperDB");
 		window.location.reload();
 	} catch (deleteErr) {
-		console.error("Failed to recover TyperDB:", deleteErr);
+		console.error(
+			new DatabaseError("Failed to recover TyperDB", { cause: deleteErr }),
+		);
 	}
 });
