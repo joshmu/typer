@@ -8,9 +8,43 @@ import {
 	extractTextFromXHTML,
 } from "./core/text/xhtml-extractor";
 import type { BookChapter, BookMeta, CachedBook } from "./core/types/book";
+import {
+	BookCacheError,
+	BookNotFoundError,
+	BookServiceError,
+	NetworkError,
+} from "./core/types/errors";
 import { db } from "./db";
 
 const SE_BASE = "https://standardebooks.org";
+
+interface FetchOptions {
+	/** Operation label, used in thrown error messages */
+	operation: string;
+	/** When set, a 404 throws BookNotFoundError instead of BookServiceError */
+	bookId?: string;
+}
+
+async function safeFetch(
+	url: string,
+	options: FetchOptions,
+): Promise<Response> {
+	let response: Response;
+	try {
+		response = await fetch(url);
+	} catch (err) {
+		throw new NetworkError(`Failed to reach ${options.operation}`, {
+			cause: err,
+		});
+	}
+	if (!response.ok) {
+		if (response.status === 404 && options.bookId) {
+			throw new BookNotFoundError(options.bookId);
+		}
+		throw new BookServiceError(options.operation, response.status);
+	}
+	return response;
+}
 
 /**
  * Search Standard Ebooks catalog by query.
@@ -25,9 +59,7 @@ export async function searchBooks(
 		page: String(page),
 	});
 	const url = `${SE_BASE}/ebooks?${params}`;
-	const response = await fetch(url);
-	if (!response.ok)
-		throw new Error(`Failed to fetch catalog: ${response.status}`);
+	const response = await safeFetch(url, { operation: "search catalog" });
 	const xhtml = await response.text();
 	return parseCatalogPage(xhtml);
 }
@@ -44,18 +76,26 @@ export async function browseCatalog(page = 1): Promise<BookMeta[]> {
  */
 export async function fetchBookDetail(bookId: string): Promise<BookMeta> {
 	const url = `${SE_BASE}/ebooks/${bookId}`;
-	const response = await fetch(url);
-	if (!response.ok)
-		throw new Error(`Failed to fetch book detail: ${response.status}`);
+	const response = await safeFetch(url, {
+		operation: "fetch book detail",
+		bookId,
+	});
 	const xhtml = await response.text();
 	const meta = parseBookDetail(xhtml, bookId);
 
-	// Also fetch chapter list
 	const tocUrl = `${SE_BASE}/ebooks/${bookId}/text`;
-	const tocResponse = await fetch(tocUrl);
-	if (tocResponse.ok) {
+	try {
+		const tocResponse = await safeFetch(tocUrl, {
+			operation: "fetch chapter list",
+			bookId,
+		});
 		const tocXhtml = await tocResponse.text();
 		meta.chapters = parseChapterList(tocXhtml);
+	} catch (err) {
+		// Chapter list is optional metadata; preserve previous behaviour of
+		// silently dropping it on failure rather than failing the whole detail
+		// fetch. Only NetworkError / 5xx are absorbed; missing books surface.
+		if (err instanceof BookNotFoundError) throw err;
 	}
 
 	return meta;
@@ -70,9 +110,10 @@ export async function fetchChapter(
 	chapterIndex: number,
 ): Promise<BookChapter> {
 	const url = `${SE_BASE}/ebooks/${bookId}/text/${chapterFile}`;
-	const response = await fetch(url);
-	if (!response.ok)
-		throw new Error(`Failed to fetch chapter: ${response.status}`);
+	const response = await safeFetch(url, {
+		operation: "fetch chapter",
+		bookId,
+	});
 	const xhtml = await response.text();
 
 	const text = extractTextFromXHTML(xhtml);
@@ -86,14 +127,11 @@ export async function fetchChapter(
  * Fetch all chapters of a book and cache in IndexedDB.
  */
 export async function fetchAndCacheBook(bookId: string): Promise<CachedBook> {
-	// Check cache first
 	const cached = await getCachedBook(bookId);
 	if (cached) return cached;
 
-	// Fetch metadata with chapters
 	const meta = await fetchBookDetail(bookId);
 
-	// Fetch all chapters in parallel
 	const chapters = await Promise.all(
 		meta.chapters.map((file, index) => fetchChapter(bookId, file, index)),
 	);
@@ -105,11 +143,14 @@ export async function fetchAndCacheBook(bookId: string): Promise<CachedBook> {
 		cachedAt: Date.now(),
 	};
 
-	// Save to IndexedDB (non-fatal if cache fails)
 	try {
 		await db.cachedBooks.put(cachedBook);
 	} catch (err) {
-		console.error("Failed to cache book:", err);
+		// Caching is non-fatal: surface a typed error to log handlers but still
+		// return the freshly fetched book.
+		console.error(
+			new BookCacheError(`Failed to cache book ${bookId}`, { cause: err }),
+		);
 	}
 
 	return cachedBook;
@@ -125,7 +166,11 @@ export async function getCachedBook(
 		const cached = await db.cachedBooks.get(bookId);
 		return cached ?? null;
 	} catch (err) {
-		console.error("Failed to read cached book:", err);
+		console.error(
+			new BookCacheError(`Failed to read cached book ${bookId}`, {
+				cause: err,
+			}),
+		);
 		return null;
 	}
 }
@@ -149,6 +194,10 @@ export async function deleteCachedBook(bookId: string): Promise<void> {
 	try {
 		await db.cachedBooks.where("bookId").equals(bookId).delete();
 	} catch (err) {
-		console.error("Failed to delete cached book:", err);
+		console.error(
+			new BookCacheError(`Failed to delete cached book ${bookId}`, {
+				cause: err,
+			}),
+		);
 	}
 }
