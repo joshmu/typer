@@ -1,0 +1,15 @@
+{
+	"log": {
+		"seed": 42,
+		"ticks": 197,
+		"events": [
+			{ "tick": 182, "key": "t" },
+			{ "tick": 183, "key": "h" },
+			{ "tick": 184, "key": "e" },
+			{ "tick": 185, "key": "s" },
+			{ "tick": 186, "key": "e" }
+		]
+	},
+	"expectedHash": "5c3b80fc",
+	"expectedKills": 1
+}
