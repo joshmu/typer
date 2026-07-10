@@ -122,4 +122,15 @@ describe("TyperDB", () => {
 		expect(emissions[emissions.length - 1]).toHaveLength(1);
 		expect(emissions[emissions.length - 1][0].wpm).toBe(150);
 	});
+
+	it("orders results by wpm via index (personal best without mode)", async () => {
+		await db.results.bulkAdd([
+			createResult({ wpm: 80 }),
+			createResult({ wpm: 120 }),
+			createResult({ wpm: 90 }),
+		]);
+
+		const best = await db.results.orderBy("wpm").reverse().first();
+		expect(best?.wpm).toBe(120);
+	});
 });

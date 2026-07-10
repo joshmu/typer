@@ -34,6 +34,12 @@ export class TyperDB extends Dexie {
 			bookProgress: "++id, &bookId, lastAccessedAt",
 			cachedBooks: "&bookId, cachedAt",
 		});
+
+		// v3: plain wpm index — usePersonalBest() orders by wpm across modes,
+		// which the compound [mode+wpm] index cannot serve.
+		this.version(3).stores({
+			results: "++id, timestamp, mode, wpm, [mode+wpm]",
+		});
 	}
 }
 
