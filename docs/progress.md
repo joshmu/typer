@@ -60,3 +60,7 @@
 - [x] 4.7: Default to book mode
 - [x] 4.8: Pre-commit hook (typecheck + lint)
 - [x] 4.9: Commitlint CI validation + book scope
+
+## Horde Game Mode (v3.1)
+
+- [x] Walking skeleton: /game route, deterministic sim + replay hash, Babylon arena, E2E smoke + visual snapshot
