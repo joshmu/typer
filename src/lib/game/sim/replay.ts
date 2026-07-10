@@ -1,3 +1,4 @@
+import { fnv1a } from "@/lib/core/text/hash";
 import { createInitialState, type GameState } from "./state";
 import { type GameEvent, step } from "./step";
 
@@ -21,11 +22,5 @@ export function runReplay(log: InputLog): GameState {
 /** FNV-1a over the canonical JSON of the state. Sim state is built with a
  * fixed key order, so JSON.stringify is stable across runs and engines. */
 export function stateHash(state: GameState): string {
-	const json = JSON.stringify(state);
-	let hash = 0x811c9dc5;
-	for (let i = 0; i < json.length; i++) {
-		hash ^= json.charCodeAt(i);
-		hash = Math.imul(hash, 0x01000193);
-	}
-	return (hash >>> 0).toString(16);
+	return fnv1a(JSON.stringify(state));
 }
