@@ -24,6 +24,7 @@ export default {
 				"deps",
 				"deps-dev",
 				"book",
+				"game",
 			],
 		],
 	},
