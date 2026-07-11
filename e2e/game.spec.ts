@@ -19,11 +19,24 @@ test.describe("horde game mode", () => {
 
 		// advance past first spawn deterministically
 		await page.evaluate(() => window.__game?.stepTicks(181));
-		const word = await page.evaluate(
-			() => window.__game?.getState().enemies[0].word,
-		);
-		expect(word).toBeTruthy();
-		await page.evaluate((w) => window.__game?.sendKeys(w), word as string);
+
+		// The full roster fields any tier-1 regular here, and some (e.g. a
+		// shielded archetype) absorb a completion by reassigning the word
+		// instead of dying — so type the locked target's current word,
+		// repeating until it actually dies, instead of assuming one word kills.
+		let kills = 0;
+		for (let i = 0; i < 5 && kills < 1; i++) {
+			const word = await page.evaluate(() => {
+				const s = window.__game?.getState();
+				if (!s) return undefined;
+				const target =
+					s.enemies.find((e) => e.id === s.targetId) ?? s.enemies[0];
+				return target?.word;
+			});
+			expect(word).toBeTruthy();
+			await page.evaluate((w) => window.__game?.sendKeys(w), word as string);
+			kills = (await page.evaluate(() => window.__game?.getState().kills)) ?? 0;
+		}
 
 		await expect(page.getByTestId("game-kills")).toHaveText("kills 1");
 		const state = await page.evaluate(() => window.__game?.getState());
