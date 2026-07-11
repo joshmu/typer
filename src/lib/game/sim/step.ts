@@ -1,4 +1,5 @@
 import { isCharMatch } from "@/lib/core/text/char-match";
+import { isTargetable, tickAbility } from "./abilities";
 import { resolveCompletion } from "./combat";
 import { dist } from "./math";
 import { MOVEMENTS, makeNoise } from "./movement";
@@ -25,6 +26,11 @@ export function step(
 
 	// wave director: intermissions + escalating spawns
 	runWaveDirector(s);
+
+	// abilities (spawn / heal / teleport / enrage) — O(enemies)
+	for (const e of s.enemies) {
+		if (e.alive && e.ability) tickAbility(s, e);
+	}
 
 	// movement + player collision
 	for (const e of s.enemies) {
@@ -60,7 +66,12 @@ export function step(
 		if (!target) {
 			s.targetId = null;
 			const candidates = s.enemies
-				.filter((e) => e.alive && isCharMatch(ev.key, e.word[0]))
+				.filter(
+					(e) =>
+						e.alive &&
+						isTargetable(e, s.tick) &&
+						isCharMatch(ev.key, e.word[0]),
+				)
 				.sort((a, b) => dist(a.pos.x, a.pos.y) - dist(b.pos.x, b.pos.y));
 			if (candidates.length === 0) {
 				s.misses += 1;

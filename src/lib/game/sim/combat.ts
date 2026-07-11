@@ -1,14 +1,9 @@
 import { pickWord } from "../content/words";
+import { absorbsCompletion } from "./abilities";
 import { cosR, sinR } from "./math";
 import { COMBO_DECAY_TICKS, killScore } from "./score";
 import { spawnFromArchetype } from "./spawner";
 import type { EnemyState, GameState } from "./state";
-
-/** Shield / armored-front damage absorption. Extended in Task 6 (abilities);
- * Plan 2 base rule: nothing is absorbed. */
-function absorbsCompletion(_s: GameState, _e: EnemyState): boolean {
-	return false;
-}
 
 export function reassignWord(s: GameState, e: EnemyState): void {
 	const initials = new Set(
@@ -42,7 +37,7 @@ export function killEnemy(s: GameState, e: EnemyState): void {
 export function resolveCompletion(s: GameState, e: EnemyState): void {
 	// Called after every keystroke on the target; act only when the word is done.
 	if (e.typedCount < e.word.length) return;
-	if (absorbsCompletion(s, e)) {
+	if (absorbsCompletion(e)) {
 		s.score += 10 * e.word.length;
 		reassignWord(s, e);
 		return;
