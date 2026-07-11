@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MOVEMENTS as MOVEMENT_FNS } from "../sim/movement";
 import { ENEMIES, getArchetype, type MovementId } from "./enemies";
 
 const MOVEMENTS: MovementId[] = [
@@ -78,5 +79,21 @@ describe("enemy roster", () => {
 	it("looks up by id and throws on unknown", () => {
 		expect(getArchetype("husk-1").name).toBe("Huskling");
 		expect(() => getArchetype("nope")).toThrow();
+	});
+
+	it("every movement id resolves to a real handler in the sim's dispatch table", () => {
+		const movementKeys = new Set(Object.keys(MOVEMENT_FNS));
+		for (const e of ENEMIES) {
+			expect(movementKeys.has(e.movement)).toBe(true);
+		}
+	});
+
+	it("each tier's word band is non-empty", async () => {
+		const { pickWordForTier } = await import("./words");
+		const { createRngState } = await import("../sim/rng");
+		for (const tier of [1, 2, 3, 4] as const) {
+			const [word] = pickWordForTier(tier, createRngState(1), new Set());
+			expect(word.length).toBeGreaterThan(0);
+		}
 	});
 });
