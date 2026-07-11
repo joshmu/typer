@@ -7,6 +7,7 @@ declare global {
 			getState(): GameState;
 			sendKeys(keys: string): void;
 			stepTicks(n: number): void;
+			renderReady(): boolean;
 		};
 	}
 }
@@ -56,7 +57,14 @@ test.describe("horde game mode", () => {
 		);
 		await page.goto("/game?seed=42&testMode=1");
 		await page.waitForFunction(() => window.__game !== undefined);
+		// advance to the deterministic frame first so every enemy mesh (and the
+		// textured ground) exists, then wait until the scene is fully ready —
+		// async PNG textures decoded and their shader variants compiled — and
+		// render once more, so the capture never races an effect Babylon skipped
+		// while still building it
 		await page.evaluate(() => window.__game?.stepTicks(400));
+		await page.waitForFunction(() => window.__game?.renderReady() === true);
+		await page.evaluate(() => window.__game?.stepTicks(0));
 		await expect(page.locator("canvas")).toHaveScreenshot("horde-arena.png", {
 			maxDiffPixelRatio: 0.02,
 		});

@@ -1,5 +1,5 @@
 import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
-import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Color4, Vector3 } from "@babylonjs/core/Maths/math";
 import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
 import type { Scene } from "@babylonjs/core/scene";
@@ -38,23 +38,9 @@ export type Effects = {
 };
 
 export function createEffects(scene: Scene): Effects {
-	// radial white dot sprite drawn once (Task 5 swaps in /game/particle.png)
-	const sprite = new DynamicTexture(
-		"fx-particle",
-		{ width: 64, height: 64 },
-		scene,
-		false,
-	);
-	// biome-ignore lint/suspicious/noExplicitAny: ICanvasRenderingContext lacks gradient typing
-	const sctx = sprite.getContext() as any;
-	const grad = sctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-	grad.addColorStop(0, "rgba(255,255,255,1)");
-	grad.addColorStop(0.4, "rgba(255,255,255,0.8)");
-	grad.addColorStop(1, "rgba(255,255,255,0)");
-	sctx.fillStyle = grad;
-	sctx.fillRect(0, 0, 64, 64);
+	// seeded radial spark sprite (scripts/gen-assets.ts)
+	const sprite = new Texture("/game/particle.png", scene);
 	sprite.hasAlpha = true;
-	sprite.update();
 
 	const emitter = new Vector3(0, 0.5, 0);
 	const ps = new ParticleSystem("fx-deaths", 200, scene);

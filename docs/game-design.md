@@ -36,6 +36,22 @@ visual-freeze (render polish phase), after which the snapshot gates CI.
 - **Determinism:** golden fixtures (`replay-first-kill.json`, `replay-deep-run.json`)
   re-recorded via `RECORD_FIXTURE=1 pnpm test:run -- src/lib/game/sim/replay.test.ts`.
 
+## Asset pipeline (Plan 4)
+
+- **Decision:** game textures are **generated-procedural**, not binary art or glTF.
+  `scripts/gen-assets.ts` is a zero-dependency, seeded (`SEED = 0x9e3779b9`), idempotent
+  node script that hand-rolls a minimal RGBA PNG encoder (filter 0, `node:zlib` deflate,
+  inline CRC32) and emits the committed outputs under `public/game/`:
+  `particle.png` (64×64 radial spark) and `ground.png` (512×512 tileable value-noise
+  floor with a faint grid). Regenerate with `pnpm gen:assets`; the script prints each
+  output's sha256 and the expected hashes are documented in its header.
+- **Rationale:** no large opaque binaries in the repo, byte-reproducible from source,
+  and reviewable as code. The renderer consumes them via `@babylonjs/core` `Texture`
+  (`ground.png` tiled ×6 on the floor material, `particle.png` on the death-burst
+  particle system).
+- **Visual determinism:** async PNG decode is gated in the visual E2E via
+  `window.__game.texturesReady()` so the deterministic frame never races the loader.
+
 ## Next phases
 
 Sim depth (waves, combat, powerups, combo score) → 30+ enemy roster → render polish +

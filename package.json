@@ -14,6 +14,7 @@
 		"lint": "biome lint .",
 		"format": "biome format . --write",
 		"check": "biome check .",
+		"gen:assets": "node --experimental-strip-types scripts/gen-assets.ts",
 		"prepare": "husky"
 	},
 	"dependencies": {

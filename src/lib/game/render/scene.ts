@@ -2,6 +2,7 @@ import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths/math";
 import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder";
 import { CreateDisc } from "@babylonjs/core/Meshes/Builders/discBuilder";
@@ -34,8 +35,15 @@ export function createGameScene(
 	const ground = CreateDisc("ground", { radius: 22, tessellation: 64 }, scene);
 	ground.rotation.x = Math.PI / 2;
 	const groundMat = new StandardMaterial("groundMat", scene);
-	groundMat.diffuseColor = new Color3(0.09, 0.09, 0.13);
+	// white diffuse so the (already dark) procedural texture shows at its authored
+	// brightness rather than being multiplied down toward black
+	groundMat.diffuseColor = Color3.White();
 	groundMat.specularColor = Color3.Black();
+	// seeded procedural floor (scripts/gen-assets.ts); tiled several times
+	const groundTex = new Texture("/game/ground.png", scene);
+	groundTex.uScale = 6;
+	groundTex.vScale = 6;
+	groundMat.diffuseTexture = groundTex;
 	ground.material = groundMat;
 
 	const player = CreateCylinder(

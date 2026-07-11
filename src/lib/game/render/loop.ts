@@ -20,6 +20,7 @@ export type GameLoop = {
 	pushKey(key: string): void;
 	stepTicks(n: number): void;
 	getState(): GameState;
+	renderReady(): boolean;
 	dispose(): void;
 };
 
@@ -117,6 +118,10 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 			render();
 		},
 		getState: () => state,
+		// whole scene ready to draw — async PNG textures decoded AND their material
+		// shader variants compiled. Lets tests gate the deterministic frame so it
+		// never captures a mesh Babylon skipped while its effect was still building.
+		renderReady: () => gameScene.scene.isReady(),
 		dispose() {
 			gameScene.engine.stopRenderLoop();
 			effects.dispose();

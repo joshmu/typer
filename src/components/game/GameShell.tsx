@@ -9,6 +9,7 @@ declare global {
 			getState(): GameState;
 			sendKeys(keys: string): void;
 			stepTicks(n: number): void;
+			renderReady(): boolean;
 		};
 	}
 }
@@ -52,6 +53,7 @@ export default function GameShell() {
 					for (const k of keys) activeLoop.pushKey(k);
 				},
 				stepTicks: (n) => activeLoop.stepTicks(n),
+				renderReady: () => activeLoop.renderReady(),
 			};
 		}
 		setReady(true);
