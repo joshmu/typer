@@ -6,7 +6,7 @@ import {
 	isTargetable,
 	tickAbility,
 } from "./abilities";
-import { createInitialState, type EnemyState } from "./state";
+import { ARENA, createInitialState, type EnemyState } from "./state";
 
 function enemyWith(
 	ability: Ability | null,
@@ -114,6 +114,22 @@ describe("abilities", () => {
 		const before = Math.hypot(e.pos.x, e.pos.y);
 		tickAbility(s, e);
 		expect(Math.hypot(e.pos.x, e.pos.y)).toBeLessThan(before);
+	});
+
+	it("teleport clamps its jump so it never blinks into the kill ring", () => {
+		const s = createInitialState(1);
+		// d = 3, range = 3: an unclamped jump would land the enemy at the origin
+		// (well inside the kill ring); the clamp must keep it at >= killRadius * 2.
+		const e = enemyWith(
+			{ kind: "teleport", interval: 20, range: 3 },
+			{ pos: { x: 3, y: 0 } },
+		);
+		s.enemies = [e];
+		s.tick = 20;
+		tickAbility(s, e);
+		const d = Math.hypot(e.pos.x, e.pos.y);
+		expect(d).toBeGreaterThanOrEqual(ARENA.killRadius * 2 - 1e-9);
+		expect(d).toBeGreaterThan(ARENA.killRadius);
 	});
 
 	it("heal-aura restores nearby wounded allies on its pulse", () => {

@@ -1,6 +1,6 @@
 import { cosR, dist, sinR } from "./math";
 import { spawnFromArchetype } from "./spawner";
-import type { EnemyState, GameState } from "./state";
+import { ARENA, type EnemyState, type GameState } from "./state";
 
 /** Cloak gates only NEW target acquisition, never an in-progress lock. */
 export function isTargetable(e: EnemyState, tick: number): boolean {
@@ -61,7 +61,10 @@ export function tickAbility(s: GameState, e: EnemyState): void {
 		case "teleport": {
 			if (age > 0 && age % ability.interval === 0) {
 				const d = dist(e.pos.x, e.pos.y) || 1;
-				const jump = Math.min(ability.range, d);
+				// never blink into the kill ring: cap the inward jump so the
+				// destination stays at or beyond killRadius * 2.
+				const maxJump = Math.max(0, d - ARENA.killRadius * 2);
+				const jump = Math.min(ability.range, maxJump);
 				e.pos.x -= (e.pos.x / d) * jump;
 				e.pos.y -= (e.pos.y / d) * jump;
 			}
