@@ -29,7 +29,9 @@ export default function GameShell() {
 	let canvasRef: HTMLCanvasElement | undefined;
 	let loop: GameLoop | undefined;
 	let disposed = false;
-	let startLoop: ((seed: number) => Promise<void>) | undefined;
+	let startLoop:
+		| ((seed: number, autoStart: boolean) => Promise<void>)
+		| undefined;
 	// the seed the active run started with — persisted so a run is replayable
 	let currentSeed = 0;
 	// one-shot guard: persist a run exactly once per gameover, reset on restart
@@ -76,7 +78,7 @@ export default function GameShell() {
 
 	onMount(async () => {
 		const { startGameLoop } = await import("@/lib/game/render/loop");
-		startLoop = async (seed: number) => {
+		startLoop = async (seed: number, autoStart: boolean) => {
 			if (disposed || !canvasRef) return;
 			currentSeed = seed;
 			loop = startGameLoop({
@@ -91,6 +93,10 @@ export default function GameShell() {
 				loop = undefined;
 				return;
 			}
+			// real sessions begin paused behind the start overlay; the sim only
+			// advances once the player commits (first keypress, or an explicit
+			// restart). testMode always runs so deterministic probes work untouched.
+			loop.setRunning(autoStart);
 			if (testMode) {
 				const activeLoop = loop;
 				window.__game = {
@@ -104,7 +110,8 @@ export default function GameShell() {
 			}
 			setReady(true);
 		};
-		await startLoop(nextSeed());
+		// testMode auto-runs (probes need a live sim); real sessions wait for input
+		await startLoop(nextSeed(), testMode);
 	});
 
 	function restart() {
@@ -115,7 +122,8 @@ export default function GameShell() {
 		setHud(null);
 		setReady(false);
 		setStarted(true);
-		void startLoop?.(nextSeed());
+		// an explicit restart means the player intends to play — run immediately
+		void startLoop?.(nextSeed(), true);
 	}
 
 	onCleanup(() => {
@@ -136,9 +144,11 @@ export default function GameShell() {
 		}
 		// stop the browser acting on gameplay keys (space scroll, quick-find, …)
 		e.preventDefault();
-		// first keypress dismisses the start screen without feeding the sim
+		// first keypress dismisses the start screen and resumes the sim, but is
+		// itself swallowed — it must not feed a keystroke into the run
 		if (!started()) {
 			setStarted(true);
+			loop?.setRunning(true);
 			return;
 		}
 		loop?.pushKey(e.key);

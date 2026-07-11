@@ -25,6 +25,7 @@ export type GameLoopOptions = {
 export type GameLoop = {
 	pushKey(key: string): void;
 	stepTicks(n: number): void;
+	setRunning(running: boolean): void;
 	getState(): GameState;
 	renderReady(): boolean;
 	dispose(): void;
@@ -41,6 +42,10 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 	let pending: GameEvent[] = [];
 	let accumulator = 0;
 	let lastTime = performance.now();
+	// while false the rAF loop keeps rendering (so the scene is visible behind the
+	// start overlay) but does not advance the sim. Real sessions begin paused and
+	// resume on the first keypress; testMode drives ticks directly via stepTicks.
+	let running = opts.testMode;
 
 	// render-side event derivation: the sim keeps no event log, so we diff the
 	// set of live enemies between frames to fire death bursts, and watch playerHp
@@ -117,12 +122,16 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 	if (!opts.testMode) {
 		gameScene.engine.runRenderLoop(() => {
 			const now = performance.now();
-			accumulator += now - lastTime;
+			if (running) {
+				accumulator += now - lastTime;
+				let ticks = Math.floor(accumulator / TICK_MS);
+				accumulator -= ticks * TICK_MS;
+				if (ticks > MAX_CATCHUP_TICKS) ticks = MAX_CATCHUP_TICKS;
+				advance(ticks);
+			}
+			// advance lastTime every frame — including while paused — so resuming
+			// never replays the wall-time that elapsed behind the start overlay
 			lastTime = now;
-			let ticks = Math.floor(accumulator / TICK_MS);
-			accumulator -= ticks * TICK_MS;
-			if (ticks > MAX_CATCHUP_TICKS) ticks = MAX_CATCHUP_TICKS;
-			advance(ticks);
 			render();
 		});
 	} else {
@@ -140,6 +149,15 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 		stepTicks(n: number) {
 			advance(n);
 			render();
+		},
+		setRunning(next: boolean) {
+			// on resume, clear time accrued while paused so the sim steps forward
+			// one frame at a time rather than catching up on the paused interval
+			if (next && !running) {
+				lastTime = performance.now();
+				accumulator = 0;
+			}
+			running = next;
 		},
 		getState: () => state,
 		// whole scene ready to draw — async PNG textures decoded AND their material

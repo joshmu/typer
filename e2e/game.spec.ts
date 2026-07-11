@@ -48,6 +48,20 @@ test.describe("horde game mode", () => {
 		expect(state?.kills).toBe(1);
 	});
 
+	test("holds the sim at tick 0 behind the start overlay", async ({ page }) => {
+		// NON-testMode load (a real session): the loop renders the scene but must
+		// not advance the sim until the player starts. window.__game is
+		// testMode-only, so assert on the DOM instead — a running sim flips to an
+		// active wave (mounting the wave chip) within ~1s, so if it stays hidden
+		// across a 2s wait the sim never advanced.
+		await page.goto("/game?seed=42");
+		await expect(page.getByTestId("game-start")).toBeVisible();
+		await page.waitForTimeout(2000);
+		await expect(page.getByTestId("game-start")).toBeVisible();
+		await expect(page.getByTestId("game-wave")).toBeHidden();
+		await expect(page.getByTestId("game-over")).toBeHidden();
+	});
+
 	test("shows the death screen with run stats and restarts", async ({
 		page,
 	}) => {
