@@ -20,7 +20,11 @@ export default function GameShell() {
 	const [ready, setReady] = createSignal(false);
 
 	const params = new URLSearchParams(window.location.search);
-	const seed = Number(params.get("seed") ?? Date.now() % 2 ** 31);
+	// a malformed ?seed (e.g. "abc") must not poison the sim with NaN; fall back
+	// to a time-based seed (Date.now is fine here — shell code, not the sim)
+	const raw = params.get("seed");
+	const parsed = raw === null ? Number.NaN : Number(raw);
+	const seed = Number.isFinite(parsed) ? parsed : Date.now() % 2 ** 31;
 	const testMode = params.get("testMode") === "1";
 
 	onMount(async () => {
