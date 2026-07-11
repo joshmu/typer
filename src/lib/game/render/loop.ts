@@ -1,6 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math";
 import type { GameState } from "../sim/state";
-import { createInitialState } from "../sim/state";
+import { ARENA, createInitialState } from "../sim/state";
 import { type GameEvent, step } from "../sim/step";
 import { createEffects } from "./effects";
 import { createEnemyRenderer } from "./enemy-renderer";
@@ -13,9 +13,10 @@ const TICK_MS = 1000 / 60;
 const MAX_CATCHUP_TICKS = 30; // degraded-tab guard: drop time instead of spiraling
 // a vanished enemy whose last-seen position was this close to the origin, in a
 // frame where the core also lost hp, breached the core — it was not typed to
-// death, so it gets the hit shake but no kill burst. Sits just above
-// ARENA.killRadius (1.2) to absorb the sub-tick of travel before it was pruned.
-const BREACH_RADIUS = 2;
+// death, so it gets the hit shake but no kill burst. Derived from the sim's
+// killRadius plus a small margin to absorb the sub-tick of travel before the
+// enemy was pruned, so it tracks the kill ring automatically.
+const BREACH_RADIUS = ARENA.killRadius + 0.8;
 
 export type GameLoopOptions = {
 	canvas: HTMLCanvasElement;
