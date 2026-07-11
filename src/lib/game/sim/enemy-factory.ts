@@ -19,6 +19,7 @@ export function createEnemy(
 		id,
 		archetypeId: arch.id,
 		pos,
+		vel: { x: 0, y: 0 },
 		word,
 		typedCount: 0,
 		hp: arch.hp,

@@ -7,6 +7,7 @@ function enemy(partial: Partial<EnemyState>): EnemyState {
 		id: 1,
 		archetypeId: "grunt",
 		pos: { x: 10, y: 0 },
+		vel: { x: 0, y: 0 },
 		word: "the",
 		typedCount: 0,
 		hp: 1,

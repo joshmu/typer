@@ -16,6 +16,7 @@ function enemyWith(
 		id: 1,
 		archetypeId: "x",
 		pos: { x: 8, y: 0 },
+		vel: { x: 0, y: 0 },
 		word: "the",
 		typedCount: 0,
 		hp: 4,

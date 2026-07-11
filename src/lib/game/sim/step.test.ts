@@ -8,6 +8,7 @@ function cloaker(over: Partial<EnemyState> = {}): EnemyState {
 		id: 1,
 		archetypeId: "darter-2",
 		pos: { x: 8, y: 0 },
+		vel: { x: 0, y: 0 },
 		word: "zephyr",
 		typedCount: 0,
 		hp: 1,

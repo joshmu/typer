@@ -7,6 +7,7 @@ export type EnemyState = {
 	id: number;
 	archetypeId: string;
 	pos: Vec2;
+	vel: Vec2;
 	word: string;
 	typedCount: number;
 	hp: number;

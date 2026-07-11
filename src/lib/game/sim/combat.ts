@@ -1,6 +1,8 @@
+import { getArchetype } from "../content/enemies";
 import { pickWordForTier } from "../content/words";
 import { absorbsCompletion } from "./abilities";
 import { cosR, sinR } from "./math";
+import { applyKnockback } from "./physics";
 import { COMBO_DECAY_TICKS, killScore } from "./score";
 import { spawnFromArchetype } from "./spawner";
 import type { EnemyState, GameState } from "./state";
@@ -49,7 +51,11 @@ export function resolveCompletion(s: GameState, e: EnemyState): void {
 		killEnemy(s, e);
 		return;
 	}
-	// multi-hp / boss chain: damaged but alive → chip score + next word
+	// multi-hp / boss chain: damaged but alive → chip score, recoil, next word.
+	// The hit shoves the enemy back out toward the arena edge; bosses (imposing)
+	// take a softened recoil so they keep their menacing forward pressure.
+	const mult = getArchetype(e.archetypeId).role === "boss" ? 0.4 : 1;
+	applyKnockback(e, { x: 0, y: 0 }, mult);
 	s.score += 10 * e.word.length;
 	reassignWord(s, e);
 }

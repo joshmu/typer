@@ -3,6 +3,7 @@ import { isCloaked, isTargetable, tickAbility } from "./abilities";
 import { resolveCompletion } from "./combat";
 import { dist } from "./math";
 import { MOVEMENTS } from "./movement";
+import { separate, steer } from "./physics";
 import {
 	applyPowerup,
 	POWERUP_SPAWN_EVERY_KILLS,
@@ -26,6 +27,7 @@ export function step(
 		enemies: state.enemies.map((e) => ({
 			...e,
 			pos: { ...e.pos },
+			vel: { ...e.vel },
 			abilityState: { ...e.abilityState },
 		})),
 		powerups: state.powerups.map((p) => ({ ...p, pos: { ...p.pos } })),
@@ -39,15 +41,23 @@ export function step(
 		if (e.alive && e.ability) tickAbility(s, e);
 	}
 
-	// movement + player collision
+	// movement physics + player collision
 	let moveScale = 1;
 	if (s.freezeTicksLeft > 0) moveScale = 0;
 	else if (s.slowTicksLeft > 0) moveScale = SLOW_FACTOR;
-	for (const e of s.enemies) {
-		if (!e.alive) continue;
-		const v = MOVEMENTS[e.movement](e, s.tick);
-		e.pos.x += v.x * moveScale;
-		e.pos.y += v.y * moveScale;
+	const alive = s.enemies.filter((e) => e.alive);
+	// 1) each behaviour emits a DESIRED velocity; steer bends actual velocity
+	// toward it within an accel budget, so enemies carry inertia (no teleporting)
+	for (const e of alive) {
+		steer(e, MOVEMENTS[e.movement](e, s.tick));
+	}
+	// 2) crowd separation shoves overlapping bodies apart (adds to velocity)
+	separate(alive);
+	// 3) integrate velocity into position (freeze/slow scale the whole step so
+	// knockback and separation halt too) and resolve core collisions
+	for (const e of alive) {
+		e.pos.x += e.vel.x * moveScale;
+		e.pos.y += e.vel.y * moveScale;
 		if (dist(e.pos.x, e.pos.y) <= ARENA.killRadius) {
 			e.alive = false;
 			s.playerHp -= 1;
