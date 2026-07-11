@@ -10,7 +10,7 @@ import type { GameLoop } from "@/lib/game/render/loop";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
 import { COMBO_DECAY_TICKS, comboMultiplier } from "@/lib/game/sim/score";
 import type { GameState } from "@/lib/game/sim/state";
-import { saveGameRun, useBestRun } from "@/lib/game-runs";
+import { getBestRun, saveGameRun, useBestRun } from "@/lib/game-runs";
 import DeathScreen from "./DeathScreen";
 import StartScreen from "./StartScreen";
 
@@ -60,19 +60,26 @@ export default function GameShell() {
 	}
 
 	// persist the run once when the sim transitions to gameover; capture NEW BEST
-	// against the prior best (read before the save adds this run).
+	// against the prior best read straight from the DB (the reactive bestRun()
+	// signal can still be stale at the gameover instant).
+	async function persistRun(state: GameState) {
+		const stats = deriveRunStats(state);
+		// prior best, read before this run is added
+		const prev = await getBestRun();
+		setNewBest(prev === undefined || stats.score > prev.score);
+		await saveGameRun({
+			...stats,
+			seed: currentSeed,
+			timestamp: Date.now(),
+		});
+	}
 	createEffect(() => {
 		const state = hud();
 		if (state?.status === "gameover" && !saved) {
+			// set the guard synchronously so the effect re-running (hud() churns
+			// every frame) can never kick off a second save before the first awaits
 			saved = true;
-			const stats = deriveRunStats(state);
-			const prev = bestRun();
-			setNewBest(prev === undefined || stats.score > prev.score);
-			void saveGameRun({
-				...stats,
-				seed: currentSeed,
-				timestamp: Date.now(),
-			});
+			void persistRun(state);
 		}
 	});
 
