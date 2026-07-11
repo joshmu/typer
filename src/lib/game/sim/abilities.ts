@@ -9,6 +9,15 @@ export function isTargetable(e: EnemyState, tick: number): boolean {
 	return (tick - e.spawnTick) % period < e.ability.interval;
 }
 
+/**
+ * True while a cloak enemy is in its hidden phase — the inverse of
+ * `isTargetable` restricted to cloakers. Pure; consumed by the render layer to
+ * fade the mesh, and kept here so the visibility rule has a single source.
+ */
+export function isCloaked(e: EnemyState, tick: number): boolean {
+	return e.ability?.kind === "cloak" && !isTargetable(e, tick);
+}
+
 /** Shield consumes a hit; armored-front absorbs while the plated side faces
  * the player (dist > exposeRadius). Returns true when this completion deals
  * no hp damage. */

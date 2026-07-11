@@ -1,36 +1,86 @@
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Color3 } from "@babylonjs/core/Maths/math";
+import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
+import { CreateCapsule } from "@babylonjs/core/Meshes/Builders/capsuleBuilder";
+import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder";
+import { CreateIcoSphere } from "@babylonjs/core/Meshes/Builders/icoSphereBuilder";
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
 import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
+import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 import { getArchetype } from "../content/enemies";
+import { isCloaked } from "../sim/abilities";
 import type { GameState } from "../sim/state";
+import { type EnemyShape, tierScale, visualFor } from "./visuals";
 
 type EnemyVisual = {
 	root: TransformNode;
+	body: Mesh;
+	mat: StandardMaterial;
+	baseEmissive: Color3;
 	label: Mesh;
 	texture: DynamicTexture;
 	lastText: string;
 };
+
+function createBody(
+	shape: EnemyShape,
+	name: string,
+	size: number,
+	scene: Scene,
+): Mesh {
+	switch (shape) {
+		case "box":
+			return CreateBox(name, { size }, scene);
+		case "capsule":
+			return CreateCapsule(
+				name,
+				{ radius: size * 0.35, height: size, tessellation: 12 },
+				scene,
+			);
+		case "torus":
+			return CreateTorus(
+				name,
+				{ diameter: size, thickness: size * 0.35, tessellation: 20 },
+				scene,
+			);
+		case "cone":
+			return CreateCylinder(
+				name,
+				{ height: size, diameterTop: 0, diameterBottom: size },
+				scene,
+			);
+		case "icosphere":
+			return CreateIcoSphere(
+				name,
+				{ radius: size / 2, subdivisions: 2 },
+				scene,
+			);
+		default:
+			return CreateSphere(name, { diameter: size }, scene);
+	}
+}
 
 export function createEnemyRenderer(scene: Scene) {
 	const visuals = new Map<number, EnemyVisual>();
 
 	function create(id: number, archetypeId: string): EnemyVisual {
 		const arch = getArchetype(archetypeId);
+		const recipe = visualFor(archetypeId);
+		const scale = tierScale(arch.tier);
 		const root = new TransformNode(`enemy-${id}`, scene);
-		const body = CreateSphere(
-			`enemy-${id}-body`,
-			{ diameter: arch.size },
-			scene,
-		);
+
+		const body = createBody(recipe.shape, `enemy-${id}-body`, arch.size, scene);
 		body.parent = root;
-		body.position.y = arch.size / 2;
+		body.scaling.setAll(scale);
+		body.position.y = (arch.size / 2) * scale;
 		const mat = new StandardMaterial(`enemy-${id}-mat`, scene);
-		mat.diffuseColor = new Color3(0.85, 0.25, 0.3);
+		mat.diffuseColor = new Color3(...recipe.color);
+		const baseEmissive = new Color3(...recipe.emissive);
+		mat.emissiveColor = baseEmissive.clone();
 		body.material = mat;
 
 		const label = CreatePlane(
@@ -39,7 +89,7 @@ export function createEnemyRenderer(scene: Scene) {
 			scene,
 		);
 		label.parent = root;
-		label.position.y = arch.size + 0.9;
+		label.position.y = arch.size * scale + 0.9;
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
 		const texture = new DynamicTexture(
 			`enemy-${id}-tex`,
@@ -54,7 +104,7 @@ export function createEnemyRenderer(scene: Scene) {
 		labelMat.backFaceCulling = false;
 		label.material = labelMat;
 
-		return { root, label, texture, lastText: "" };
+		return { root, body, mat, baseEmissive, label, texture, lastText: "" };
 	}
 
 	function drawLabel(v: EnemyVisual, word: string, typedCount: number) {
@@ -93,6 +143,7 @@ export function createEnemyRenderer(scene: Scene) {
 				}
 				v.root.position.x = e.pos.x;
 				v.root.position.z = e.pos.y;
+				v.body.visibility = isCloaked(e, state.tick) ? 0.15 : 1;
 				drawLabel(v, e.word, e.typedCount);
 			}
 		},

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Ability } from "../content/enemies";
-import { absorbsCompletion, isTargetable, tickAbility } from "./abilities";
+import {
+	absorbsCompletion,
+	isCloaked,
+	isTargetable,
+	tickAbility,
+} from "./abilities";
 import { createInitialState, type EnemyState } from "./state";
 
 function enemyWith(
@@ -61,6 +66,15 @@ describe("abilities", () => {
 
 	it("non-cloak enemies are always targetable", () => {
 		expect(isTargetable(enemyWith(null), 30)).toBe(true);
+	});
+
+	it("isCloaked mirrors the hidden phase of cloakers only", () => {
+		const cloaker = enemyWith({ kind: "cloak", interval: 30 });
+		expect(isCloaked(cloaker, 0)).toBe(false); // visible phase
+		expect(isCloaked(cloaker, 30)).toBe(true); // hidden phase
+		expect(isCloaked(cloaker, 60)).toBe(false);
+		// non-cloak enemies are never cloaked
+		expect(isCloaked(enemyWith(null), 30)).toBe(false);
 	});
 
 	it("enrage-at-half latches a one-time speed boost", () => {
