@@ -21,6 +21,21 @@ and exposes `window.__game.{getState,sendKeys,stepTicks}`.
 Baseline is darwin-only while skeleton visuals churn; the linux CI baseline is added at
 visual-freeze (render polish phase), after which the snapshot gates CI.
 
+## Content breadth (Plan 3)
+
+- **Roster:** 30 archetypes in `src/lib/game/content/enemies.ts` — 24 regulars
+  (6 families × 4 tiers: Husk/chase, Darter/zigzag, Wraith/orbit-then-dive,
+  Charger/dash-pause, Weaver/flank, Brood/spiral) + 6 word-chain bosses. All
+  eight abilities and all six movements are represented; `split`/`spawn` minions
+  reference `brood-1`.
+- **Word bands:** `pickWordForTier(tier, rng, excludeInitials)` draws from length
+  bands over `english-1k` (tiers 1–2) and `english-5k` (tiers 3–4). Enemies draw
+  from their tier; boss chains reassign within the tier-4 band per completion.
+- **Spawner:** `selectArchetypeId(wave, rng)` weights regulars by wave-gated tiers
+  (tier unlocks at waves 1/3/6/10) and fields a boss on every 5th wave.
+- **Determinism:** golden fixtures (`replay-first-kill.json`, `replay-deep-run.json`)
+  re-recorded via `RECORD_FIXTURE=1 pnpm test:run -- src/lib/game/sim/replay.test.ts`.
+
 ## Next phases
 
 Sim depth (waves, combat, powerups, combo score) → 30+ enemy roster → render polish +
