@@ -54,7 +54,7 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 
 		const label = CreatePlane(
 			`enemy-${id}-label`,
-			{ width: 4, height: 1 },
+			{ width: 7, height: 1.75 },
 			scene,
 		);
 		label.parent = root;
@@ -62,7 +62,7 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
 		const texture = new DynamicTexture(
 			`enemy-${id}-tex`,
-			{ width: 384, height: 96 },
+			{ width: 512, height: 128 },
 			scene,
 			false,
 		);

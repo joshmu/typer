@@ -55,19 +55,19 @@ export function drawLabel(
 	ctx.clearRect(0, 0, W, H);
 	// biome-ignore lint/suspicious/noExplicitAny: ICanvasRenderingContext lacks font metrics typing
 	const c = ctx as any;
-	c.font = isTarget ? "bold 48px monospace" : "bold 40px monospace";
+	c.font = isTarget ? "bold 64px monospace" : "bold 54px monospace";
 	const typed = word.slice(0, typedCount);
 	const rest = word.slice(typedCount);
 	const typedW = c.measureText(typed).width;
 	const totalW = typedW + c.measureText(rest).width;
 
 	// plate sized to fit the text, centred; dark fill + thin accent border
-	const padX = 18;
-	const plateH = isTarget ? 62 : 54;
+	const padX = 24;
+	const plateH = isTarget ? 84 : 72;
 	const plateW = Math.min(W - 4, totalW + padX * 2);
 	const plateX = (W - plateW) / 2;
 	const plateY = (H - plateH) / 2;
-	roundRect(c, plateX, plateY, plateW, plateH, 12);
+	roundRect(c, plateX, plateY, plateW, plateH, 16);
 	c.fillStyle = "rgba(9, 11, 18, 0.7)";
 	c.fill();
 	c.lineWidth = isTarget ? 2 : 1;
@@ -78,7 +78,7 @@ export function drawLabel(
 
 	// text, vertically centred on the plate
 	const x = (W - totalW) / 2;
-	const y = H / 2 + (isTarget ? 17 : 14);
+	const y = H / 2 + (isTarget ? 23 : 19);
 	c.textBaseline = "alphabetic";
 	c.fillStyle = "#facc15";
 	c.fillText(typed, x, y);
