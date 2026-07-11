@@ -60,6 +60,8 @@ export default function GameShell() {
 
 	function onKeyDown(e: KeyboardEvent) {
 		if (e.key.length !== 1 || e.metaKey || e.ctrlKey || e.altKey) return;
+		// stop the browser acting on gameplay keys (space scroll, quick-find, …)
+		e.preventDefault();
 		loop?.pushKey(e.key);
 	}
 
