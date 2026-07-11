@@ -6,6 +6,7 @@ import {
 	FAMILY_VISUALS,
 	powerupVisual,
 	tierScale,
+	tierTint,
 	visualFor,
 } from "./visuals";
 
@@ -67,5 +68,20 @@ describe("visuals", () => {
 		expect(tierScale(1)).toBeLessThan(tierScale(2));
 		expect(tierScale(2)).toBeLessThan(tierScale(3));
 		expect(tierScale(3)).toBeLessThan(tierScale(4));
+	});
+
+	it("tints tiers brighter monotonically without leaving the color range", () => {
+		const base: [number, number, number] = [0.6, 0.3, 0.2];
+		const lum = ([r, g, b]: [number, number, number]) => r + g + b;
+		const tints = [1, 2, 3, 4].map((t) => tierTint(base, t as 1 | 2 | 3 | 4));
+		for (let i = 1; i < tints.length; i++) {
+			expect(lum(tints[i])).toBeGreaterThan(lum(tints[i - 1]));
+		}
+		for (const t of tints) {
+			for (const c of t) {
+				expect(c).toBeGreaterThanOrEqual(0);
+				expect(c).toBeLessThanOrEqual(1);
+			}
+		}
 	});
 });

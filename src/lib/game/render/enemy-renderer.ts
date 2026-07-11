@@ -1,68 +1,36 @@
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Color3 } from "@babylonjs/core/Maths/math";
-import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
-import { CreateCapsule } from "@babylonjs/core/Meshes/Builders/capsuleBuilder";
-import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder";
-import { CreateIcoSphere } from "@babylonjs/core/Meshes/Builders/icoSphereBuilder";
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
-import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
-import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 import { getArchetype } from "../content/enemies";
 import { isCloaked } from "../sim/abilities";
 import type { GameState } from "../sim/state";
+import { buildEnemyModel, type EnemyModel } from "./enemy-models";
 import { drawLabel } from "./label";
-import { type EnemyShape, tierScale, visualFor } from "./visuals";
+import { tierTint, visualFor } from "./visuals";
+
+// overall enemy model scale on top of archetype size — makes silhouettes read
+// at top-down gameplay zoom (playtest: "basic pixels", enemies too small)
+const MODEL_SCALE = 2.2;
 
 type EnemyVisual = {
 	root: TransformNode;
-	body: Mesh;
+	model: EnemyModel;
 	mat: StandardMaterial;
 	baseEmissive: Color3;
+	phase: number;
 	label: Mesh;
 	texture: DynamicTexture;
 	lastText: string;
 };
 
-function createBody(
-	shape: EnemyShape,
-	name: string,
-	size: number,
-	scene: Scene,
-): Mesh {
-	switch (shape) {
-		case "box":
-			return CreateBox(name, { size }, scene);
-		case "capsule":
-			return CreateCapsule(
-				name,
-				{ radius: size * 0.35, height: size, tessellation: 12 },
-				scene,
-			);
-		case "torus":
-			return CreateTorus(
-				name,
-				{ diameter: size, thickness: size * 0.35, tessellation: 20 },
-				scene,
-			);
-		case "cone":
-			return CreateCylinder(
-				name,
-				{ height: size, diameterTop: 0, diameterBottom: size },
-				scene,
-			);
-		case "icosphere":
-			return CreateIcoSphere(
-				name,
-				{ radius: size / 2, subdivisions: 2 },
-				scene,
-			);
-		default:
-			return CreateSphere(name, { diameter: size }, scene);
-	}
+/** Stable per-id animation phase so a family's models don't bob in lockstep. */
+function idPhase(id: number): number {
+	const h = (Math.imul(id, 0x9e3779b1) >>> 0) / 4294967296;
+	return h * Math.PI * 2;
 }
 
 export function createEnemyRenderer(scene: Scene) {
@@ -71,18 +39,17 @@ export function createEnemyRenderer(scene: Scene) {
 	function create(id: number, archetypeId: string): EnemyVisual {
 		const arch = getArchetype(archetypeId);
 		const recipe = visualFor(archetypeId);
-		const scale = tierScale(arch.tier);
 		const root = new TransformNode(`enemy-${id}`, scene);
 
-		const body = createBody(recipe.shape, `enemy-${id}-body`, arch.size, scene);
-		body.parent = root;
-		body.scaling.setAll(scale);
-		body.position.y = (arch.size / 2) * scale;
 		const mat = new StandardMaterial(`enemy-${id}-mat`, scene);
-		mat.diffuseColor = new Color3(...recipe.color);
+		mat.diffuseColor = new Color3(...tierTint(recipe.color, arch.tier));
 		const baseEmissive = new Color3(...recipe.emissive);
 		mat.emissiveColor = baseEmissive.clone();
-		body.material = mat;
+		mat.specularColor = new Color3(0.25, 0.25, 0.3);
+
+		const model = buildEnemyModel(scene, recipe, mat);
+		model.node.parent = root;
+		model.node.scaling.setAll(arch.size * MODEL_SCALE);
 
 		const label = CreatePlane(
 			`enemy-${id}-label`,
@@ -90,7 +57,7 @@ export function createEnemyRenderer(scene: Scene) {
 			scene,
 		);
 		label.parent = root;
-		label.position.y = arch.size * scale + 0.9;
+		label.position.y = arch.size * MODEL_SCALE + 0.9;
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
 		const texture = new DynamicTexture(
 			`enemy-${id}-tex`,
@@ -105,7 +72,16 @@ export function createEnemyRenderer(scene: Scene) {
 		labelMat.backFaceCulling = false;
 		label.material = labelMat;
 
-		return { root, body, mat, baseEmissive, label, texture, lastText: "" };
+		return {
+			root,
+			model,
+			mat,
+			baseEmissive,
+			phase: idPhase(id),
+			label,
+			texture,
+			lastText: "",
+		};
 	}
 
 	return {
@@ -127,7 +103,17 @@ export function createEnemyRenderer(scene: Scene) {
 				const isTarget = state.targetId === e.id;
 				v.root.position.x = e.pos.x;
 				v.root.position.z = e.pos.y;
-				v.body.visibility = isCloaked(e, state.tick) ? 0.15 : 1;
+
+				// idle animation: bob / spin / orient along velocity / orbit sub-parts
+				v.model.animate(state.tick, v.phase, e.vel);
+
+				// cloak → near-invisible with an alpha shimmer; else fully opaque
+				const cloaked = isCloaked(e, state.tick);
+				const vis = cloaked
+					? 0.12 + 0.06 * (0.5 + 0.5 * Math.sin(state.tick * 0.4 + v.phase))
+					: 1;
+				for (const p of v.model.parts) p.visibility = vis;
+
 				// locked target glows: boost the base emissive rather than replacing
 				// it, so each family keeps its hue
 				v.mat.emissiveColor.copyFrom(v.baseEmissive);

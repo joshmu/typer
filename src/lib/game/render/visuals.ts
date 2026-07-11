@@ -127,3 +127,17 @@ export function tierScale(tier: 1 | 2 | 3 | 4): number {
 			return 1.6;
 	}
 }
+
+/**
+ * Tint a family colour by tier so higher tiers read as hotter/more dangerous
+ * without changing hue. Monotonic in tier and clamped to the [0,1] Color3 range.
+ * Pure so the render layer can build a per-family+tier material tint from data.
+ */
+export function tierTint(
+	color: [number, number, number],
+	tier: 1 | 2 | 3 | 4,
+): [number, number, number] {
+	const factor = 0.82 + tier * 0.045; // tier1 0.865 → tier4 1.0
+	const clamp = (v: number) => Math.min(1, v * factor);
+	return [clamp(color[0]), clamp(color[1]), clamp(color[2])];
+}

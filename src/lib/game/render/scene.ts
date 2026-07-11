@@ -28,7 +28,7 @@ export function createGameScene(
 		"cam",
 		-Math.PI / 2,
 		0.12,
-		60,
+		55,
 		Vector3.Zero(),
 		scene,
 	);
