@@ -1,6 +1,7 @@
 import { isCharMatch } from "@/lib/core/text/char-match";
 import { getArchetype } from "../content/enemies";
 import { pickWord } from "../content/words";
+import { createEnemy } from "./enemy-factory";
 import { nextFloat } from "./rng";
 import { ARENA, type EnemyState, type GameState, type Vec2 } from "./state";
 
@@ -53,7 +54,11 @@ export function step(
 	const s: GameState = {
 		...state,
 		tick: state.tick + 1,
-		enemies: state.enemies.map((e) => ({ ...e, pos: { ...e.pos } })),
+		enemies: state.enemies.map((e) => ({
+			...e,
+			pos: { ...e.pos },
+			abilityState: { ...e.abilityState },
+		})),
 	};
 
 	// spawn
@@ -66,15 +71,7 @@ export function step(
 		const [word, r2] = pickWord(r1, initials);
 		s.rngState = r2;
 		const arch = getArchetype("grunt");
-		const enemy: EnemyState = {
-			id: s.nextEnemyId,
-			archetypeId: arch.id,
-			pos,
-			word,
-			typedCount: 0,
-			hp: arch.hp,
-			alive: true,
-		};
+		const enemy = createEnemy(arch, s.nextEnemyId, pos, s.tick, word);
 		s.nextEnemyId += 1;
 		s.enemies = [...s.enemies, enemy];
 	}

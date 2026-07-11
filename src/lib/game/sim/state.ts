@@ -1,6 +1,8 @@
+import type { Ability, MovementId } from "../content/enemies";
 import { createRngState } from "./rng";
 
 export type Vec2 = { x: number; y: number };
+export type AbilityState = { shieldHits: number; enraged: boolean };
 export type EnemyState = {
 	id: number;
 	archetypeId: string;
@@ -8,7 +10,14 @@ export type EnemyState = {
 	word: string;
 	typedCount: number;
 	hp: number;
+	maxHp: number;
 	alive: boolean;
+	spawnTick: number;
+	speed: number;
+	tier: 1 | 2 | 3 | 4;
+	movement: MovementId;
+	ability: Ability | null;
+	abilityState: AbilityState;
 };
 export type GameStatus = "running" | "gameover";
 export type GameState = {

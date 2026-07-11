@@ -1,0 +1,39 @@
+import { describe, expect, it } from "vitest";
+import type { EnemyArchetype } from "../content/enemies";
+import { createEnemy, initAbilityState } from "./enemy-factory";
+
+const shielded: EnemyArchetype = {
+	id: "test-shielded",
+	name: "Test",
+	hp: 3,
+	speed: 0.03,
+	size: 1,
+	tier: 2,
+	movement: "zigzag",
+	ability: { kind: "shield", hits: 2 },
+	role: "regular",
+};
+
+describe("enemy-factory", () => {
+	it("initialises ability state from a shield ability", () => {
+		expect(initAbilityState(shielded.ability)).toEqual({
+			shieldHits: 2,
+			enraged: false,
+		});
+	});
+	it("initialises empty ability state for no ability", () => {
+		expect(initAbilityState(null)).toEqual({ shieldHits: 0, enraged: false });
+	});
+	it("denormalises archetype fields onto the enemy", () => {
+		const e = createEnemy(shielded, 7, { x: 1, y: 2 }, 100, "word");
+		expect(e.id).toBe(7);
+		expect(e.hp).toBe(3);
+		expect(e.maxHp).toBe(3);
+		expect(e.speed).toBe(0.03);
+		expect(e.tier).toBe(2);
+		expect(e.movement).toBe("zigzag");
+		expect(e.spawnTick).toBe(100);
+		expect(e.abilityState.shieldHits).toBe(2);
+		expect(e.alive).toBe(true);
+	});
+});
