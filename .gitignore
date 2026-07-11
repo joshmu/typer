@@ -23,6 +23,9 @@ Thumbs.db
 test-results/
 playwright-report/
 
+# Visual probe output
+.probe/
+
 # Vercel
 .vercel/
 
