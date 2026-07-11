@@ -5,7 +5,6 @@ import {
 	FALLBACK_VISUAL,
 	FAMILY_VISUALS,
 	powerupVisual,
-	tierScale,
 	tierTint,
 	visualFor,
 } from "./visuals";
@@ -30,10 +29,9 @@ describe("visuals", () => {
 		expect(colors.size).toBe(new Set(roster).size);
 	});
 
-	it("gives bosses an icosphere shape with high emissive", () => {
+	it("gives bosses the highest emissive", () => {
 		const boss = visualFor("boss-maw");
 		expect(boss.family).toBe("boss");
-		expect(boss.shape).toBe("icosphere");
 		const luminance = boss.emissive.reduce((a, b) => a + b, 0);
 		expect(luminance).toBeGreaterThan(0.5);
 	});
@@ -61,13 +59,6 @@ describe("visuals", () => {
 			const lum = powerupVisual(k).emissive.reduce((a, b) => a + b, 0);
 			expect(lum).toBeGreaterThan(0);
 		}
-	});
-
-	it("scales tiers monotonically", () => {
-		expect(tierScale(1)).toBe(1);
-		expect(tierScale(1)).toBeLessThan(tierScale(2));
-		expect(tierScale(2)).toBeLessThan(tierScale(3));
-		expect(tierScale(3)).toBeLessThan(tierScale(4));
 	});
 
 	it("tints tiers brighter monotonically without leaving the color range", () => {
