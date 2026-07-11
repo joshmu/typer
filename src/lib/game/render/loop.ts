@@ -9,6 +9,11 @@ import { visualFor } from "./visuals";
 
 const TICK_MS = 1000 / 60;
 const MAX_CATCHUP_TICKS = 30; // degraded-tab guard: drop time instead of spiraling
+// a vanished enemy whose last-seen position was this close to the origin, in a
+// frame where the core also lost hp, breached the core — it was not typed to
+// death, so it gets the hit shake but no kill burst. Sits just above
+// ARENA.killRadius (1.2) to absorb the sub-tick of travel before it was pruned.
+const BREACH_RADIUS = 2;
 
 export type GameLoopOptions = {
 	canvas: HTMLCanvasElement;
@@ -78,9 +83,21 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 				});
 			}
 		}
+		// hp lost this frame is attributable to core breaches — enemies that
+		// reached the origin rather than being typed to death. Attribute each drop
+		// to the nearest vanished enemy so its disappearance reads as a hit (shake),
+		// not a kill (burst).
+		let breachesToAttribute = lastPlayerHp - state.playerHp;
 		for (const [id, info] of lastSeen) {
 			if (!info.seen) {
-				effects.deathBurst(info, info.color);
+				const breached =
+					breachesToAttribute > 0 &&
+					Math.hypot(info.x, info.y) <= BREACH_RADIUS;
+				if (breached) {
+					breachesToAttribute -= 1; // core hit, not a kill: no burst
+				} else {
+					effects.deathBurst(info, info.color);
+				}
 				lastSeen.delete(id);
 			}
 		}
