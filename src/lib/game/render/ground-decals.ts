@@ -7,7 +7,9 @@ import type { Scene } from "@babylonjs/core/scene";
  * match the old uScale/vScale), then corpse and breach decals are stamped
  * straight into the same texture on death frames. There are NO live decal
  * entities and no per-frame cost — accumulation is unbounded for free, and
- * `texture.update()` is called only when something is actually stamped.
+ * stamps draw straight into the canvas and set a dirty flag, and the single
+ * GPU `texture.update()` is deferred to `flush()` (once per frame) so any number
+ * of stamps in a frame cost exactly one upload.
  */
 
 export type GroundDecals = {
@@ -22,6 +24,9 @@ export type GroundDecals = {
 	): void;
 	/** Stamp a red core-side scar where an enemy breached the core. */
 	stampScar(x: number, y: number, seed: number): void;
+	/** Upload the accumulated stamps to the GPU once, if anything was stamped
+	 * since the last flush. Call once per frame after processing deaths. */
+	flush(): void;
 	dispose(): void;
 };
 
@@ -42,13 +47,19 @@ export function createGroundDecals(
 	scene: Scene,
 	worldRadius: number,
 ): GroundDecals {
+	// generateMipMaps=false: the ground is viewed at a fixed near-top-down zoom,
+	// so mip levels are never sampled — skipping them avoids the full-chain
+	// regeneration the GPU would otherwise run on every texture.update().
 	const texture = new DynamicTexture(
 		"ground-dynamic",
 		{ width: SIZE, height: SIZE },
 		scene,
-		true,
+		false,
 	);
 	const ctx = texture.getContext() as Ctx;
+	// set by stamps, cleared by flush(): batches all of a frame's decal draws
+	// into a single GPU upload
+	let dirty = false;
 
 	// dark base fill so the disc is never a transparent/black hole before the
 	// terrain image decodes
@@ -123,7 +134,7 @@ export function createGroundDecals(
 
 		ctx.restore();
 		ctx.globalAlpha = 1;
-		texture.update();
+		dirty = true;
 	}
 
 	function stampScar(x: number, y: number, seed: number): void {
@@ -151,13 +162,20 @@ export function createGroundDecals(
 		ctx.stroke();
 		ctx.restore();
 		ctx.globalAlpha = 1;
+		dirty = true;
+	}
+
+	function flush(): void {
+		if (!dirty) return;
 		texture.update();
+		dirty = false;
 	}
 
 	return {
 		texture,
 		stampCorpse,
 		stampScar,
+		flush,
 		dispose() {
 			texture.dispose();
 		},

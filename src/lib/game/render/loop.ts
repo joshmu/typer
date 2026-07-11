@@ -166,6 +166,8 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 			}
 			lastSeen.delete(id);
 		}
+		// one GPU upload for every corpse/scar stamped this frame
+		gameScene.ground.flush();
 		if (state.playerHp < lastPlayerHp) effects.playerHit();
 
 		// powerup activation → radial ring pulse from the turret, fired only on the
