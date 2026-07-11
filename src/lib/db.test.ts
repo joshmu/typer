@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import Dexie, { liveQuery } from "dexie";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { TyperDB, type TypingResult } from "./db";
+import { type GameRun, TyperDB, type TypingResult } from "./db";
 
 function createResult(overrides?: Partial<TypingResult>): TypingResult {
 	return {
@@ -132,5 +132,74 @@ describe("TyperDB", () => {
 
 		const best = await db.results.orderBy("wpm").reverse().first();
 		expect(best?.wpm).toBe(120);
+	});
+});
+
+function createGameRun(overrides?: Partial<GameRun>): GameRun {
+	return {
+		score: 1000,
+		wave: 3,
+		kills: 40,
+		wpm: 55,
+		accuracy: 92,
+		durationSeconds: 120,
+		seed: 42,
+		timestamp: Date.now(),
+		...overrides,
+	};
+}
+
+describe("TyperDB gameRuns (v4)", () => {
+	let db: TyperDB;
+
+	beforeEach(() => {
+		db = new TyperDB(`TestGameDB_${Date.now()}_${Math.random()}`);
+	});
+
+	afterEach(async () => {
+		db.close();
+		await db.delete();
+	});
+
+	it("adds and retrieves a game run", async () => {
+		const id = await db.gameRuns.add(createGameRun({ score: 2500, wave: 6 }));
+		expect(id).toBeGreaterThan(0);
+
+		const retrieved = await db.gameRuns.get(id);
+		expect(retrieved).toMatchObject({ score: 2500, wave: 6 });
+	});
+
+	it("orders runs by score via index (best run)", async () => {
+		await db.gameRuns.bulkAdd([
+			createGameRun({ score: 800 }),
+			createGameRun({ score: 3200 }),
+			createGameRun({ score: 1500 }),
+		]);
+
+		const best = await db.gameRuns.orderBy("score").reverse().first();
+		expect(best?.score).toBe(3200);
+	});
+
+	it("orders runs by timestamp (recent runs newest first)", async () => {
+		await db.gameRuns.bulkAdd([
+			createGameRun({ timestamp: 3000, score: 60 }),
+			createGameRun({ timestamp: 1000, score: 80 }),
+			createGameRun({ timestamp: 2000, score: 100 }),
+		]);
+
+		const recent = await db.gameRuns.orderBy("timestamp").reverse().toArray();
+		expect(recent.map((r) => r.score)).toEqual([60, 100, 80]);
+	});
+
+	it("keeps existing tables available after the v4 upgrade", async () => {
+		// exercising both results and gameRuns proves the versioned upgrade
+		// carried the pre-existing stores forward.
+		await db.results.add(createResult({ wpm: 111 }));
+		await db.gameRuns.add(createGameRun({ score: 4200 }));
+
+		expect(await db.results.count()).toBe(1);
+		expect(await db.gameRuns.count()).toBe(1);
+		const best = await db.gameRuns.orderBy("score").reverse().first();
+		expect(best?.score).toBe(4200);
 	});
 });

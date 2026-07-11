@@ -17,10 +17,23 @@ export interface TypingResult {
 	bookTitle?: string;
 }
 
+export interface GameRun {
+	id?: number;
+	score: number;
+	wave: number;
+	kills: number;
+	wpm: number;
+	accuracy: number;
+	durationSeconds: number;
+	seed: number;
+	timestamp: number;
+}
+
 export class TyperDB extends Dexie {
 	results!: Table<TypingResult, number>;
 	bookProgress!: Table<BookProgress, number>;
 	cachedBooks!: Table<CachedBook, string>;
+	gameRuns!: Table<GameRun, number>;
 
 	constructor(name = "TyperDB") {
 		super(name);
@@ -39,6 +52,12 @@ export class TyperDB extends Dexie {
 		// which the compound [mode+wpm] index cannot serve.
 		this.version(3).stores({
 			results: "++id, timestamp, mode, wpm, [mode+wpm]",
+		});
+
+		// v4: Horde run history — score indexed for best-run lookup, timestamp
+		// for recent-runs ordering. Existing tables carry forward unchanged.
+		this.version(4).stores({
+			gameRuns: "++id, timestamp, score, wave",
 		});
 	}
 }
