@@ -37,8 +37,8 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 	const gameScene = createGameScene(opts.canvas, {
 		preserveDrawingBuffer: opts.testMode,
 	});
-	const enemies = createEnemyRenderer(gameScene.scene);
-	const powerups = createPowerupRenderer(gameScene.scene);
+	const enemies = createEnemyRenderer(gameScene.scene, gameScene.glow);
+	const powerups = createPowerupRenderer(gameScene.scene, gameScene.glow);
 	const effects = createEffects(gameScene.scene);
 	const turret = createTurret(gameScene.scene);
 	// scratch vectors reused every frame — the hot path allocates nothing

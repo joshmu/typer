@@ -143,6 +143,24 @@ export function createTurret(scene: Scene): Turret {
 	ring.setEnabled(false);
 	let ringLife = 0;
 
+	// core danger ring: the defensive perimeter the player protects. killRadius
+	// (1.6) sits inside the turret body, so the visible warning line is drawn at a
+	// readable perimeter and flares red when the horde presses close.
+	const danger = CreateTorus(
+		"turret-danger",
+		{ diameter: 9, thickness: 0.14, tessellation: 64 },
+		scene,
+	);
+	danger.rotation.x = Math.PI / 2;
+	danger.position.y = 0.12;
+	const dangerMat = mat(
+		scene,
+		"turret-danger-mat",
+		new Color3(0.5, 0.4, 0.15),
+		new Color3(0.5, 0.4, 0.15),
+	);
+	danger.material = dangerMat;
+
 	let yaw = 0;
 
 	return {
@@ -173,6 +191,22 @@ export function createTurret(scene: Scene): Turret {
 				ringMat.alpha = (1 - t) * 0.7;
 				if (ringLife === 0) ring.setEnabled(false);
 			}
+
+			// core danger ring: nearest enemy proximity drives colour + pulse — calm
+			// amber when clear, flaring red and pulsing hard when the horde is close
+			let nearest = Infinity;
+			for (const e of state.enemies) {
+				const d = Math.hypot(e.pos.x, e.pos.y);
+				if (d < nearest) nearest = d;
+			}
+			const threat = nearest < 6 ? 1 - nearest / 6 : 0;
+			const beat = 0.5 + 0.5 * Math.sin(state.tick * (0.1 + threat * 0.25));
+			const glow = 0.35 + beat * (0.25 + threat * 0.7);
+			dangerMat.emissiveColor.set(
+				(0.5 + threat * 0.5) * glow * 2,
+				(0.4 - threat * 0.35) * glow * 2,
+				(0.15 - threat * 0.12) * glow * 2,
+			);
 		},
 		getMuzzle(out: Vector3): Vector3 {
 			out.set(Math.sin(yaw) * MUZZLE_LEN, MUZZLE_Y, Math.cos(yaw) * MUZZLE_LEN);
@@ -187,6 +221,7 @@ export function createTurret(scene: Scene): Turret {
 		dispose() {
 			root.dispose(false, true);
 			(ring as Mesh).dispose(false, true);
+			(danger as Mesh).dispose(false, true);
 		},
 	};
 }

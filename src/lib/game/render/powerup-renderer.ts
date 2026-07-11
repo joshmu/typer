@@ -1,3 +1,4 @@
+import type { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Color3 } from "@babylonjs/core/Maths/math";
@@ -31,7 +32,7 @@ const CRYSTAL_Y = 1.1; // hover the pickup above the arena floor
  * crystal (octahedron) wrapped in a halo torus with a pulsing emissive — reads
  * as a distinct "beneficial pickup", never confusable with an enemy.
  */
-export function createPowerupRenderer(scene: Scene) {
+export function createPowerupRenderer(scene: Scene, glow: GlowLayer) {
 	const visuals = new Map<number, PowerupVisual>();
 
 	function create(id: number, kind: PowerupKind): PowerupVisual {
@@ -81,6 +82,7 @@ export function createPowerupRenderer(scene: Scene) {
 		labelMat.emissiveColor = Color3.White();
 		labelMat.backFaceCulling = false;
 		label.material = labelMat;
+		glow.addExcludedMesh(label); // word plates stay crisp, never bloomed
 
 		return {
 			root,

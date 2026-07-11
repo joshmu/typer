@@ -1,3 +1,4 @@
+import type { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Color3 } from "@babylonjs/core/Maths/math";
@@ -33,7 +34,7 @@ function idPhase(id: number): number {
 	return h * Math.PI * 2;
 }
 
-export function createEnemyRenderer(scene: Scene) {
+export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 	const visuals = new Map<number, EnemyVisual>();
 
 	function create(id: number, archetypeId: string): EnemyVisual {
@@ -71,6 +72,7 @@ export function createEnemyRenderer(scene: Scene) {
 		labelMat.emissiveColor = Color3.White();
 		labelMat.backFaceCulling = false;
 		label.material = labelMat;
+		glow.addExcludedMesh(label); // word plates stay crisp, never bloomed
 
 		return {
 			root,
