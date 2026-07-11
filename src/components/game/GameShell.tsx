@@ -19,6 +19,7 @@ declare global {
 		__game?: {
 			getState(): GameState;
 			sendKeys(keys: string): void;
+			sendBackspace(): void;
 			stepTicks(n: number): void;
 			renderReady(): boolean;
 		};
@@ -111,6 +112,7 @@ export default function GameShell() {
 					sendKeys: (keys) => {
 						for (const k of keys) activeLoop.pushKey(k);
 					},
+					sendBackspace: () => activeLoop.pushBackspace(),
 					stepTicks: (n) => activeLoop.stepTicks(n),
 					renderReady: () => activeLoop.renderReady(),
 				};
@@ -140,6 +142,16 @@ export default function GameShell() {
 	});
 
 	function onKeyDown(e: KeyboardEvent) {
+		// Backspace releases the current lock. Always preventDefault so the browser
+		// never navigates back out of the game; only feed the sim a release event
+		// during live play (inert on the start overlay and the death screen).
+		if (e.key === "Backspace") {
+			e.preventDefault();
+			if (e.metaKey || e.ctrlKey || e.altKey) return;
+			if (hud()?.status === "gameover" || !started()) return;
+			loop?.pushBackspace();
+			return;
+		}
 		if (e.key.length !== 1 || e.metaKey || e.ctrlKey || e.altKey) return;
 		// death screen: R restarts, everything else is inert
 		if (hud()?.status === "gameover") {

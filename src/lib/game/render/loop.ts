@@ -27,6 +27,8 @@ export type GameLoopOptions = {
 
 export type GameLoop = {
 	pushKey(key: string): void;
+	/** Release the active target (Backspace) — keeps all typed progress. */
+	pushBackspace(): void;
 	stepTicks(n: number): void;
 	setRunning(running: boolean): void;
 	getState(): GameState;
@@ -181,6 +183,13 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 	return {
 		pushKey(key: string) {
 			pending.push({ type: "key", key });
+			if (opts.testMode) {
+				advance(1);
+				render();
+			}
+		},
+		pushBackspace() {
+			pending.push({ type: "backspace" });
 			if (opts.testMode) {
 				advance(1);
 				render();

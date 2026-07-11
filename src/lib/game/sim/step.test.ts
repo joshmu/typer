@@ -211,6 +211,101 @@ describe("step", () => {
 		}
 	});
 
+	it("free-flow: switching targets mid-word preserves both enemies' progress", () => {
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		s.spawnQueueRemaining = 0;
+		s.enemies = [
+			createEnemy(getArchetype("husk-1"), 1, { x: 12, y: 0 }, 0, ["alpha"]),
+			createEnemy(getArchetype("husk-1"), 2, { x: 18, y: 0 }, 0, ["bravo"]),
+		];
+		s.nextEnemyId = 3;
+		s = step(s, [{ type: "key", key: "a" }]); // acquire A
+		s = step(s, [{ type: "key", key: "l" }]); // advance A → "al" (next 'p')
+		expect(s.targetId).toBe(1);
+		expect(s.enemies.find((e) => e.id === 1)?.typedCount).toBe(2);
+
+		// 'b' does not continue A but matches B's initial → re-route (NOT a miss)
+		const missesBefore = s.misses;
+		s = step(s, [{ type: "key", key: "b" }]);
+		expect(s.targetId).toBe(2);
+		expect(s.misses).toBe(missesBefore);
+		expect(s.enemies.find((e) => e.id === 1)?.typedCount).toBe(2); // A kept
+		expect(s.enemies.find((e) => e.id === 2)?.typedCount).toBe(1); // B advanced
+	});
+
+	it("free-flow: returning to a partial target resumes at its saved count", () => {
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		s.spawnQueueRemaining = 0;
+		s.enemies = [
+			createEnemy(getArchetype("husk-1"), 1, { x: 12, y: 0 }, 0, ["alpha"]),
+			createEnemy(getArchetype("husk-1"), 2, { x: 18, y: 0 }, 0, ["bravo"]),
+		];
+		s.nextEnemyId = 3;
+		s = step(s, [{ type: "key", key: "a" }]);
+		s = step(s, [{ type: "key", key: "l" }]); // A at typedCount 2 (next 'p')
+		s = step(s, [{ type: "key", key: "b" }]); // route to B
+		// 'p' continues A ("al|pha") — resume at saved count, not from zero
+		s = step(s, [{ type: "key", key: "p" }]);
+		expect(s.targetId).toBe(1);
+		expect(s.enemies.find((e) => e.id === 1)?.typedCount).toBe(3);
+	});
+
+	it("free-flow: the nearest of two partials wins the routing tie-break", () => {
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		s.spawnQueueRemaining = 0;
+		// both pre-advanced to the same next-needed char 'x'; long words so the
+		// completion does not fire and clear the lock
+		const near = createEnemy(getArchetype("husk-1"), 1, { x: 10, y: 0 }, 0, [
+			"zxy",
+		]);
+		const far = createEnemy(getArchetype("husk-1"), 2, { x: 20, y: 0 }, 0, [
+			"qxy",
+		]);
+		near.typedCount = 1;
+		far.typedCount = 1;
+		s.enemies = [near, far];
+		s.nextEnemyId = 3;
+		s = step(s, [{ type: "key", key: "x" }]);
+		expect(s.targetId).toBe(1); // nearest to the core wins
+		expect(s.enemies.find((e) => e.id === 1)?.typedCount).toBe(2);
+		expect(s.enemies.find((e) => e.id === 2)?.typedCount).toBe(1);
+	});
+
+	it("backspace releases the lock, keeps progress, and is never a miss", () => {
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		s.spawnQueueRemaining = 0;
+		s.enemies = [
+			createEnemy(getArchetype("husk-1"), 1, { x: 12, y: 0 }, 0, ["alpha"]),
+		];
+		s.nextEnemyId = 2;
+		s = step(s, [{ type: "key", key: "a" }]);
+		s = step(s, [{ type: "key", key: "l" }]); // typedCount 2
+		const missesBefore = s.misses;
+		s = step(s, [{ type: "backspace" }]);
+		expect(s.targetId).toBeNull();
+		expect(s.misses).toBe(missesBefore); // release is never a miss
+		expect(s.enemies.find((e) => e.id === 1)?.typedCount).toBe(2); // progress kept
+	});
+
+	it("free-flow: a dead key that matches no live target counts a miss", () => {
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		s.spawnQueueRemaining = 0;
+		s.enemies = [
+			createEnemy(getArchetype("husk-1"), 1, { x: 12, y: 0 }, 0, ["alpha"]),
+		];
+		s.nextEnemyId = 2;
+		s.combo = 5;
+		s.comboTicksLeft = 100;
+		s = step(s, [{ type: "key", key: "z" }]); // matches nothing on the field
+		expect(s.misses).toBe(1);
+		expect(s.combo).toBe(0);
+	});
+
 	it("is pure — same inputs, same output, no input mutation", () => {
 		const s0 = createInitialState(7);
 		const frozen = JSON.stringify(s0);

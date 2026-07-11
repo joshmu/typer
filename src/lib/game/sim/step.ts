@@ -11,9 +11,14 @@ import {
 	spawnPowerup,
 } from "./powerups";
 import { runWaveDirector } from "./spawner";
-import { ARENA, currentWord, type GameState } from "./state";
+import { ARENA, currentWord, type EnemyState, type GameState } from "./state";
 
-export type GameEvent = { type: "key"; key: string };
+export type GameEvent =
+	| { type: "key"; key: string }
+	// Backspace releases the current lock (keeping all typed progress). Never a
+	// miss — it is a deliberate "let go of this target" input, ZType/Typing-of-
+	// the-Dead style, so the player can free-flow to another enemy.
+	| { type: "backspace" };
 
 export function step(
 	state: GameState,
@@ -105,11 +110,22 @@ export function step(
 		spawnPowerup(s);
 	}
 
-	// typing
+	// typing — ZType-style free-flow routing. A keystroke first tries to CONTINUE
+	// the active lock; failing that it re-routes to the nearest other target whose
+	// next-needed char matches (partial progress on every enemy is preserved, never
+	// reset); only a key that matches nothing live is a miss. At most one lock is
+	// held at a time (enemy XOR powerup).
 	for (const ev of events) {
-		if (ev.type !== "key") continue;
+		if (ev.type === "backspace") {
+			// release the active lock; all typed progress on every target is kept
+			s.targetId = null;
+			s.targetPowerupId = null;
+			continue;
+		}
 
-		// 1) advance a locked powerup
+		// 1) continue the active lock (powerup takes precedence, mirroring the old
+		// acquisition order). A mismatch does NOT miss here — it falls through to
+		// re-routing, which is the whole point of free-flow.
 		if (s.targetPowerupId !== null) {
 			const pu = s.powerups.find((p) => p.id === s.targetPowerupId);
 			if (pu && isCharMatch(ev.key, pu.word[pu.typedCount])) {
@@ -122,55 +138,56 @@ export function step(
 				}
 				continue;
 			}
-			if (pu) {
-				s.misses += 1;
-				s.combo = 0;
-				s.comboTicksLeft = 0;
-				continue;
-			}
-			s.targetPowerupId = null;
-		}
-
-		// 2) advance a locked enemy
-		const target = s.enemies.find((e) => e.id === s.targetId && e.alive);
-		if (target) {
-			if (isCharMatch(ev.key, currentWord(target)[target.typedCount])) {
-				target.typedCount += 1;
-				s.hits += 1;
-				resolveCompletion(s, target, moveScale);
+			if (!pu) s.targetPowerupId = null; // stale lock
+		} else if (s.targetId !== null) {
+			const target = s.enemies.find((e) => e.id === s.targetId && e.alive);
+			if (target) {
+				if (isCharMatch(ev.key, currentWord(target)[target.typedCount])) {
+					target.typedCount += 1;
+					s.hits += 1;
+					resolveCompletion(s, target, moveScale);
+					continue;
+				}
+				// alive but this key doesn't continue it → fall through to re-route
 			} else {
-				s.misses += 1;
-				s.combo = 0;
-				s.comboTicksLeft = 0;
+				s.targetId = null; // stale lock
 			}
-			continue;
 		}
-		s.targetId = null;
 
-		// 3) acquire a new enemy target (preferred), then a powerup
-		const candidates = s.enemies
-			.filter(
-				(e) =>
-					e.alive &&
-					isTargetable(e, s.tick) &&
-					isCharMatch(ev.key, currentWord(e)[0]),
-			)
-			.sort((a, b) => dist(a.pos.x, a.pos.y) - dist(b.pos.x, b.pos.y));
-		if (candidates.length > 0) {
-			const picked = candidates[0];
-			picked.typedCount = 1;
-			s.hits += 1;
+		// 2) re-route: nearest alive, targetable enemy whose NEXT-needed char
+		// matches. Covers fresh enemies (typedCount 0 → initial) AND previously
+		// partial ones (at their saved progress) in one scan. Nearest to the core
+		// wins the tie-break. Switching keeps the previous target's typedCount.
+		let picked: EnemyState | undefined;
+		let bestDist = Number.POSITIVE_INFINITY;
+		for (const e of s.enemies) {
+			if (!e.alive || !isTargetable(e, s.tick)) continue;
+			if (!isCharMatch(ev.key, currentWord(e)[e.typedCount])) continue;
+			const d = dist(e.pos.x, e.pos.y);
+			if (d < bestDist) {
+				bestDist = d;
+				picked = e;
+			}
+		}
+		if (picked) {
 			s.targetId = picked.id;
+			s.targetPowerupId = null;
+			picked.typedCount += 1;
+			s.hits += 1;
 			resolveCompletion(s, picked, moveScale);
 			continue;
 		}
 
-		const pu = s.powerups.find((p) => isCharMatch(ev.key, p.word[0]));
+		// 3) powerups: resume/acquire by next-needed char (few ever on field)
+		const pu = s.powerups.find((p) =>
+			isCharMatch(ev.key, p.word[p.typedCount]),
+		);
 		if (pu) {
-			pu.typedCount = 1;
-			s.hits += 1;
 			s.targetPowerupId = pu.id;
-			if (pu.word.length === 1) {
+			s.targetId = null;
+			pu.typedCount += 1;
+			s.hits += 1;
+			if (pu.typedCount >= pu.word.length) {
 				applyPowerup(s, pu.kind);
 				s.powerups = s.powerups.filter((p) => p.id !== pu.id);
 				s.targetPowerupId = null;
@@ -178,7 +195,7 @@ export function step(
 			continue;
 		}
 
-		// the key matches only a cloaked (hidden-phase) enemy's initial: it is
+		// 4) the key matches only a cloaked (hidden-phase) enemy's initial: it is
 		// unfair to penalise a target the player cannot yet see, so ignore it —
 		// no miss, no combo break — rather than count it against them
 		if (
@@ -192,6 +209,7 @@ export function step(
 			continue;
 		}
 
+		// 5) dead key → miss + combo break
 		s.misses += 1;
 		s.combo = 0;
 		s.comboTicksLeft = 0;
