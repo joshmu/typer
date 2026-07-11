@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createInitialState, type GameState } from "./state";
-import { type GameEvent, MAX_ALIVE, SPAWN_INTERVAL_TICKS, step } from "./step";
+import { createRngState } from "./rng";
+import { ARENA, createInitialState, type GameState } from "./state";
+import {
+	type GameEvent,
+	MAX_ALIVE,
+	SPAWN_INTERVAL_TICKS,
+	spawnPoint,
+	step,
+} from "./step";
 
 function run(
 	s: GameState,
@@ -22,6 +29,14 @@ describe("step", () => {
 	it("spawns an enemy on the spawn interval", () => {
 		const s = run(createInitialState(42), SPAWN_INTERVAL_TICKS + 1);
 		expect(s.enemies.filter((e) => e.alive).length).toBeGreaterThanOrEqual(1);
+	});
+
+	it("samples spawn points exactly on the spawn radius", () => {
+		for (let seed = 0; seed < 8; seed++) {
+			const [pos] = spawnPoint(createRngState(seed), ARENA.spawnRadius);
+			const d = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+			expect(Math.abs(d - ARENA.spawnRadius)).toBeLessThan(1e-9);
+		}
 	});
 
 	it("caps alive enemies at MAX_ALIVE", () => {

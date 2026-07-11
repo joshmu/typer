@@ -2,11 +2,47 @@ import { isCharMatch } from "@/lib/core/text/char-match";
 import { getArchetype } from "../content/enemies";
 import { pickWord } from "../content/words";
 import { nextFloat } from "./rng";
-import { ARENA, type EnemyState, type GameState } from "./state";
+import { ARENA, type EnemyState, type GameState, type Vec2 } from "./state";
 
 export type GameEvent = { type: "key"; key: string };
 export const SPAWN_INTERVAL_TICKS = 180;
 export const MAX_ALIVE = 8;
+
+/**
+ * Euclidean distance using only cross-engine-deterministic ops (+,-,*,/ and
+ * the correctly-rounded sqrt). The built-in hypot is implementation-
+ * approximated and MUST NOT be used inside the simulation.
+ */
+function dist(x: number, y: number): number {
+	return Math.sqrt(x * x + y * y);
+}
+
+/**
+ * Deterministic uniform point on a circle of the given radius. The built-in
+ * trig approximations are implementation-defined, so instead we rejection-
+ * sample a point in the unit disc (only +,-,*,/ and sqrt) and project it onto
+ * the circle. Each rejected iteration advances the rng state, keeping the draw
+ * deterministic.
+ */
+export function spawnPoint(
+	rngState: number,
+	radius: number,
+): [pos: Vec2, next: number] {
+	let state = rngState;
+	let ux = 0;
+	let uy = 0;
+	let len2 = 0;
+	do {
+		const [fx, r1] = nextFloat(state);
+		const [fy, r2] = nextFloat(r1);
+		state = r2;
+		ux = fx * 2 - 1;
+		uy = fy * 2 - 1;
+		len2 = ux * ux + uy * uy;
+	} while (len2 > 1 || len2 < 0.0001);
+	const len = Math.sqrt(len2);
+	return [{ x: (ux / len) * radius, y: (uy / len) * radius }, state];
+}
 
 export function step(
 	state: GameState,
@@ -23,21 +59,17 @@ export function step(
 	// spawn
 	const aliveCount = s.enemies.filter((e) => e.alive).length;
 	if (s.tick % SPAWN_INTERVAL_TICKS === 0 && aliveCount < MAX_ALIVE) {
-		const [angleT, r1] = nextFloat(s.rngState);
+		const [pos, r1] = spawnPoint(s.rngState, ARENA.spawnRadius);
 		const initials = new Set(
 			s.enemies.filter((e) => e.alive).map((e) => e.word[0]),
 		);
 		const [word, r2] = pickWord(r1, initials);
 		s.rngState = r2;
-		const angle = angleT * Math.PI * 2;
 		const arch = getArchetype("grunt");
 		const enemy: EnemyState = {
 			id: s.nextEnemyId,
 			archetypeId: arch.id,
-			pos: {
-				x: Math.cos(angle) * ARENA.spawnRadius,
-				y: Math.sin(angle) * ARENA.spawnRadius,
-			},
+			pos,
 			word,
 			typedCount: 0,
 			hp: arch.hp,
@@ -51,12 +83,12 @@ export function step(
 	for (const e of s.enemies) {
 		if (!e.alive) continue;
 		const arch = getArchetype(e.archetypeId);
-		const dist = Math.hypot(e.pos.x, e.pos.y);
-		if (dist <= ARENA.killRadius) continue;
-		const stepLen = Math.min(arch.speed, dist);
-		e.pos.x -= (e.pos.x / dist) * stepLen;
-		e.pos.y -= (e.pos.y / dist) * stepLen;
-		if (Math.hypot(e.pos.x, e.pos.y) <= ARENA.killRadius) {
+		const d = dist(e.pos.x, e.pos.y);
+		if (d <= ARENA.killRadius) continue;
+		const stepLen = Math.min(arch.speed, d);
+		e.pos.x -= (e.pos.x / d) * stepLen;
+		e.pos.y -= (e.pos.y / d) * stepLen;
+		if (dist(e.pos.x, e.pos.y) <= ARENA.killRadius) {
 			e.alive = false;
 			s.playerHp -= 1;
 			if (s.targetId === e.id) s.targetId = null;
@@ -76,9 +108,7 @@ export function step(
 			s.targetId = null;
 			const candidates = s.enemies
 				.filter((e) => e.alive && isCharMatch(ev.key, e.word[0]))
-				.sort(
-					(a, b) => Math.hypot(a.pos.x, a.pos.y) - Math.hypot(b.pos.x, b.pos.y),
-				);
+				.sort((a, b) => dist(a.pos.x, a.pos.y) - dist(b.pos.x, b.pos.y));
 			if (candidates.length === 0) {
 				s.misses += 1;
 				continue;
