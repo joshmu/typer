@@ -28,12 +28,12 @@ describe("spawner", () => {
 		const [a] = selectArchetypeId(1, createRngState(3));
 		const [b] = selectArchetypeId(1, createRngState(3));
 		expect(a).toBe(b);
-		expect(a).toBe("grunt");
+		expect(a).toBe("husk-1");
 	});
 
 	it("spawnFromArchetype places one enemy on the spawn radius", () => {
 		const s = createInitialState(1);
-		spawnFromArchetype(s, "grunt", { x: 20, y: 0 });
+		spawnFromArchetype(s, "husk-1", { x: 20, y: 0 });
 		expect(s.enemies.length).toBe(1);
 		expect(s.enemies[0].alive).toBe(true);
 		expect(s.nextEnemyId).toBe(2);

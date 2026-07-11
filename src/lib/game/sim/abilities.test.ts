@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Ability } from "../content/enemies";
 import { absorbsCompletion, isTargetable, tickAbility } from "./abilities";
-import { createInitialState, type EnemyState, type GameState } from "./state";
+import { createInitialState, type EnemyState } from "./state";
 
 function enemyWith(
 	ability: Ability | null,
@@ -80,13 +80,13 @@ describe("abilities", () => {
 	it("spawn emits a minion on its cadence", () => {
 		const s = createInitialState(1);
 		const e = enemyWith(
-			{ kind: "spawn", minion: "grunt", rate: 20 },
+			{ kind: "spawn", minion: "husk-1", rate: 20 },
 			{ spawnTick: 0 },
 		);
 		s.enemies = [e];
 		s.tick = 20;
 		tickAbility(s, e);
-		expect(s.enemies.filter((x) => x.archetypeId === "grunt").length).toBe(1);
+		expect(s.enemies.filter((x) => x.archetypeId === "husk-1").length).toBe(1);
 	});
 
 	it("teleport blinks the enemy inward on its cadence", () => {

@@ -24,7 +24,7 @@ export function selectArchetypeId(
 	rngState: number,
 ): [id: string, next: number] {
 	const [, next] = nextFloat(rngState);
-	return ["grunt", next];
+	return ["husk-1", next];
 }
 
 export function spawnFromArchetype(

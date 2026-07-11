@@ -9,12 +9,13 @@ function stateWithEnemy(archetypeId: string): {
 	enemyId: number;
 } {
 	const s = createInitialState(42);
+	const arch = getArchetype(archetypeId);
 	const enemy = createEnemy(
-		getArchetype(archetypeId),
+		arch,
 		s.nextEnemyId,
 		{ x: 5, y: 0 },
 		0,
-		getArchetype(archetypeId).hp > 1 ? "brutes" : "the",
+		arch.hp > 1 ? "clobbered" : "the",
 	);
 	s.nextEnemyId += 1;
 	s.enemies = [enemy];
@@ -24,7 +25,7 @@ function stateWithEnemy(archetypeId: string): {
 
 describe("combat", () => {
 	it("reassignWord swaps the word and resets typedCount but keeps the lock", () => {
-		const { s, enemyId } = stateWithEnemy("grunt");
+		const { s, enemyId } = stateWithEnemy("husk-1");
 		const e = s.enemies[0];
 		e.typedCount = 2;
 		const before = e.word;
@@ -37,7 +38,7 @@ describe("combat", () => {
 	});
 
 	it("killEnemy awards combo-scaled score and clears the lock", () => {
-		const { s } = stateWithEnemy("grunt");
+		const { s } = stateWithEnemy("husk-1");
 		const e = s.enemies[0];
 		killEnemy(s, e);
 		expect(e.alive).toBe(false);
@@ -48,15 +49,14 @@ describe("combat", () => {
 		expect(s.targetId).toBeNull();
 	});
 
-	it("a 3-hp brute takes three completions to die, reassigning each time", () => {
-		const { s } = stateWithEnemy("brute");
+	it("a 3-hp enemy takes three completions to die, reassigning each time", () => {
+		const { s } = stateWithEnemy("husk-4");
 		const e = s.enemies[0];
-		// resolveCompletion acts only when the word is complete; simulate that.
 		e.typedCount = e.word.length;
 		resolveCompletion(s, e);
 		expect(e.alive).toBe(true);
 		expect(e.hp).toBe(2);
-		e.typedCount = e.word.length; // word was reassigned; complete it again
+		e.typedCount = e.word.length;
 		resolveCompletion(s, e);
 		expect(e.hp).toBe(1);
 		e.typedCount = e.word.length;
