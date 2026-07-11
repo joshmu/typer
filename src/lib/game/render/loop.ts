@@ -63,13 +63,17 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 			if (info) {
 				info.x = e.pos.x;
 				info.y = e.pos.y;
-				info.color = visualFor(e.archetypeId).color;
 				info.seen = true;
 			} else {
+				// an enemy id maps to a fixed archetype for its whole lifetime, so
+				// its family color never changes — resolve it once at insert. Copy
+				// the tuple's values rather than aliasing the shared FAMILY_VISUALS
+				// array, so nothing downstream can mutate the recipe.
+				const [r, g, b] = visualFor(e.archetypeId).color;
 				lastSeen.set(e.id, {
 					x: e.pos.x,
 					y: e.pos.y,
-					color: visualFor(e.archetypeId).color,
+					color: [r, g, b],
 					seen: true,
 				});
 			}
