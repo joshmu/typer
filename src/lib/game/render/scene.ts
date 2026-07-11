@@ -4,15 +4,20 @@ import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { Layer } from "@babylonjs/core/Layers/layer";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths/math";
 import { CreateDisc } from "@babylonjs/core/Meshes/Builders/discBuilder";
 import { Scene } from "@babylonjs/core/scene";
+import { createGroundDecals, type GroundDecals } from "./ground-decals";
 
 export type GameScene = {
 	engine: Engine;
 	scene: Scene;
 	glow: GlowLayer;
+	/** Crimsonland-style battlefield persistence: stamp corpse/breach decals
+	 * baked straight into the ground texture (no live entities). */
+	ground: GroundDecals;
 	dispose(): void;
 };
 
@@ -51,21 +56,30 @@ export function createGameScene(
 	const nebula = new Layer("nebula", "/game/nebula.png", scene, true);
 	nebula.color = new Color4(0.85, 0.85, 0.9, 1); // gently dim the backdrop
 
-	const ground = CreateDisc("ground", { radius: 38, tessellation: 96 }, scene);
+	const GROUND_RADIUS = 38;
+	const ground = CreateDisc(
+		"ground",
+		{ radius: GROUND_RADIUS, tessellation: 96 },
+		scene,
+	);
 	ground.rotation.x = Math.PI / 2;
 	const groundMat = new StandardMaterial("groundMat", scene);
 	// white diffuse so the (already dark) AI texture shows at its authored
 	// brightness rather than being multiplied down toward black
 	groundMat.diffuseColor = Color3.White();
 	groundMat.specularColor = Color3.Black();
-	// AI-generated tileable sci-fi floor (scripts/gen-ai-assets.mjs)
-	const groundTex = new Texture("/game/terrain.png", scene);
-	groundTex.uScale = 4;
-	groundTex.vScale = 4;
-	groundMat.diffuseTexture = groundTex;
-	// faint self-illumination of the same map so the circuitry traces read even
-	// in the dark, without needing the glow layer to bloom the whole floor
-	groundMat.emissiveTexture = groundTex;
+	// diffuse is a DynamicTexture: the AI terrain is baked into it once loaded and
+	// corpse/breach decals are then stamped straight in — persistent battlefield
+	// scarring with zero live entities and no per-frame cost (Crimsonland technique)
+	const groundDecals = createGroundDecals(scene, GROUND_RADIUS);
+	groundMat.diffuseTexture = groundDecals.texture;
+	// faint self-illumination of the same map so the circuitry traces read even in
+	// the dark. Kept as the STATIC tiled terrain (not the decal layer) so scorch
+	// marks stay dark/unlit rather than glowing.
+	const emissiveTex = new Texture("/game/terrain.png", scene);
+	emissiveTex.uScale = 4;
+	emissiveTex.vScale = 4;
+	groundMat.emissiveTexture = emissiveTex;
 	groundMat.emissiveColor = new Color3(0.14, 0.14, 0.16);
 	ground.material = groundMat;
 
@@ -84,9 +98,12 @@ export function createGameScene(
 		engine,
 		scene,
 		glow,
+		ground: groundDecals,
 		dispose() {
 			glow.dispose();
 			nebula.dispose();
+			groundDecals.dispose();
+			emissiveTex.dispose();
 			scene.dispose();
 			engine.dispose();
 		},

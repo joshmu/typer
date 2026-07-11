@@ -131,6 +131,8 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 					Math.hypot(info.x, info.y) <= BREACH_RADIUS;
 				if (breached) {
 					breachesToAttribute -= 1; // core hit, not a kill: no burst
+					// scar the ground where the horde broke through the core
+					gameScene.ground.stampScar(info.x, info.y, id);
 				} else {
 					// a typed-to-death enemy: final bolt + muzzle flash, then burst
 					shotTo.set(info.x, 1, info.y);
@@ -138,6 +140,8 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 					turret.recoil(true);
 					effects.muzzleFlash(muzzle, true);
 					effects.deathBurst(info, info.color);
+					// bake a persistent corpse decal into the ground at the death spot
+					gameScene.ground.stampCorpse(info.x, info.y, info.color, id);
 				}
 				lastSeen.delete(id);
 			}
