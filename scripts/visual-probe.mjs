@@ -90,7 +90,8 @@ if (DO_KEYS) {
 		if (!s) return "";
 		const alive = s.enemies.filter((e) => e.alive);
 		if (alive.length === 0) return "";
-		return alive[0].word ?? "";
+		const e = alive[0];
+		return e.words?.[e.wordIndex] ?? "";
 	});
 	// type up to (but not including) the final char, spacing the shots out
 	const half = Math.max(2, Math.ceil(word.length / 2));

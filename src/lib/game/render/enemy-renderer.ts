@@ -8,9 +8,9 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 import { getArchetype } from "../content/enemies";
 import { isCloaked } from "../sim/abilities";
-import { currentWord, type GameState } from "../sim/state";
+import type { GameState } from "../sim/state";
 import { buildEnemyModel, type EnemyModel } from "./enemy-models";
-import { drawLabel } from "./label";
+import { drawStackedLabel } from "./label";
 import { tierTint, visualFor } from "./visuals";
 
 // overall enemy model scale on top of archetype size — makes silhouettes read
@@ -55,17 +55,22 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 		model.node.parent = root;
 		model.node.scaling.setAll(arch.size * MODEL_SCALE);
 
+		// tall billboard: the texture holds four stacked 1/4-height rows (current
+		// word on the bottom row, up to two queued words + a "+n" chip above). The
+		// bottom row is offset down so the current word sits just above the enemy at
+		// the same height a single plate used to; the upper rows stay transparent
+		// when unused.
 		const label = CreatePlane(
 			`enemy-${id}-label`,
-			{ width: 7, height: 1.75 },
+			{ width: 7, height: 7 },
 			scene,
 		);
 		label.parent = root;
-		label.position.y = arch.size * MODEL_SCALE + 0.9;
+		label.position.y = arch.size * MODEL_SCALE + 0.9 + 2.625;
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
 		const texture = new DynamicTexture(
 			`enemy-${id}-tex`,
-			{ width: 512, height: 128 },
+			{ width: 512, height: 512 },
 			scene,
 			false,
 		);
@@ -131,8 +136,8 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 				// it, so each family keeps its hue; its label plate also grows
 				v.mat.emissiveColor.copyFrom(v.baseEmissive);
 				if (isTarget) v.mat.emissiveColor.scaleInPlace(2.4);
-				v.label.scaling.setAll(isTarget ? 1.25 : 1);
-				drawLabel(v, currentWord(e), e.typedCount, isTarget);
+				v.label.scaling.setAll(isTarget ? 1.12 : 1);
+				drawStackedLabel(v, e.words, e.wordIndex, e.typedCount, isTarget);
 			}
 		},
 		dispose() {
