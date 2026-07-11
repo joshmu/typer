@@ -13,6 +13,7 @@ describe("createInitialState", () => {
 		expect(s.wavePhase).toBe("intermission");
 		expect(s.intermissionTicksLeft).toBe(60);
 		expect(s.lastPowerupMilestone).toBe(0);
+		expect(s.powerupsUsed).toBe(0);
 		expect(createInitialState(42)).toEqual(s);
 	});
 });

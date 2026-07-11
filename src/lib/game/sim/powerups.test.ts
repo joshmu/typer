@@ -69,6 +69,17 @@ describe("powerups", () => {
 		expect(s.playerHp).toBe(3);
 	});
 
+	it("counts every applied powerup in powerupsUsed", () => {
+		const s = createInitialState(1);
+		expect(s.powerupsUsed).toBe(0);
+		applyPowerup(s, "freeze");
+		expect(s.powerupsUsed).toBe(1);
+		applyPowerup(s, "slow");
+		applyPowerup(s, "heal");
+		applyPowerup(s, "bomb");
+		expect(s.powerupsUsed).toBe(4);
+	});
+
 	it("bomb kills every alive enemy", () => {
 		const s = createInitialState(1);
 		s.enemies = [

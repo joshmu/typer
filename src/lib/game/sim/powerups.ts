@@ -56,6 +56,9 @@ export function spawnPowerup(s: GameState): void {
 }
 
 export function applyPowerup(s: GameState, kind: PowerupKind): void {
+	// count the activation so the render layer can pulse its ring on the rise of
+	// this counter alone — never on a pickup merely expiring while locked
+	s.powerupsUsed += 1;
 	switch (kind) {
 		case "freeze":
 			s.freezeTicksLeft = FREEZE_TICKS;

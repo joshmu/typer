@@ -56,6 +56,9 @@ export type GameState = {
 	powerups: PowerupPickup[];
 	nextPowerupId: number;
 	lastPowerupMilestone: number;
+	// monotonic count of powerups actually applied — the render layer pulses its
+	// activation ring only when this increments, so an expiring pickup can't fake it
+	powerupsUsed: number;
 };
 export const ARENA = { spawnRadius: 34, killRadius: 1.6 } as const;
 
@@ -86,5 +89,6 @@ export function createInitialState(seed: number): GameState {
 		powerups: [],
 		nextPowerupId: 1,
 		lastPowerupMilestone: 0,
+		powerupsUsed: 0,
 	};
 }

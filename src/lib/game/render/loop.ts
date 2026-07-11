@@ -66,11 +66,10 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 	};
 	const lastSeen = new Map<number, Seen>();
 	let lastPlayerHp = state.playerHp;
-	// powerup-activation watch: a rise in a status timer, a heal, or a typed-out
-	// pickup vanishing all read as "player triggered a powerup" → ring pulse
-	let lastFreeze = state.freezeTicksLeft;
-	let lastSlow = state.slowTicksLeft;
-	let lastTargetPowerupId = state.targetPowerupId;
+	// powerup-activation watch: the sim counts every applied powerup, so a rise in
+	// powerupsUsed is the single unambiguous "player triggered a powerup" signal →
+	// ring pulse. An expiring (never-completed) pickup no longer fakes it.
+	let lastPowerupsUsed = state.powerupsUsed;
 
 	function advance(ticks: number) {
 		for (let i = 0; i < ticks; i++) {
@@ -140,21 +139,12 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 		}
 		if (state.playerHp < lastPlayerHp) effects.playerHit();
 
-		// powerup activation → radial ring pulse from the turret
-		const consumed =
-			lastTargetPowerupId !== null &&
-			!state.powerups.some((p) => p.id === lastTargetPowerupId);
-		if (
-			state.freezeTicksLeft > lastFreeze ||
-			state.slowTicksLeft > lastSlow ||
-			state.playerHp > lastPlayerHp ||
-			consumed
-		) {
+		// powerup activation → radial ring pulse from the turret, fired only on the
+		// rise of the sim's applied-powerup counter
+		if (state.powerupsUsed > lastPowerupsUsed) {
 			turret.ringPulse();
 		}
-		lastFreeze = state.freezeTicksLeft;
-		lastSlow = state.slowTicksLeft;
-		lastTargetPowerupId = state.targetPowerupId;
+		lastPowerupsUsed = state.powerupsUsed;
 		lastPlayerHp = state.playerHp;
 	}
 
