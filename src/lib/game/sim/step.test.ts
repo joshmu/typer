@@ -130,6 +130,21 @@ describe("step", () => {
 		expect(s.targetId).toBeNull(); // untargetable, so not acquired
 	});
 
+	it("swallows a key matching a partially-typed cloaked enemy's next-needed char (no miss, no combo break, no advance)", () => {
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		// unlocked, partially-typed cloaker: typed "ze", next-needed 'p'
+		s.enemies = [cloaker({ words: ["zephyr"], typedCount: 2 })];
+		s.tick = 30; // steps to 31 → hidden phase
+		s.combo = 5;
+		s.comboTicksLeft = 100;
+		s = step(s, [{ type: "key", key: "p" }]); // its NEXT char, not the initial
+		expect(s.misses).toBe(0); // hidden enemy's next char → no penalty
+		expect(s.combo).toBe(5); // combo not broken
+		expect(s.targetId).toBeNull(); // untargetable, so not acquired
+		expect(s.enemies[0].typedCount).toBe(2); // progress unchanged, no advance
+	});
+
 	it("still counts a miss when a key matches nothing at all", () => {
 		let s = createInitialState(1);
 		s.wavePhase = "active";

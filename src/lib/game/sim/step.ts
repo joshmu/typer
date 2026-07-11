@@ -195,7 +195,8 @@ export function step(
 			continue;
 		}
 
-		// 4) the key matches only a cloaked (hidden-phase) enemy's initial: it is
+		// 4) the key matches a cloaked (hidden-phase) enemy's NEXT-needed char (its
+		// saved typedCount, not just the word initial): it is
 		// unfair to penalise a target the player cannot yet see, so ignore it —
 		// no miss, no combo break — rather than count it against them
 		if (
@@ -203,7 +204,7 @@ export function step(
 				(e) =>
 					e.alive &&
 					isCloaked(e, s.tick) &&
-					isCharMatch(ev.key, currentWord(e)[0]),
+					isCharMatch(ev.key, currentWord(e)[e.typedCount]),
 			)
 		) {
 			continue;
