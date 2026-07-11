@@ -2,6 +2,7 @@ import { isCharMatch } from "@/lib/core/text/char-match";
 import { getArchetype } from "../content/enemies";
 import { pickWord } from "../content/words";
 import { createEnemy } from "./enemy-factory";
+import { MOVEMENTS, makeNoise } from "./movement";
 import { nextFloat } from "./rng";
 import { ARENA, type EnemyState, type GameState, type Vec2 } from "./state";
 
@@ -79,12 +80,9 @@ export function step(
 	// movement + player collision
 	for (const e of s.enemies) {
 		if (!e.alive) continue;
-		const arch = getArchetype(e.archetypeId);
-		const d = dist(e.pos.x, e.pos.y);
-		if (d <= ARENA.killRadius) continue;
-		const stepLen = Math.min(arch.speed, d);
-		e.pos.x -= (e.pos.x / d) * stepLen;
-		e.pos.y -= (e.pos.y / d) * stepLen;
+		const v = MOVEMENTS[e.movement](e, s.tick, makeNoise(e.id));
+		e.pos.x += v.x;
+		e.pos.y += v.y;
 		if (dist(e.pos.x, e.pos.y) <= ARENA.killRadius) {
 			e.alive = false;
 			s.playerHp -= 1;
