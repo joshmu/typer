@@ -40,6 +40,17 @@ export const ENEMIES: EnemyArchetype[] = [
 		ability: null,
 		role: "regular",
 	},
+	{
+		id: "brute",
+		name: "Brute",
+		hp: 3,
+		speed: 0.03,
+		size: 1.4,
+		tier: 3,
+		movement: "chase",
+		ability: null,
+		role: "regular",
+	},
 ];
 
 const byId = new Map(ENEMIES.map((e) => [e.id, e]));

@@ -36,6 +36,8 @@ export type GameState = {
 	spawnQueueRemaining: number;
 	spawnCooldown: number;
 	intermissionTicksLeft: number;
+	combo: number;
+	comboTicksLeft: number;
 };
 export const ARENA = { spawnRadius: 20, killRadius: 1.2 } as const;
 
@@ -56,5 +58,7 @@ export function createInitialState(seed: number): GameState {
 		spawnQueueRemaining: 0,
 		spawnCooldown: 0,
 		intermissionTicksLeft: 60,
+		combo: 0,
+		comboTicksLeft: 0,
 	};
 }

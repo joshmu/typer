@@ -1,8 +1,9 @@
 import { isCharMatch } from "@/lib/core/text/char-match";
+import { resolveCompletion } from "./combat";
 import { dist } from "./math";
 import { MOVEMENTS, makeNoise } from "./movement";
 import { runWaveDirector } from "./spawner";
-import { ARENA, type EnemyState, type GameState } from "./state";
+import { ARENA, type GameState } from "./state";
 
 export type GameEvent = { type: "key"; key: string };
 
@@ -46,6 +47,12 @@ export function step(
 		return s;
 	}
 
+	// combo decay
+	if (s.comboTicksLeft > 0) {
+		s.comboTicksLeft -= 1;
+		if (s.comboTicksLeft === 0) s.combo = 0;
+	}
+
 	// typing
 	for (const ev of events) {
 		if (ev.type !== "key") continue;
@@ -57,31 +64,27 @@ export function step(
 				.sort((a, b) => dist(a.pos.x, a.pos.y) - dist(b.pos.x, b.pos.y));
 			if (candidates.length === 0) {
 				s.misses += 1;
+				s.combo = 0;
+				s.comboTicksLeft = 0;
 				continue;
 			}
 			const picked = candidates[0];
 			picked.typedCount = 1;
 			s.targetId = picked.id;
-			finishIfComplete(s, picked);
+			resolveCompletion(s, picked);
 			continue;
 		}
 		if (isCharMatch(ev.key, target.word[target.typedCount])) {
 			target.typedCount += 1;
-			finishIfComplete(s, target);
+			resolveCompletion(s, target);
 		} else {
 			s.misses += 1;
+			s.combo = 0;
+			s.comboTicksLeft = 0;
 		}
 	}
 
 	// prune enemies killed this tick so state size tracks live enemies only
 	s.enemies = s.enemies.filter((e) => e.alive);
 	return s;
-}
-
-function finishIfComplete(s: GameState, e: EnemyState): void {
-	if (e.typedCount < e.word.length) return;
-	e.alive = false;
-	s.kills += 1;
-	s.score += 10 * e.word.length;
-	s.targetId = null;
 }
