@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MOVEMENTS, makeNoise } from "./movement";
+import { MOVEMENTS, noise2 } from "./movement";
 import type { EnemyState } from "./state";
 
 function enemy(partial: Partial<EnemyState>): EnemyState {
@@ -22,18 +22,17 @@ function enemy(partial: Partial<EnemyState>): EnemyState {
 	};
 }
 
-describe("makeNoise", () => {
+describe("noise2", () => {
 	it("is deterministic per id + salt and stays in [0,1)", () => {
-		const n = makeNoise(42);
-		expect(n(0)).toBe(makeNoise(42)(0));
-		expect(n(0)).not.toBe(n(1));
+		expect(noise2(42, 0)).toBe(noise2(42, 0));
+		expect(noise2(42, 0)).not.toBe(noise2(42, 1));
 		for (let i = 0; i < 100; i++) {
-			expect(n(i)).toBeGreaterThanOrEqual(0);
-			expect(n(i)).toBeLessThan(1);
+			expect(noise2(42, i)).toBeGreaterThanOrEqual(0);
+			expect(noise2(42, i)).toBeLessThan(1);
 		}
 	});
 	it("differs across ids", () => {
-		expect(makeNoise(1)(0)).not.toBe(makeNoise(2)(0));
+		expect(noise2(1, 0)).not.toBe(noise2(2, 0));
 	});
 });
 
@@ -48,10 +47,9 @@ describe("movement behaviours", () => {
 	it("every behaviour reduces distance to the origin over time", () => {
 		for (const id of Object.keys(MOVEMENTS) as (keyof typeof MOVEMENTS)[]) {
 			let e = enemy({ id: 3, movement: id, pos: { x: 12, y: 4 } });
-			const rng = makeNoise(e.id);
 			const start = Math.hypot(e.pos.x, e.pos.y);
 			for (let t = 0; t < 3000; t++) {
-				const v = MOVEMENTS[id](e, t, rng);
+				const v = MOVEMENTS[id](e, t);
 				e = { ...e, pos: { x: e.pos.x + v.x, y: e.pos.y + v.y } };
 				if (Math.hypot(e.pos.x, e.pos.y) <= 1.2) break;
 			}
@@ -62,7 +60,7 @@ describe("movement behaviours", () => {
 	it("returns a fresh vector without mutating the enemy", () => {
 		const e = enemy({});
 		const frozen = JSON.stringify(e);
-		MOVEMENTS.spiral(e, 5, makeNoise(e.id));
+		MOVEMENTS.spiral(e, 5);
 		expect(JSON.stringify(e)).toBe(frozen);
 	});
 });

@@ -2,7 +2,7 @@ import { isCharMatch } from "@/lib/core/text/char-match";
 import { isTargetable, tickAbility } from "./abilities";
 import { resolveCompletion } from "./combat";
 import { dist } from "./math";
-import { MOVEMENTS, makeNoise } from "./movement";
+import { MOVEMENTS } from "./movement";
 import {
 	applyPowerup,
 	POWERUP_SPAWN_EVERY_KILLS,
@@ -45,7 +45,7 @@ export function step(
 	else if (s.slowTicksLeft > 0) moveScale = SLOW_FACTOR;
 	for (const e of s.enemies) {
 		if (!e.alive) continue;
-		const v = MOVEMENTS[e.movement](e, s.tick, makeNoise(e.id));
+		const v = MOVEMENTS[e.movement](e, s.tick);
 		e.pos.x += v.x * moveScale;
 		e.pos.y += v.y * moveScale;
 		if (dist(e.pos.x, e.pos.y) <= ARENA.killRadius) {
