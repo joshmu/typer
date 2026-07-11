@@ -7,6 +7,7 @@ import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
+import { isCloaked } from "../sim/abilities";
 import type { EnemyState, GameState } from "../sim/state";
 
 const MUZZLE_Y = 1.1; // height the barrels fire from
@@ -217,20 +218,26 @@ export function createTurret(scene: Scene): Turret {
 
 	return {
 		update(state: GameState) {
-			// one pass resolves both the locked target and the nearest enemy
+			// one pass resolves the locked target, the nearest AIMABLE enemy (cloaked
+			// hidden-phase enemies excluded so the barrels don't telegraph them), and
+			// the nearest enemy overall for the danger ring (any enemy threatens)
 			let target: EnemyState | undefined;
-			let nearestEnemy: EnemyState | undefined;
+			let nearestAimEnemy: EnemyState | undefined;
+			let nearestAim = Number.POSITIVE_INFINITY;
 			let nearest = Number.POSITIVE_INFINITY;
 			for (const e of state.enemies) {
 				if (e.id === state.targetId) target = e;
 				const d = Math.hypot(e.pos.x, e.pos.y);
-				if (d < nearest) {
-					nearest = d;
-					nearestEnemy = e;
+				if (d < nearest) nearest = d;
+				// aim scan skips cloaked enemies so barrels never point at a target
+				// the player can't yet see
+				if (!isCloaked(e, state.tick) && d < nearestAim) {
+					nearestAim = d;
+					nearestAimEnemy = e;
 				}
 			}
 			// aim priority: locked target → nearest enemy (anticipatory) → HOLD
-			const aimAt = target ?? nearestEnemy;
+			const aimAt = target ?? nearestAimEnemy;
 			if (aimAt) {
 				const desired = Math.atan2(aimAt.pos.x, aimAt.pos.y);
 				yaw = lerpAngle(yaw, desired, AIM_SLERP);
