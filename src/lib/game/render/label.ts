@@ -51,6 +51,8 @@ type PlateOpts = {
 	isTarget: boolean;
 	underline: boolean;
 	chevron: boolean;
+	// texture width the plate must fit inside; a long word is scaled down to fit
+	texW: number;
 };
 
 /**
@@ -61,15 +63,28 @@ type PlateOpts = {
  * `strokeText` outline BEFORE the fill so it stays crisp over any glow.
  */
 function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
-	const { word, typedCount, fontPx, plateH, alpha, isTarget } = opts;
+	const { word, typedCount, plateH, alpha, isTarget, texW } = opts;
 	c.globalAlpha = alpha;
+	let fontPx = opts.fontPx;
 	c.font = `bold ${fontPx}px monospace`;
 	const typed = word.slice(0, typedCount);
 	const rest = word.slice(typedCount);
-	const typedW = c.measureText(typed).width;
-	const totalW = typedW + c.measureText(rest).width;
+	let typedW = c.measureText(typed).width;
+	let totalW = typedW + c.measureText(rest).width;
+	let padX = fontPx * 0.4;
 
-	const padX = fontPx * 0.4;
+	// clamp: a long (tier-4) word would overrun the texture and be clipped, so
+	// scale the font down until the whole plate fits within the texture width
+	// (matching the old W-4 clamp, with an 8px margin), then re-measure.
+	const scale = Math.min(1, (texW - 8) / (totalW + padX * 2));
+	if (scale < 1) {
+		fontPx *= scale;
+		c.font = `bold ${fontPx}px monospace`;
+		typedW = c.measureText(typed).width;
+		totalW = typedW + c.measureText(rest).width;
+		padX = fontPx * 0.4;
+	}
+
 	const plateW = totalW + padX * 2;
 	const plateX = cx - plateW / 2;
 	const plateY = cy - plateH / 2;
@@ -158,6 +173,7 @@ export function drawLabel(
 		isTarget,
 		underline: typedCount > 0,
 		chevron: isTarget,
+		texW: W,
 	});
 	v.texture.update();
 }
@@ -207,6 +223,7 @@ export function drawStackedLabel(
 				isTarget,
 				underline: typedCount > 0,
 				chevron: isTarget,
+				texW: W,
 			});
 		} else {
 			// queued words: dimmer + smaller, no progress (not yet started)
@@ -219,6 +236,7 @@ export function drawStackedLabel(
 				isTarget: false,
 				underline: false,
 				chevron: false,
+				texW: W,
 			});
 		}
 	}
