@@ -123,28 +123,38 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 		// reached the origin rather than being typed to death. Attribute each drop
 		// to the nearest vanished enemy so its disappearance reads as a hit (shake),
 		// not a kill (burst).
-		let breachesToAttribute = lastPlayerHp - state.playerHp;
-		for (const [id, info] of lastSeen) {
-			if (!info.seen) {
-				const breached =
-					breachesToAttribute > 0 &&
-					Math.hypot(info.x, info.y) <= BREACH_RADIUS;
-				if (breached) {
-					breachesToAttribute -= 1; // core hit, not a kill: no burst
-					// scar the ground where the horde broke through the core
-					gameScene.ground.stampScar(info.x, info.y, id);
-				} else {
-					// a typed-to-death enemy: final bolt + muzzle flash, then burst
-					shotTo.set(info.x, 1, info.y);
-					effects.fireTracer(muzzle, shotTo, true);
-					turret.recoil(true);
-					effects.muzzleFlash(muzzle, true);
-					effects.deathBurst(info, info.color);
-					// bake a persistent corpse decal into the ground at the death spot
-					gameScene.ground.stampCorpse(info.x, info.y, info.color, id);
-				}
-				lastSeen.delete(id);
+		// With N breaches this frame, attribute them to the N vanished-near-core
+		// enemies NEAREST the origin (sorted, consumed in order) so the choice is
+		// deterministic and never depends on Map iteration order; every other
+		// vanished enemy is a typed-to-death kill.
+		const breaches = lastPlayerHp - state.playerHp;
+		const vanished: [number, Seen][] = [];
+		for (const entry of lastSeen) {
+			if (!entry[1].seen) vanished.push(entry);
+		}
+		const breachIds = new Set<number>(
+			vanished
+				.filter(([, info]) => Math.hypot(info.x, info.y) <= BREACH_RADIUS)
+				.sort((a, b) => Math.hypot(a[1].x, a[1].y) - Math.hypot(b[1].x, b[1].y))
+				.slice(0, Math.max(0, breaches))
+				.map(([id]) => id),
+		);
+		for (const [id, info] of vanished) {
+			if (breachIds.has(id)) {
+				// core hit, not a kill: no burst — scar the ground where the horde
+				// broke through the core
+				gameScene.ground.stampScar(info.x, info.y, id);
+			} else {
+				// a typed-to-death enemy: final bolt + muzzle flash, then burst
+				shotTo.set(info.x, 1, info.y);
+				effects.fireTracer(muzzle, shotTo, true);
+				turret.recoil(true);
+				effects.muzzleFlash(muzzle, true);
+				effects.deathBurst(info, info.color);
+				// bake a persistent corpse decal into the ground at the death spot
+				gameScene.ground.stampCorpse(info.x, info.y, info.color, id);
 			}
+			lastSeen.delete(id);
 		}
 		if (state.playerHp < lastPlayerHp) effects.playerHit();
 
