@@ -64,6 +64,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 		y: number;
 		color: [number, number, number];
 		typedCount: number;
+		wordIndex: number;
 		hp: number;
 		seen: boolean;
 	};
@@ -88,19 +89,27 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 		for (const e of state.enemies) {
 			const info = lastSeen.get(e.id);
 			if (info) {
-				// a keystroke landed on this enemy this frame → visible shot; a hp
-				// drop means the word was completed → heavier bolt + muzzle flash
+				// a keystroke landed on this enemy this frame → visible shot; an hp
+				// drop means a damaging completion → heavier bolt + muzzle flash. A
+				// word completed with NO hp drop (shield / armored-front absorb: the
+				// word index advanced while hp held and the enemy is still alive) still
+				// deserves feedback — a bolt, barrel recoil and a DULL spark — so the
+				// player sees the hit land and get soaked up, distinct from the kill
+				// burst that only fires on a vanished enemy.
 				const typed = e.typedCount > info.typedCount;
 				const damaged = e.hp < info.hp;
-				if (damaged || typed) {
+				const absorbed = e.wordIndex > info.wordIndex && !damaged;
+				if (damaged || typed || absorbed) {
 					shotTo.set(e.pos.x, 1, e.pos.y);
-					effects.fireTracer(muzzle, shotTo, damaged);
+					effects.fireTracer(muzzle, shotTo, damaged || absorbed);
 					turret.recoil(damaged);
 					if (damaged) effects.muzzleFlash(muzzle, true);
+					else if (absorbed) effects.muzzleFlash(muzzle, false); // dull spark
 				}
 				info.x = e.pos.x;
 				info.y = e.pos.y;
 				info.typedCount = e.typedCount;
+				info.wordIndex = e.wordIndex;
 				info.hp = e.hp;
 				info.seen = true;
 			} else {
@@ -114,6 +123,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 					y: e.pos.y,
 					color: [r, g, b],
 					typedCount: e.typedCount,
+					wordIndex: e.wordIndex,
 					hp: e.hp,
 					seen: true,
 				});
