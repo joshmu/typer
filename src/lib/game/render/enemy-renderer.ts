@@ -115,8 +115,9 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 				v.root.position.x = e.pos.x;
 				v.root.position.z = e.pos.y;
 
-				// idle animation: bob / spin / orient along velocity / orbit sub-parts
-				v.model.animate(state.tick, v.phase, e.vel);
+				// per-family locomotion gait (bob / roll / thrust / dash-lunge / …),
+				// amplitude scaled by |vel| and dash phase synced via spawnTick
+				v.model.animate(state.tick, v.phase, e.vel, e.spawnTick);
 
 				// cloak → near-invisible with an alpha shimmer; else fully opaque. Only
 				// cloak-capable enemies can change visibility, so non-cloakers never
