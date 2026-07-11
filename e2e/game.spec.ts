@@ -1,11 +1,5 @@
 import { expect, test } from "@playwright/test";
-
-type GameState = {
-	kills: number;
-	score: number;
-	status: string;
-	enemies: { word: string; alive: boolean }[];
-};
+import type { GameState } from "../src/lib/game/sim/state";
 
 declare global {
 	interface Window {
