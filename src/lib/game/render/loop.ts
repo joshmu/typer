@@ -95,6 +95,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 				if (damaged || typed) {
 					shotTo.set(e.pos.x, 1, e.pos.y);
 					effects.fireTracer(muzzle, shotTo, damaged);
+					turret.recoil(damaged);
 					if (damaged) effects.muzzleFlash(muzzle, true);
 				}
 				info.x = e.pos.x;
@@ -134,6 +135,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 					// a typed-to-death enemy: final bolt + muzzle flash, then burst
 					shotTo.set(info.x, 1, info.y);
 					effects.fireTracer(muzzle, shotTo, true);
+					turret.recoil(true);
 					effects.muzzleFlash(muzzle, true);
 					effects.deathBurst(info, info.color);
 				}
