@@ -21,6 +21,32 @@ describe("powerups", () => {
 		expect(a.nextPowerupId).toBe(2);
 	});
 
+	it("spawnPowerup avoids reusing an existing powerup's initial", () => {
+		// discover the word spawnPowerup would pick from this exact rng state
+		const probe = createInitialState(9);
+		spawnPowerup(probe);
+		const wouldPick = probe.powerups[0].word;
+
+		// plant a live pickup that already owns that initial, then spawn from the
+		// identical rng state: two on-field powerups sharing word[0] would make the
+		// first keystroke ambiguous, so the new pickup must choose a distinct initial
+		const s = createInitialState(9);
+		s.powerups = [
+			{
+				id: 99,
+				kind: "heal",
+				word: wouldPick,
+				typedCount: 0,
+				pos: { x: 0, y: 0 },
+				expiresTick: 999,
+			},
+		];
+		spawnPowerup(s);
+		const spawned = s.powerups.find((p) => p.id !== 99);
+		expect(spawned).toBeDefined();
+		expect(spawned?.word[0]).not.toBe(wouldPick[0]);
+	});
+
 	it("freeze sets the freeze timer", () => {
 		const s = createInitialState(1);
 		applyPowerup(s, "freeze");

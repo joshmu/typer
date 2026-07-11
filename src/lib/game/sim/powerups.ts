@@ -22,11 +22,14 @@ export const POWERUP_WORDS: readonly string[] = [
 export function spawnPowerup(s: GameState): void {
 	const [ki, r1] = nextInt(s.rngState, KINDS.length);
 	const [wi, r2] = nextInt(r1, POWERUP_WORDS.length);
-	const initials = new Set(
-		s.enemies.filter((e) => e.alive).map((e) => e.word[0]),
-	);
+	// exclude the initials the player could already be aiming at: every live
+	// enemy AND every on-field powerup. Two pickups sharing word[0] would make
+	// the acquiring keystroke ambiguous between them.
+	const initials = new Set<string>();
+	for (const e of s.enemies) if (e.alive) initials.add(e.word[0]);
+	for (const p of s.powerups) initials.add(p.word[0]);
 	// keep powerup words visually distinct from POWERUP_WORDS pool; fall back to
-	// pickWord only if a bank word collides with a live enemy initial
+	// pickWord only if a bank word collides with a reserved initial
 	let word = POWERUP_WORDS[wi];
 	let r3 = r2;
 	if (initials.has(word[0])) {
