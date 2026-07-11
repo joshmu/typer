@@ -9,6 +9,9 @@ describe("createInitialState", () => {
 		expect(s.playerHp).toBe(3);
 		expect(s.enemies).toEqual([]);
 		expect(s.targetId).toBeNull();
+		expect(s.wave).toBe(0);
+		expect(s.wavePhase).toBe("intermission");
+		expect(s.intermissionTicksLeft).toBe(60);
 		expect(createInitialState(42)).toEqual(s);
 	});
 });

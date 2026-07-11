@@ -31,6 +31,11 @@ export type GameState = {
 	targetId: number | null;
 	nextEnemyId: number;
 	enemies: EnemyState[];
+	wave: number;
+	wavePhase: "intermission" | "active";
+	spawnQueueRemaining: number;
+	spawnCooldown: number;
+	intermissionTicksLeft: number;
 };
 export const ARENA = { spawnRadius: 20, killRadius: 1.2 } as const;
 
@@ -46,5 +51,10 @@ export function createInitialState(seed: number): GameState {
 		targetId: null,
 		nextEnemyId: 1,
 		enemies: [],
+		wave: 0,
+		wavePhase: "intermission",
+		spawnQueueRemaining: 0,
+		spawnCooldown: 0,
+		intermissionTicksLeft: 60,
 	};
 }

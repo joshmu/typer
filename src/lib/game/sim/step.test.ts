@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createRngState } from "./rng";
-import { ARENA, createInitialState, type GameState } from "./state";
-import {
-	type GameEvent,
-	MAX_ALIVE,
-	SPAWN_INTERVAL_TICKS,
-	spawnPoint,
-	step,
-} from "./step";
+import { MAX_ALIVE } from "./spawner";
+import { createInitialState, type GameState } from "./state";
+import { type GameEvent, step } from "./step";
 
 function run(
 	s: GameState,
@@ -25,61 +19,71 @@ function run(
 	return state;
 }
 
+function advanceToFirstEnemy(seed: number): GameState {
+	let s = createInitialState(seed);
+	while (s.enemies.filter((e) => e.alive).length === 0 && s.tick < 4000) {
+		s = step(s, []);
+	}
+	return s;
+}
+
 describe("step", () => {
-	it("spawns an enemy on the spawn interval", () => {
-		const s = run(createInitialState(42), SPAWN_INTERVAL_TICKS + 1);
+	it("opens in an intermission then starts wave 1", () => {
+		const s = run(createInitialState(42), 61);
+		expect(s.wave).toBe(1);
+		expect(s.wavePhase).toBe("active");
+	});
+
+	it("spawns enemies once a wave is active", () => {
+		const s = advanceToFirstEnemy(42);
 		expect(s.enemies.filter((e) => e.alive).length).toBeGreaterThanOrEqual(1);
 	});
 
-	it("samples spawn points exactly on the spawn radius", () => {
-		for (let seed = 0; seed < 8; seed++) {
-			const [pos] = spawnPoint(createRngState(seed), ARENA.spawnRadius);
-			const d = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
-			expect(Math.abs(d - ARENA.spawnRadius)).toBeLessThan(1e-9);
-		}
-	});
-
 	it("caps alive enemies at MAX_ALIVE", () => {
-		const s = run(createInitialState(42), SPAWN_INTERVAL_TICKS * 30);
+		const s = run(createInitialState(42), 60 * 120);
 		expect(s.enemies.filter((e) => e.alive).length).toBeLessThanOrEqual(
 			MAX_ALIVE,
 		);
 	});
 
 	it("enemies move toward the player", () => {
-		const a = run(createInitialState(42), SPAWN_INTERVAL_TICKS + 1);
+		const a = advanceToFirstEnemy(42);
 		const b = step(a, []);
-		const ea = a.enemies[0];
-		const eb = b.enemies[0];
+		const ea = a.enemies.find((e) => e.alive);
+		const eb = b.enemies.find((e) => e.id === ea?.id);
+		if (!ea || !eb) throw new Error("expected a live enemy");
 		expect(Math.hypot(eb.pos.x, eb.pos.y)).toBeLessThan(
 			Math.hypot(ea.pos.x, ea.pos.y),
 		);
 	});
 
 	it("typing the full word kills the target", () => {
-		let s = run(createInitialState(42), SPAWN_INTERVAL_TICKS + 1);
-		const word = s.enemies[0].word;
+		let s = advanceToFirstEnemy(42);
+		const target = s.enemies.find((e) => e.alive);
+		if (!target) throw new Error("expected a live enemy");
+		const word = target.word;
 		for (const ch of word) {
 			s = step(s, [{ type: "key", key: ch }]);
 		}
 		expect(s.kills).toBe(1);
-		expect(s.enemies).toHaveLength(0);
+		expect(s.enemies.find((e) => e.id === target.id)).toBe(undefined);
 		expect(s.targetId).toBeNull();
 		expect(s.score).toBe(10 * word.length);
 	});
 
 	it("counts a miss without breaking the lock", () => {
-		let s = run(createInitialState(42), SPAWN_INTERVAL_TICKS + 1);
-		const word = s.enemies[0].word;
-		s = step(s, [{ type: "key", key: word[0] }]);
+		let s = advanceToFirstEnemy(42);
+		const target = s.enemies.find((e) => e.alive);
+		if (!target) throw new Error("expected a live enemy");
+		s = step(s, [{ type: "key", key: target.word[0] }]);
 		const locked = s.targetId;
 		s = step(s, [{ type: "key", key: "¤" }]);
 		expect(s.misses).toBe(1);
 		expect(s.targetId).toBe(locked);
 	});
 
-	it("enemy reaching player costs hp and eventually ends the game", () => {
-		const s = run(createInitialState(42), 60 * 60 * 5); // 5 sim minutes untyped
+	it("enemies reaching the player eventually end the game", () => {
+		const s = run(createInitialState(42), 60 * 60 * 8); // 8 sim minutes untyped
 		expect(s.playerHp).toBe(0);
 		expect(s.status).toBe("gameover");
 	});

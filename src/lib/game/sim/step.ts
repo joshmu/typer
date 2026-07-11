@@ -1,50 +1,10 @@
 import { isCharMatch } from "@/lib/core/text/char-match";
-import { getArchetype } from "../content/enemies";
-import { pickWord } from "../content/words";
-import { createEnemy } from "./enemy-factory";
+import { dist } from "./math";
 import { MOVEMENTS, makeNoise } from "./movement";
-import { nextFloat } from "./rng";
-import { ARENA, type EnemyState, type GameState, type Vec2 } from "./state";
+import { runWaveDirector } from "./spawner";
+import { ARENA, type EnemyState, type GameState } from "./state";
 
 export type GameEvent = { type: "key"; key: string };
-export const SPAWN_INTERVAL_TICKS = 180;
-export const MAX_ALIVE = 8;
-
-/**
- * Euclidean distance using only cross-engine-deterministic ops (+,-,*,/ and
- * the correctly-rounded sqrt). The built-in hypot is implementation-
- * approximated and MUST NOT be used inside the simulation.
- */
-function dist(x: number, y: number): number {
-	return Math.sqrt(x * x + y * y);
-}
-
-/**
- * Deterministic uniform point on a circle of the given radius. The built-in
- * trig approximations are implementation-defined, so instead we rejection-
- * sample a point in the unit disc (only +,-,*,/ and sqrt) and project it onto
- * the circle. Each rejected iteration advances the rng state, keeping the draw
- * deterministic.
- */
-export function spawnPoint(
-	rngState: number,
-	radius: number,
-): [pos: Vec2, next: number] {
-	let state = rngState;
-	let ux = 0;
-	let uy = 0;
-	let len2 = 0;
-	do {
-		const [fx, r1] = nextFloat(state);
-		const [fy, r2] = nextFloat(r1);
-		state = r2;
-		ux = fx * 2 - 1;
-		uy = fy * 2 - 1;
-		len2 = ux * ux + uy * uy;
-	} while (len2 > 1 || len2 < 0.0001);
-	const len = Math.sqrt(len2);
-	return [{ x: (ux / len) * radius, y: (uy / len) * radius }, state];
-}
 
 export function step(
 	state: GameState,
@@ -62,20 +22,8 @@ export function step(
 		})),
 	};
 
-	// spawn
-	const aliveCount = s.enemies.filter((e) => e.alive).length;
-	if (s.tick % SPAWN_INTERVAL_TICKS === 0 && aliveCount < MAX_ALIVE) {
-		const [pos, r1] = spawnPoint(s.rngState, ARENA.spawnRadius);
-		const initials = new Set(
-			s.enemies.filter((e) => e.alive).map((e) => e.word[0]),
-		);
-		const [word, r2] = pickWord(r1, initials);
-		s.rngState = r2;
-		const arch = getArchetype("grunt");
-		const enemy = createEnemy(arch, s.nextEnemyId, pos, s.tick, word);
-		s.nextEnemyId += 1;
-		s.enemies = [...s.enemies, enemy];
-	}
+	// wave director: intermissions + escalating spawns
+	runWaveDirector(s);
 
 	// movement + player collision
 	for (const e of s.enemies) {
