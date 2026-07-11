@@ -12,6 +12,7 @@ import {
 } from "./spawner";
 import {
 	createInitialState,
+	currentWord,
 	type EnemyState,
 	type GameState,
 	type PowerupPickup,
@@ -150,7 +151,7 @@ describe("spawner", () => {
 		}
 		expect(s.enemies.length).toBe(8);
 		for (const e of s.enemies) {
-			expect(e.word[0]).not.toBe("v");
+			expect(currentWord(e)[0]).not.toBe("v");
 		}
 	});
 

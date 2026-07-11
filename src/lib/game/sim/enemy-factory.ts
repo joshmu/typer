@@ -13,14 +13,15 @@ export function createEnemy(
 	id: number,
 	pos: Vec2,
 	spawnTick: number,
-	word: string,
+	words: string[],
 ): EnemyState {
 	return {
 		id,
 		archetypeId: arch.id,
 		pos,
 		vel: { x: 0, y: 0 },
-		word,
+		words,
+		wordIndex: 0,
 		typedCount: 0,
 		hp: arch.hp,
 		maxHp: arch.hp,

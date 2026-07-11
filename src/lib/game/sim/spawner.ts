@@ -1,9 +1,9 @@
 import { ENEMIES, getArchetype } from "../content/enemies";
-import { pickWordForTier } from "../content/words";
+import { pickWordChain } from "../content/words";
 import { createEnemy } from "./enemy-factory";
 import { randomPointOnCircle } from "./math";
 import { nextFloat, nextInt } from "./rng";
-import { ARENA, type GameState, type Vec2 } from "./state";
+import { ARENA, currentWord, type GameState, type Vec2 } from "./state";
 
 export const MAX_ALIVE = 8;
 /**
@@ -92,11 +92,13 @@ export function spawnFromArchetype(
 	const arch = getArchetype(archetypeId);
 	// reserve both live enemy AND active powerup initials so a keystroke is never
 	// ambiguous between a new enemy and a pending powerup pickup
-	const initials = new Set(alive.map((e) => e.word[0]));
+	const initials = new Set(alive.map((e) => currentWord(e)[0]));
 	for (const p of s.powerups) initials.add(p.word[0]);
-	const [word, next] = pickWordForTier(arch.tier, s.rngState, initials);
+	// one word per hp: completing a word deals one damage, so the chain length is
+	// the archetype hp. Only the first word obeys the field-uniqueness reservation.
+	const [words, next] = pickWordChain(arch.tier, arch.hp, s.rngState, initials);
 	s.rngState = next;
-	const enemy = createEnemy(arch, s.nextEnemyId, pos, s.tick, word);
+	const enemy = createEnemy(arch, s.nextEnemyId, pos, s.tick, words);
 	s.nextEnemyId += 1;
 	s.enemies = [...s.enemies, enemy];
 	return true;

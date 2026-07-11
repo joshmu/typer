@@ -8,7 +8,12 @@ export type EnemyState = {
 	archetypeId: string;
 	pos: Vec2;
 	vel: Vec2;
-	word: string;
+	// full word chain assigned at spawn: `words.length === archetype.hp` so one
+	// completion = one damage. `wordIndex` is the current word; `typedCount` is the
+	// progress within it. Shield/armored absorbs advance `wordIndex` and append a
+	// fresh band word, so the chain never runs out while the enemy is alive.
+	words: string[];
+	wordIndex: number;
 	typedCount: number;
 	hp: number;
 	maxHp: number;
@@ -61,6 +66,11 @@ export type GameState = {
 	powerupsUsed: number;
 };
 export const ARENA = { spawnRadius: 34, killRadius: 1.6 } as const;
+
+/** The word an enemy is currently being typed against (`words[wordIndex]`). */
+export function currentWord(e: EnemyState): string {
+	return e.words[e.wordIndex];
+}
 
 export function createInitialState(seed: number): GameState {
 	return {

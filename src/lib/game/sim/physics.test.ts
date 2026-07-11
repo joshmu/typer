@@ -7,7 +7,7 @@ import type { EnemyState } from "./state";
 
 function enemy(archetypeId: string, x: number, y: number): EnemyState {
 	const arch = getArchetype(archetypeId);
-	return createEnemy(arch, 1, { x, y }, 0, "word");
+	return createEnemy(arch, 1, { x, y }, 0, ["word"]);
 }
 
 describe("physics", () => {

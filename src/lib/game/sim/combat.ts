@@ -5,18 +5,26 @@ import { cosR, sinR } from "./math";
 import { applyKnockback } from "./physics";
 import { COMBO_DECAY_TICKS, killScore } from "./score";
 import { spawnFromArchetype } from "./spawner";
-import type { EnemyState, GameState } from "./state";
+import { currentWord, type EnemyState, type GameState } from "./state";
 
-export function reassignWord(s: GameState, e: EnemyState): void {
-	const initials = new Set(
-		s.enemies.filter((x) => x.alive && x.id !== e.id).map((x) => x.word[0]),
-	);
-	// reserve active powerup initials too, mirroring spawnFromArchetype
-	for (const p of s.powerups) initials.add(p.word[0]);
-	const [word, next] = pickWordForTier(e.tier, s.rngState, initials);
-	s.rngState = next;
-	e.word = word;
+const NO_INITIALS: ReadonlySet<string> = new Set<string>();
+
+/**
+ * Advance to the next word in the chain (resetting per-word progress). If the
+ * chain has run out — which only happens on an ABSORB completion (shield /
+ * armored-front), since multi-hp damage completions stay within the pre-assigned
+ * `words.length === hp` chain and the enemy dies on the last one — append a fresh
+ * band word so the enemy always has something to type while alive. Reassigns the
+ * array (never mutates the shared prior-state array) to keep `step` pure.
+ */
+export function advanceWord(s: GameState, e: EnemyState): void {
+	e.wordIndex += 1;
 	e.typedCount = 0;
+	if (e.wordIndex >= e.words.length) {
+		const [word, next] = pickWordForTier(e.tier, s.rngState, NO_INITIALS);
+		s.rngState = next;
+		e.words = [...e.words, word];
+	}
 }
 
 export function killEnemy(s: GameState, e: EnemyState): void {
@@ -24,7 +32,7 @@ export function killEnemy(s: GameState, e: EnemyState): void {
 	s.kills += 1;
 	s.combo += 1;
 	s.comboTicksLeft = COMBO_DECAY_TICKS;
-	s.score += killScore(e.word.length, s.combo);
+	s.score += killScore(currentWord(e).length, s.combo);
 	if (s.targetId === e.id) s.targetId = null;
 	if (e.ability?.kind === "split") {
 		const { n, minion } = e.ability;
@@ -44,10 +52,13 @@ export function resolveCompletion(
 	moveScale = 1,
 ): void {
 	// Called after every keystroke on the target; act only when the word is done.
-	if (e.typedCount < e.word.length) return;
+	const word = currentWord(e);
+	if (e.typedCount < word.length) return;
 	if (absorbsCompletion(e)) {
-		s.score += 10 * e.word.length;
-		reassignWord(s, e);
+		// shield / armored-front: no damage, but the word is spent — flat score and
+		// advance to (or append) the next word in the chain.
+		s.score += 10 * word.length;
+		advanceWord(s, e);
 		return;
 	}
 	e.hp -= 1;
@@ -61,6 +72,6 @@ export function resolveCompletion(
 	// `moveScale` gates the recoil so a hit landed during a freeze imparts none.
 	const mult = getArchetype(e.archetypeId).role === "boss" ? 0.4 : 1;
 	applyKnockback(e, { x: 0, y: 0 }, mult, moveScale);
-	s.score += 10 * e.word.length;
-	reassignWord(s, e);
+	s.score += 10 * word.length;
+	advanceWord(s, e);
 }

@@ -36,3 +36,32 @@ export function pickWord(
 ): [word: string, next: number] {
 	return pickWordForTier(1, rngState, excludeInitials);
 }
+
+const NO_INITIALS: ReadonlySet<string> = new Set<string>();
+
+/**
+ * Draw a chain of `count` band words for an enemy's word list. Only the FIRST
+ * word obeys the field-uniqueness rule (`firstExcludeInitials`) so a fresh
+ * enemy's acquiring keystroke stays unambiguous; later words in the chain are
+ * unconstrained (they only ever become the current word after the enemy is
+ * already the active target). Threads the rng deterministically.
+ */
+export function pickWordChain(
+	tier: Tier,
+	count: number,
+	rngState: number,
+	firstExcludeInitials: ReadonlySet<string>,
+): [words: string[], next: number] {
+	const words: string[] = [];
+	let state = rngState;
+	for (let i = 0; i < count; i++) {
+		const [w, next] = pickWordForTier(
+			tier,
+			state,
+			i === 0 ? firstExcludeInitials : NO_INITIALS,
+		);
+		words.push(w);
+		state = next;
+	}
+	return [words, state];
+}

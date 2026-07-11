@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { getArchetype } from "../content/enemies";
 import { createEnemy } from "./enemy-factory";
 import { MAX_ALIVE, spawnFromArchetype } from "./spawner";
-import { createInitialState, type EnemyState, type GameState } from "./state";
+import {
+	createInitialState,
+	currentWord,
+	type EnemyState,
+	type GameState,
+} from "./state";
 import { type GameEvent, step } from "./step";
 
 function cloaker(over: Partial<EnemyState> = {}): EnemyState {
@@ -11,7 +16,8 @@ function cloaker(over: Partial<EnemyState> = {}): EnemyState {
 		archetypeId: "darter-2",
 		pos: { x: 8, y: 0 },
 		vel: { x: 0, y: 0 },
-		word: "zephyr",
+		words: ["zephyr"],
+		wordIndex: 0,
 		typedCount: 0,
 		hp: 1,
 		maxHp: 1,
@@ -84,7 +90,7 @@ describe("step", () => {
 		let s = advanceToFirstEnemy(42);
 		const target = s.enemies.find((e) => e.alive);
 		if (!target) throw new Error("expected a live enemy");
-		const word = target.word;
+		const word = currentWord(target);
 		for (const ch of word) {
 			s = step(s, [{ type: "key", key: ch }]);
 		}
@@ -98,7 +104,7 @@ describe("step", () => {
 		let s = advanceToFirstEnemy(42);
 		const target = s.enemies.find((e) => e.alive);
 		if (!target) throw new Error("expected a live enemy");
-		s = step(s, [{ type: "key", key: target.word[0] }]);
+		s = step(s, [{ type: "key", key: currentWord(target)[0] }]);
 		const locked = s.targetId;
 		s = step(s, [{ type: "key", key: "¤" }]);
 		expect(s.misses).toBe(1);
@@ -114,7 +120,7 @@ describe("step", () => {
 	it("ignores a key that matches only a cloaked enemy's initial (no miss, no combo break)", () => {
 		let s = createInitialState(1);
 		s.wavePhase = "active";
-		s.enemies = [cloaker({ word: "zephyr" })];
+		s.enemies = [cloaker({ words: ["zephyr"] })];
 		s.tick = 30; // steps to 31: (31 - 0) % 60 = 31 >= 30 → hidden phase
 		s.combo = 5;
 		s.comboTicksLeft = 100;
@@ -127,7 +133,7 @@ describe("step", () => {
 	it("still counts a miss when a key matches nothing at all", () => {
 		let s = createInitialState(1);
 		s.wavePhase = "active";
-		s.enemies = [cloaker({ word: "zephyr" })];
+		s.enemies = [cloaker({ words: ["zephyr"] })];
 		s.tick = 30;
 		s = step(s, [{ type: "key", key: "q" }]); // matches neither cloaked nor any
 		expect(s.misses).toBe(1);
@@ -135,12 +141,12 @@ describe("step", () => {
 
 	it("keeps a cloaked enemy's initial reserved for new spawns", () => {
 		const s = createInitialState(5);
-		s.enemies = [cloaker({ word: "xylophone", pos: { x: 8, y: 0 } })];
+		s.enemies = [cloaker({ words: ["xylophone"], pos: { x: 8, y: 0 } })];
 		s.tick = 30;
 		for (let i = 0; i < 8; i++)
 			spawnFromArchetype(s, "husk-1", { x: 20, y: 0 });
 		for (const e of s.enemies) {
-			if (e.id !== 1) expect(e.word[0]).not.toBe("x");
+			if (e.id !== 1) expect(currentWord(e)[0]).not.toBe("x");
 		}
 	});
 
@@ -176,20 +182,12 @@ describe("step", () => {
 		// two heavily-overlapping chasers: without gating velocity work, steer and
 		// separation would pump their velocity every frozen tick and fling them
 		// apart the instant the freeze lifts
-		const a = createEnemy(
-			getArchetype("husk-1"),
-			1,
-			{ x: 5, y: 0 },
-			0,
+		const a = createEnemy(getArchetype("husk-1"), 1, { x: 5, y: 0 }, 0, [
 			"alpha",
-		);
-		const b = createEnemy(
-			getArchetype("husk-1"),
-			2,
-			{ x: 5.1, y: 0 },
-			0,
+		]);
+		const b = createEnemy(getArchetype("husk-1"), 2, { x: 5.1, y: 0 }, 0, [
 			"bravo",
-		);
+		]);
 		s.enemies = [a, b];
 		s.nextEnemyId = 3;
 		s.freezeTicksLeft = 180;

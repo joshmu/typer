@@ -28,7 +28,7 @@ function buildFirstKillLog(seed: number): InputLog {
 		tick = s.tick;
 	}
 	const enemy = s.enemies.find((e) => e.alive);
-	const word = enemy ? enemy.word : "";
+	const word = enemy ? enemy.words[enemy.wordIndex] : "";
 	const events = [...word].map((key, i) => ({ tick: tick + 1 + i, key }));
 	return { seed, ticks: tick + word.length + 30, events };
 }

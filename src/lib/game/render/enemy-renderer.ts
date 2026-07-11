@@ -8,7 +8,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 import { getArchetype } from "../content/enemies";
 import { isCloaked } from "../sim/abilities";
-import type { GameState } from "../sim/state";
+import { currentWord, type GameState } from "../sim/state";
 import { buildEnemyModel, type EnemyModel } from "./enemy-models";
 import { drawLabel } from "./label";
 import { tierTint, visualFor } from "./visuals";
@@ -132,7 +132,7 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 				v.mat.emissiveColor.copyFrom(v.baseEmissive);
 				if (isTarget) v.mat.emissiveColor.scaleInPlace(2.4);
 				v.label.scaling.setAll(isTarget ? 1.25 : 1);
-				drawLabel(v, e.word, e.typedCount, isTarget);
+				drawLabel(v, currentWord(e), e.typedCount, isTarget);
 			}
 		},
 		dispose() {

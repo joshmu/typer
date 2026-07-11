@@ -1,7 +1,7 @@
 import { pickWord } from "../content/words";
 import { cosR, sinR } from "./math";
 import { nextFloat, nextInt } from "./rng";
-import { ARENA, type GameState, type PowerupKind } from "./state";
+import { ARENA, currentWord, type GameState, type PowerupKind } from "./state";
 
 export const POWERUP_LIFETIME_TICKS = 600;
 export const FREEZE_TICKS = 180;
@@ -26,7 +26,7 @@ export function spawnPowerup(s: GameState): void {
 	// enemy AND every on-field powerup. Two pickups sharing word[0] would make
 	// the acquiring keystroke ambiguous between them.
 	const initials = new Set<string>();
-	for (const e of s.enemies) if (e.alive) initials.add(e.word[0]);
+	for (const e of s.enemies) if (e.alive) initials.add(currentWord(e)[0]);
 	for (const p of s.powerups) initials.add(p.word[0]);
 	// keep powerup words visually distinct from POWERUP_WORDS pool; fall back to
 	// pickWord only if a bank word collides with a reserved initial

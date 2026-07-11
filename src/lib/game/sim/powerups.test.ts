@@ -83,8 +83,8 @@ describe("powerups", () => {
 	it("bomb kills every alive enemy", () => {
 		const s = createInitialState(1);
 		s.enemies = [
-			createEnemy(getArchetype("husk-1"), 1, { x: 5, y: 0 }, 0, "the"),
-			createEnemy(getArchetype("husk-1"), 2, { x: -5, y: 0 }, 0, "and"),
+			createEnemy(getArchetype("husk-1"), 1, { x: 5, y: 0 }, 0, ["the"]),
+			createEnemy(getArchetype("husk-1"), 2, { x: -5, y: 0 }, 0, ["and"]),
 		];
 		s.nextEnemyId = 3;
 		applyPowerup(s, "bomb");

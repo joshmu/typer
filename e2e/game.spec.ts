@@ -36,7 +36,7 @@ test.describe("horde game mode", () => {
 				if (!s) return undefined;
 				const target =
 					s.enemies.find((e) => e.id === s.targetId) ?? s.enemies[0];
-				return target?.word;
+				return target ? target.words[target.wordIndex] : undefined;
 			});
 			expect(word).toBeTruthy();
 			await page.evaluate((w) => window.__game?.sendKeys(w), word as string);

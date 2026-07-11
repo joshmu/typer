@@ -11,7 +11,7 @@ import {
 	spawnPowerup,
 } from "./powerups";
 import { runWaveDirector } from "./spawner";
-import { ARENA, type GameState } from "./state";
+import { ARENA, currentWord, type GameState } from "./state";
 
 export type GameEvent = { type: "key"; key: string };
 
@@ -134,7 +134,7 @@ export function step(
 		// 2) advance a locked enemy
 		const target = s.enemies.find((e) => e.id === s.targetId && e.alive);
 		if (target) {
-			if (isCharMatch(ev.key, target.word[target.typedCount])) {
+			if (isCharMatch(ev.key, currentWord(target)[target.typedCount])) {
 				target.typedCount += 1;
 				s.hits += 1;
 				resolveCompletion(s, target, moveScale);
@@ -151,7 +151,9 @@ export function step(
 		const candidates = s.enemies
 			.filter(
 				(e) =>
-					e.alive && isTargetable(e, s.tick) && isCharMatch(ev.key, e.word[0]),
+					e.alive &&
+					isTargetable(e, s.tick) &&
+					isCharMatch(ev.key, currentWord(e)[0]),
 			)
 			.sort((a, b) => dist(a.pos.x, a.pos.y) - dist(b.pos.x, b.pos.y));
 		if (candidates.length > 0) {
@@ -182,7 +184,9 @@ export function step(
 		if (
 			s.enemies.some(
 				(e) =>
-					e.alive && isCloaked(e, s.tick) && isCharMatch(ev.key, e.word[0]),
+					e.alive &&
+					isCloaked(e, s.tick) &&
+					isCharMatch(ev.key, currentWord(e)[0]),
 			)
 		) {
 			continue;
