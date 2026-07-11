@@ -57,6 +57,21 @@ describe("replay", () => {
 		expect(stateHash(a)).toBe(stateHash(b));
 	});
 
+	it("throws when an event tick falls outside 1..ticks", () => {
+		const tooEarly: InputLog = {
+			seed: 42,
+			ticks: 10,
+			events: [{ tick: 0, key: "a" }],
+		};
+		const tooLate: InputLog = {
+			seed: 42,
+			ticks: 10,
+			events: [{ tick: 11, key: "a" }],
+		};
+		expect(() => runReplay(tooEarly)).toThrow();
+		expect(() => runReplay(tooLate)).toThrow();
+	});
+
 	it("hash changes when the seed changes", () => {
 		const base: InputLog = { seed: 42, ticks: 600, events: [] };
 		const other: InputLog = { seed: 43, ticks: 600, events: [] };
