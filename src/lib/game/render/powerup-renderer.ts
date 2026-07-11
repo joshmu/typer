@@ -64,7 +64,7 @@ export function createPowerupRenderer(scene: Scene, glow: GlowLayer) {
 
 		const label = CreatePlane(
 			`powerup-${id}-label`,
-			{ width: 3, height: 0.8 },
+			{ width: 4, height: 1 },
 			scene,
 		);
 		label.parent = root;
@@ -72,7 +72,7 @@ export function createPowerupRenderer(scene: Scene, glow: GlowLayer) {
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
 		const texture = new DynamicTexture(
 			`powerup-${id}-tex`,
-			{ width: 256, height: 64 },
+			{ width: 384, height: 96 },
 			scene,
 			false,
 		);
@@ -123,6 +123,7 @@ export function createPowerupRenderer(scene: Scene, glow: GlowLayer) {
 				const gain = pulse * (isTarget ? 2.2 : 1);
 				v.mat.emissiveColor.copyFrom(v.baseEmissive);
 				v.mat.emissiveColor.scaleInPlace(gain);
+				v.label.scaling.setAll(isTarget ? 1.25 : 1);
 				drawLabel(v, p.word, p.typedCount, isTarget);
 			}
 		},

@@ -54,7 +54,7 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 
 		const label = CreatePlane(
 			`enemy-${id}-label`,
-			{ width: 3, height: 0.8 },
+			{ width: 4, height: 1 },
 			scene,
 		);
 		label.parent = root;
@@ -62,7 +62,7 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
 		const texture = new DynamicTexture(
 			`enemy-${id}-tex`,
-			{ width: 256, height: 64 },
+			{ width: 384, height: 96 },
 			scene,
 			false,
 		);
@@ -117,9 +117,10 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 				for (const p of v.model.parts) p.visibility = vis;
 
 				// locked target glows: boost the base emissive rather than replacing
-				// it, so each family keeps its hue
+				// it, so each family keeps its hue; its label plate also grows
 				v.mat.emissiveColor.copyFrom(v.baseEmissive);
 				if (isTarget) v.mat.emissiveColor.scaleInPlace(2.4);
+				v.label.scaling.setAll(isTarget ? 1.25 : 1);
 				drawLabel(v, e.word, e.typedCount, isTarget);
 			}
 		},

@@ -209,11 +209,21 @@ export default function GameShell() {
 							<Show when={state().combo > 0}>
 								<div
 									data-testid="game-combo"
-									class="w-28 rounded bg-white/10 px-2 py-1"
+									class="w-28 rounded bg-white/10 px-2 py-1 transition-shadow"
+									classList={{
+										"shadow-[0_0_14px_rgba(251,191,36,0.75)] bg-amber-400/15":
+											comboMultiplier(state().combo) >= 2,
+									}}
 								>
 									<div class="flex justify-between">
 										<span>combo {state().combo}</span>
-										<span class="text-amber-300">
+										<span
+											class="text-amber-300"
+											classList={{
+												"font-bold drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]":
+													comboMultiplier(state().combo) >= 2,
+											}}
+										>
 											&times;{comboMultiplier(state().combo)}
 										</span>
 									</div>
