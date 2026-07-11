@@ -26,7 +26,11 @@ jobs:
       - name: Install Playwright chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Regenerate game visual snapshots
-        run: pnpm exec playwright test game.spec.ts --update-snapshots
+        # "all" forces a rewrite of the rendered frame regardless of diff
+        # threshold, so the artifact always reflects what this runner drew.
+        run: |
+          git rev-parse HEAD
+          pnpm exec playwright test game.spec.ts --update-snapshots all
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
