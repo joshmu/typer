@@ -4,7 +4,6 @@ import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { Layer } from "@babylonjs/core/Layers/layer";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
-import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths/math";
 import { CreateDisc } from "@babylonjs/core/Meshes/Builders/discBuilder";
