@@ -6,6 +6,7 @@ declare global {
 		__game?: {
 			getState(): GameState;
 			sendKeys(keys: string): void;
+			sendBackspace(): void;
 			stepTicks(n: number): void;
 			renderReady(): boolean;
 		};
@@ -100,6 +101,142 @@ test.describe("horde game mode", () => {
 		await expect(page.getByTestId("game-over")).toBeHidden();
 		await expect(page.getByTestId("game-kills")).toHaveText("kills 0");
 		await expect(page.getByTestId("game-score")).toHaveText("score 0");
+	});
+
+	test("free-flow: switch mid-word to another enemy, then return and finish both", async ({
+		page,
+	}) => {
+		await page.goto("/game?seed=42&testMode=1");
+		await page.waitForFunction(() => window.__game !== undefined);
+		await page.evaluate(() => window.__game?.stepTicks(181));
+
+		// Run the whole scenario in-page so each keystroke's routing is observed
+		// without cross-process races. A = the NEAREST enemy (so a resume keystroke
+		// re-acquires it deterministically); B = another enemy whose initial won't
+		// merely continue A.
+		const r = await page.evaluate(() => {
+			const g = window.__game;
+			if (!g) return { error: "no game" };
+			const cw = (e: { words: string[]; wordIndex: number }) =>
+				e.words[e.wordIndex];
+			const alive = () => g.getState().enemies.filter((e) => e.alive);
+			let guard = 0;
+			while (alive().length < 2 && guard++ < 400) g.stepTicks(20);
+			const as = alive().sort(
+				(a, b) => Math.hypot(a.pos.x, a.pos.y) - Math.hypot(b.pos.x, b.pos.y),
+			);
+			const A = as[0];
+			const aWord = cw(A);
+			const B = as.find((e) => e.id !== A.id && cw(e)[0] !== aWord[2]);
+			if (!B || aWord.length < 3) return { error: "setup" };
+			const aId = A.id;
+			const bId = B.id;
+
+			// type two chars of A
+			g.sendKeys(aWord[0]);
+			g.sendKeys(aWord[1]);
+			let st = g.getState();
+			const targetIsA = st.targetId === aId;
+			const aTyped2 = st.enemies.find((e) => e.id === aId)?.typedCount;
+
+			// switch to B via its initial — A must keep its progress, not reset
+			g.sendKeys(cw(B)[0]);
+			st = g.getState();
+			const targetIsB = st.targetId === bId;
+			const aDuringB = st.enemies.find((e) => e.id === aId)?.typedCount;
+
+			// finish B (loop in case it absorbs and reassigns)
+			let kg = 0;
+			while (
+				g.getState().enemies.some((e) => e.id === bId && e.alive) &&
+				kg++ < 30
+			) {
+				const b = g.getState().enemies.find((e) => e.id === bId && e.alive);
+				if (!b) break;
+				const w = cw(b);
+				for (let i = b.typedCount; i < w.length; i++) g.sendKeys(w[i]);
+			}
+			const killsAfterB = g.getState().kills;
+			const aAfterB = g
+				.getState()
+				.enemies.find((e) => e.id === aId)?.typedCount;
+
+			// return to A — its saved progress resumes rather than restarting
+			let ag = 0;
+			while (
+				g.getState().enemies.some((e) => e.id === aId && e.alive) &&
+				ag++ < 30
+			) {
+				const a = g.getState().enemies.find((e) => e.id === aId && e.alive);
+				if (!a) break;
+				const w = cw(a);
+				for (let i = a.typedCount; i < w.length; i++) g.sendKeys(w[i]);
+			}
+			return {
+				targetIsA,
+				aTyped2,
+				targetIsB,
+				aDuringB,
+				killsAfterB,
+				aAfterB,
+				finalKills: g.getState().kills,
+			};
+		});
+
+		expect(r.error).toBeUndefined();
+		expect(r.targetIsA).toBe(true);
+		expect(r.aTyped2).toBe(2);
+		expect(r.targetIsB).toBe(true);
+		expect(r.aDuringB).toBe(2); // switching away preserved A's progress
+		expect(r.killsAfterB).toBe(1);
+		expect(r.aAfterB).toBe(2); // still preserved after B died
+		expect(r.finalKills).toBe(2);
+	});
+
+	test("backspace releases the target without a miss, keeping progress", async ({
+		page,
+	}) => {
+		await page.goto("/game?seed=42&testMode=1");
+		await page.waitForFunction(() => window.__game !== undefined);
+		await page.evaluate(() => window.__game?.stepTicks(181));
+
+		const r = await page.evaluate(() => {
+			const g = window.__game;
+			if (!g) return { error: "no game" };
+			const cw = (e: { words: string[]; wordIndex: number }) =>
+				e.words[e.wordIndex];
+			let guard = 0;
+			while (
+				g.getState().enemies.filter((e) => e.alive).length < 1 &&
+				guard++ < 400
+			)
+				g.stepTicks(20);
+			const A = g.getState().enemies.find((e) => e.alive);
+			if (!A) return { error: "no enemy" };
+			const missBefore = g.getState().misses;
+			g.sendKeys(cw(A)[0]); // acquire A
+			let st = g.getState();
+			const targetSet = st.targetId === A.id;
+			const typedBefore = st.enemies.find((e) => e.id === A.id)?.typedCount;
+
+			g.sendBackspace(); // release
+			st = g.getState();
+			return {
+				targetSet,
+				typedBefore,
+				targetAfter: st.targetId,
+				typedAfter: st.enemies.find((e) => e.id === A.id)?.typedCount,
+				missBefore,
+				missAfter: st.misses,
+			};
+		});
+
+		expect(r.error).toBeUndefined();
+		expect(r.targetSet).toBe(true);
+		expect(r.typedBefore).toBe(1);
+		expect(r.targetAfter).toBeNull(); // lock released
+		expect(r.typedAfter).toBe(1); // progress kept
+		expect(r.missAfter).toBe(r.missBefore); // release is never a miss
 	});
 
 	test("visual: deterministic arena frame", async ({ page }) => {

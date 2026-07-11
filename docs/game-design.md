@@ -38,15 +38,41 @@ word-completions before taking damage), `cloak` (periodically untargetable),
 `enrage-at-half` (speeds up below half hp), `teleport` (periodic jump), and
 `armored-front` (only exposed within a radius of the core). All eight abilities
 and all six movements are represented across the roster; bosses are tier-4
-word-chain enemies that reassign a new word on each completion.
+word-chain enemies whose whole chain is assigned upfront (see Word bands).
 
-## Word bands
+## Word bands & chains
 
 `pickWordForTier(tier, rng, excludeInitials)` draws length-banded words from
-`english-1k` (tiers 1–2) and `english-5k` (tiers 3–4). Enemies draw from their
-tier; boss chains and multi-hp/absorb reassignments redraw within the same band.
-Initials of every live enemy **and** active powerup are excluded so a keystroke
-is never ambiguous between two targets.
+`english-1k` (tiers 1–2) and `english-5k` (tiers 3–4). Each enemy is assigned a
+**word chain** at spawn (`pickWordChain`, `EnemyState.words`): `words.length ===
+archetype.hp`, so completing one word deals one damage and `wordIndex` walks the
+chain to death. Only the **first** word obeys the field-uniqueness rule (initials
+of every live enemy **and** active powerup are excluded so the acquiring keystroke
+is never ambiguous); later words in the chain are unconstrained. `currentWord(e)`
+is the sole accessor. Shield/armored-front **absorbs** advance `wordIndex` without
+damage and append a fresh band word (`advanceWord`), so an enemy never runs out of
+words while alive. `typedCount` is progress within the current word.
+
+## Targeting model (free-flow routing)
+
+ZType-informed free-flow, implemented in `step.ts`. Per keystroke:
+
+1. **Continue the active lock.** If a powerup (`targetPowerupId`) or enemy
+   (`targetId`) is locked and the key matches its next needed char, advance it. A
+   mismatch here is **not** a miss — it falls through to re-routing.
+2. **Re-route.** Scan every alive, targetable enemy whose next-needed char
+   (`currentWord(e)[e.typedCount]`) matches — covering fresh enemies (at their
+   initial) **and** previously partial ones (at their saved progress) in one pass;
+   the **nearest to the core** wins. Switching keeps the previous target's
+   `typedCount` (progress is never reset). Powerups are matched next by the same
+   rule. At most one lock is held at a time (enemy XOR powerup).
+3. **Cloaked-only ignore.** A key that matches only a hidden-phase cloaker is
+   ignored (no miss, no combo break) — unfair to penalise an unseen target.
+4. **Miss.** A key matching nothing live is the only miss (breaks combo).
+5. **Backspace** (`{ type: "backspace" }`) releases the active lock, keeping all
+   typed progress; never a miss. `GameShell` maps the Backspace key with
+   `preventDefault` (so the browser never navigates back) via
+   `loop.pushBackspace()` / `window.__game.sendBackspace()`.
 
 ## Powerups
 
@@ -175,10 +201,15 @@ loop, kept strictly separate from the pure sim. Key pieces:
   (beta 0.12, radius 55) over a 38-unit textured floor disc, with a fullscreen
   nebula background `Layer` filling the corners and a `GlowLayer` (intensity 0.6,
   blur kernel 16) blooming gameplay emissives (floor and word plates excluded).
-- **Player turret** (`turret.ts`): a layered build — sunk base, pulsing energy
-  core, barrel assembly that lerp-tracks the locked target — plus a core danger
-  ring at the defensive perimeter that flares red as the horde presses within 6
-  units. Exposes `getMuzzle()` for shot origins and `ringPulse()` for powerups.
+- **Player turret** (`turret.ts`): a layered build — hexagonal two-tier sunk base
+  with cooling fins, a combo-scaled energy core, an independent slow radar sweep,
+  and **twin barrels that AIM** (atan2 + ~0.2 slerp) at the locked target, or the
+  nearest enemy anticipatorily when none is locked, and simply **HOLD** their last
+  heading when the field is clear (no idle spin). The barrels recoil per shot (a
+  spring kicked from the loop, heavier on a completion). Plus a core danger ring at
+  the defensive perimeter that flares red as the horde presses within 6 units.
+  Exposes `getMuzzle()` for shot origins, `recoil()` for shots and `ringPulse()`
+  for powerups.
 - **Projectile tracers + muzzle flash** (`effects.ts`): pooled emissive beams;
   the loop diffs each enemy's `typedCount`/`hp` per frame to fire a thin bolt on a
   keystroke and a heavier bolt + flash on a completion/kill. Also owns the pooled
@@ -186,11 +217,38 @@ loop, kept strictly separate from the pure sim. Key pieces:
 - **Sculpted enemies** (`enemy-models.ts` + `enemy-renderer.ts`): one distinct
   multi-part model per family (husk spikes, darter arrowhead, wraith ring, charger
   wedge, weaver twin-orbs, brood bumps, boss flagship + orbiting shards), tinted
-  per tier, scaled ×2.2 for top-down readability, animated render-side (bob / spin
-  / heading-orient / sub-part orbit) from the sim tick and a per-id phase.
-- **Label plates** (`label.ts`): a rounded dark plate with a thin accent border
-  behind each word so it stays legible over the terrain; the locked target's plate
-  is larger with a brighter border.
+  per tier, scaled ×2.2 for top-down readability. Gait transforms live on an inner
+  `body` node so they never fight the outer size scale.
+- **Locomotion gaits** (`enemy-models.ts`): each family has a procedural gait
+  driven read-only by sim state (tick, `|vel|`, dash phase from `spawnTick`), with
+  amplitude scaling by `|vel|` so a stopped enemy idles subtly instead of gliding.
+
+  | Family  | Gait                                                      |
+  |---------|-----------------------------------------------------------|
+  | Husk    | spikes ripple outward + body roll along travel            |
+  | Darter  | squash-stretch thrust pulses along the heading            |
+  | Wraith  | ring counter-spins the body; core leads/lags              |
+  | Charger | crouch during the pause, lunge during the dash (phase-synced) |
+  | Weaver  | orbs counter-bob; the pair tightens laterally with speed   |
+  | Brood   | child bumps wobble in/out                                  |
+  | Boss    | slow menace sway over the orbiting shard spin              |
+
+- **Label plates** (`label.ts`): each enemy shows its whole remaining word chain —
+  current word on the bottom plate at full brightness, up to two queued words
+  stacked above at 55% scale / 40% alpha, and any remainder collapsed into a "+n"
+  chip — all baked into one fixed tall texture (four rows) with no per-completion
+  reallocation. Plate fill alpha 0.92 and a 3px dark `strokeText` outline behind
+  every glyph keep the text legible even over a bright bloomed enemy. The active
+  target gets a brighter border plate and a chevron; partial enemies get a thin
+  amber progress underline. Powerups share the upgraded single-plate path.
+- **Battlefield persistence** (`ground-decals.ts`): the ground diffuse is a single
+  2048² `DynamicTexture`. The AI terrain is baked into it once (tiled 4×4), then
+  corpse and breach decals are stamped straight in on death frames — a dark scorch
+  ellipse + family-tinted splat blobs + debris per corpse (rotation seeded from the
+  enemy id), a red core-side gash per breach. `texture.update()` runs only when a
+  decal is stamped; there are **zero live decal entities** and accumulation is
+  unbounded for free (Crimsonland technique). Emissive stays the static tiled
+  terrain so scorch marks read dark/unlit while the circuitry keeps glowing.
 
 All render work is pooled with reused scratch vectors — no per-frame allocation —
 keeping the keystroke round-trip well under the 16 ms budget with glow active.
