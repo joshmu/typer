@@ -37,29 +37,24 @@ export function pickWord(
 	return pickWordForTier(1, rngState, excludeInitials);
 }
 
-const NO_INITIALS: ReadonlySet<string> = new Set<string>();
-
 /**
- * Draw a chain of `count` band words for an enemy's word list. Only the FIRST
- * word obeys the field-uniqueness rule (`firstExcludeInitials`) so a fresh
- * enemy's acquiring keystroke stays unambiguous; later words in the chain are
- * unconstrained (they only ever become the current word after the enemy is
- * already the active target). Threads the rng deterministically.
+ * Draw a chain of `count` band words for an enemy's word list. Every word obeys
+ * the field-uniqueness reservation (`excludeInitials`) so both the fresh enemy's
+ * acquiring keystroke and its previewed queued words stay unambiguous against the
+ * rest of the field at spawn time; the sim redraws each word again (against the
+ * then-current field) when the enemy actually advances onto it. Threads the rng
+ * deterministically.
  */
 export function pickWordChain(
 	tier: Tier,
 	count: number,
 	rngState: number,
-	firstExcludeInitials: ReadonlySet<string>,
+	excludeInitials: ReadonlySet<string>,
 ): [words: string[], next: number] {
 	const words: string[] = [];
 	let state = rngState;
 	for (let i = 0; i < count; i++) {
-		const [w, next] = pickWordForTier(
-			tier,
-			state,
-			i === 0 ? firstExcludeInitials : NO_INITIALS,
-		);
+		const [w, next] = pickWordForTier(tier, state, excludeInitials);
 		words.push(w);
 		state = next;
 	}

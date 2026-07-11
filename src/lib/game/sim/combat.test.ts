@@ -77,6 +77,28 @@ describe("combat", () => {
 		expect(s.kills).toBe(1);
 	});
 
+	it("damaging one enemy never draws a next word sharing another's current initial", () => {
+		// two multi-hp enemies on the field; the damaged one's next word must avoid
+		// the OTHER live enemy's current initial (the field-uniqueness rule that
+		// spawn already honours, now extended to chain advances). The chain filler
+		// starts with 'x', so a next word drawn WITHOUT the field exclusion would
+		// collide with B — only an exclusion-aware redraw dodges it.
+		const arch = getArchetype("husk-4"); // hp 3 → multi-hp chain
+		for (let seed = 1; seed <= 40; seed++) {
+			const s = createInitialState(seed);
+			const a = createEnemy(arch, 1, { x: 5, y: 0 }, 0, chain(9, arch.hp));
+			const bWords = chain(9, arch.hp); // B's current word starts with 'x'
+			const b = createEnemy(arch, 2, { x: 9, y: 0 }, 0, bWords);
+			s.enemies = [a, b];
+			s.nextEnemyId = 3;
+			// complete A's current word → hp drop, advance, redraw next word
+			a.typedCount = currentWord(a).length;
+			resolveCompletion(s, a);
+			expect(a.alive).toBe(true);
+			expect(currentWord(a)[0]).not.toBe("x"); // B's live initial excluded
+		}
+	});
+
 	it("a shield absorb advances the word (appending) without dealing damage", () => {
 		const { s } = stateWithEnemy("weaver-1"); // hp 1, shield hits 1
 		const e = s.enemies[0];

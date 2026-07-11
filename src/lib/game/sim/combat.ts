@@ -7,23 +7,45 @@ import { COMBO_DECAY_TICKS, killScore } from "./score";
 import { spawnFromArchetype } from "./spawner";
 import { currentWord, type EnemyState, type GameState } from "./state";
 
-const NO_INITIALS: ReadonlySet<string> = new Set<string>();
+/**
+ * The initials currently live on the field, excluding one enemy: every other
+ * alive enemy's current-word initial plus every active powerup's initial. This
+ * is the same reservation `spawn` uses, so a freshly drawn word can never make a
+ * keystroke ambiguous between two on-screen targets.
+ */
+function liveInitials(s: GameState, exceptId: number): Set<string> {
+	const initials = new Set<string>();
+	for (const other of s.enemies) {
+		if (other.alive && other.id !== exceptId)
+			initials.add(currentWord(other)[0]);
+	}
+	for (const p of s.powerups) initials.add(p.word[0]);
+	return initials;
+}
 
 /**
- * Advance to the next word in the chain (resetting per-word progress). If the
- * chain has run out — which only happens on an ABSORB completion (shield /
- * armored-front), since multi-hp damage completions stay within the pre-assigned
- * `words.length === hp` chain and the enemy dies on the last one — append a fresh
- * band word so the enemy always has something to type while alive. Reassigns the
- * array (never mutates the shared prior-state array) to keep `step` pure.
+ * Advance to the next word (resetting per-word progress) and DRAW that word
+ * fresh, excluding the field's live initials so a chain advance can never make a
+ * keystroke ambiguous with another on-screen enemy. Within the pre-assigned
+ * `words.length === hp` chain the fresh word replaces the slot in place (length
+ * unchanged); once the chain is exhausted — which only happens on an ABSORB
+ * completion (shield / armored-front) — it is appended so the enemy always has
+ * something to type while alive. Reassigns the array (never mutates the shared
+ * prior-state array) to keep `step` pure.
  */
 export function advanceWord(s: GameState, e: EnemyState): void {
 	e.wordIndex += 1;
 	e.typedCount = 0;
+	const [word, next] = pickWordForTier(
+		e.tier,
+		s.rngState,
+		liveInitials(s, e.id),
+	);
+	s.rngState = next;
 	if (e.wordIndex >= e.words.length) {
-		const [word, next] = pickWordForTier(e.tier, s.rngState, NO_INITIALS);
-		s.rngState = next;
 		e.words = [...e.words, word];
+	} else {
+		e.words = e.words.map((w, i) => (i === e.wordIndex ? word : w));
 	}
 }
 
