@@ -20,6 +20,10 @@ test.describe("horde game mode", () => {
 		// advance past first spawn deterministically
 		await page.evaluate(() => window.__game?.stepTicks(181));
 
+		// stepping past the opening intermission enters an active wave, so the
+		// wave chip should now be mounted in the HUD
+		await expect(page.getByTestId("game-wave")).toBeVisible();
+
 		// The full roster fields any tier-1 regular here, and some (e.g. a
 		// shielded archetype) absorb a completion by reassigning the word
 		// instead of dying — so type the locked target's current word,
