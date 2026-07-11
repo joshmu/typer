@@ -1,6 +1,10 @@
 import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
-import { Color4, Vector3 } from "@babylonjs/core/Maths/math";
+import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths/math";
+import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
+import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
 import type { Scene } from "@babylonjs/core/scene";
 // GLSL particle shaders (WebGL engine) — required so the pooled ParticleSystem
@@ -15,6 +19,11 @@ const SLOW_TINT: readonly [number, number, number] = [0.17, 0.11, 0.02];
 const SHAKE_FRAMES = 20;
 const SHAKE_MAG = 0.6;
 const BURST_COUNT = 36;
+const TRACER_POOL = 16;
+const FLASH_POOL = 4;
+const TRACER_LIFE = 4; // frames a keystroke tracer is visible
+const TRACER_LIFE_HEAVY = 7; // a completion bolt lingers a touch longer
+const FLASH_LIFE = 3;
 
 function lerp(a: number, b: number, t: number): number {
 	return a + (b - a) * t;
@@ -33,6 +42,10 @@ export type Effects = {
 		color: [number, number, number],
 	): void;
 	playerHit(): void;
+	/** A shot from the muzzle to a world point; `heavy` for word completions. */
+	fireTracer(from: Vector3, to: Vector3, heavy: boolean): void;
+	/** A brief muzzle burst at a world point (word completion / kill). */
+	muzzleFlash(at: Vector3, heavy: boolean): void;
 	update(state: GameState): void;
 	dispose(): void;
 };
@@ -62,6 +75,49 @@ export function createEffects(scene: Scene): Effects {
 	ps.manualEmitCount = 0;
 	ps.start();
 
+	// pooled projectile tracers — thin emissive boxes stretched along the shot,
+	// each with a life counter faded out in update(). No per-shot allocation.
+	const tracerMat = new StandardMaterial("fx-tracer-mat", scene);
+	tracerMat.emissiveColor = new Color3(0.7, 0.95, 1);
+	tracerMat.diffuseColor = new Color3(0, 0, 0);
+	tracerMat.disableLighting = true;
+	tracerMat.alpha = 1;
+	const heavyMat = new StandardMaterial("fx-tracer-heavy-mat", scene);
+	heavyMat.emissiveColor = new Color3(1, 0.95, 0.75);
+	heavyMat.diffuseColor = new Color3(0, 0, 0);
+	heavyMat.disableLighting = true;
+
+	type Pooled = { mesh: Mesh; life: number; maxLife: number };
+	const tracers: Pooled[] = [];
+	for (let i = 0; i < TRACER_POOL; i++) {
+		const mesh = CreateBox(`fx-tracer-${i}`, { size: 1 }, scene);
+		mesh.material = tracerMat;
+		mesh.isPickable = false;
+		mesh.setEnabled(false);
+		tracers.push({ mesh, life: 0, maxLife: TRACER_LIFE });
+	}
+	const flashes: Pooled[] = [];
+	for (let i = 0; i < FLASH_POOL; i++) {
+		const mesh = CreateSphere(
+			`fx-flash-${i}`,
+			{ diameter: 1, segments: 8 },
+			scene,
+		);
+		mesh.material = heavyMat;
+		mesh.isPickable = false;
+		mesh.setEnabled(false);
+		flashes.push({ mesh, life: 0, maxLife: FLASH_LIFE });
+	}
+
+	function acquire(pool: Pooled[]): Pooled {
+		let pick = pool[0];
+		for (const p of pool) {
+			if (p.life <= 0) return p;
+			if (p.life < pick.life) pick = p; // else steal the one closest to done
+		}
+		return pick;
+	}
+
 	const camTarget = new Vector3(0, 0, 0);
 	let shake = 0;
 	let shakeStep = 0;
@@ -82,7 +138,49 @@ export function createEffects(scene: Scene): Effects {
 		playerHit() {
 			shake = SHAKE_FRAMES;
 		},
+		fireTracer(from, to, heavy) {
+			const t = acquire(tracers);
+			const dx = to.x - from.x;
+			const dz = to.z - from.z;
+			const len = Math.hypot(dx, dz) || 0.001;
+			t.mesh.position.set((from.x + to.x) / 2, from.y, (from.z + to.z) / 2);
+			t.mesh.rotation.y = Math.atan2(dx, dz);
+			const w = heavy ? 0.22 : 0.09;
+			t.mesh.scaling.set(w, w, len);
+			t.mesh.material = heavy ? heavyMat : tracerMat;
+			t.maxLife = heavy ? TRACER_LIFE_HEAVY : TRACER_LIFE;
+			t.life = t.maxLife;
+			t.mesh.visibility = 1;
+			t.mesh.setEnabled(true);
+		},
+		muzzleFlash(at, heavy) {
+			const f = acquire(flashes);
+			f.mesh.position.copyFrom(at);
+			f.mesh.scaling.setAll(heavy ? 1.5 : 1);
+			f.life = FLASH_LIFE;
+			f.mesh.visibility = 1;
+			f.mesh.setEnabled(true);
+		},
 		update(state) {
+			// fade + retire pooled tracers and flashes
+			for (const t of tracers) {
+				if (t.life <= 0) continue;
+				t.life -= 1;
+				if (t.life <= 0) {
+					t.mesh.setEnabled(false);
+				} else {
+					t.mesh.visibility = t.life / t.maxLife;
+				}
+			}
+			for (const f of flashes) {
+				if (f.life <= 0) continue;
+				f.life -= 1;
+				const k = f.life / FLASH_LIFE;
+				f.mesh.scaling.setAll((f.mesh.scaling.x || 1) * 0.8 + 0.001);
+				f.mesh.visibility = k;
+				if (f.life <= 0) f.mesh.setEnabled(false);
+			}
+
 			// status color grade: freeze wins over slow, both lerp toward a tint
 			let tint = BASE_CLEAR;
 			let t = 0;
@@ -116,6 +214,10 @@ export function createEffects(scene: Scene): Effects {
 		dispose() {
 			ps.dispose();
 			sprite.dispose();
+			for (const t of tracers) t.mesh.dispose(false, true);
+			for (const f of flashes) f.mesh.dispose(false, true);
+			tracerMat.dispose();
+			heavyMat.dispose();
 		},
 	};
 }

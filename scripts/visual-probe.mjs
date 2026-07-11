@@ -92,14 +92,16 @@ if (DO_KEYS) {
 		if (alive.length === 0) return "";
 		return alive[0].word ?? "";
 	});
-	const half = Math.max(1, Math.ceil(word.length / 2));
-	for (let i = 0; i < half; i++) {
+	// type up to (but not including) the final char, spacing the shots out
+	const half = Math.max(2, Math.ceil(word.length / 2));
+	for (let i = 0; i < half - 1; i++) {
 		await page.evaluate((k) => window.__game?.sendKeys(k), word[i]);
-		await page.evaluate(() => window.__game?.stepTicks(2));
+		await page.evaluate(() => window.__game?.stepTicks(3));
 	}
 	await page.waitForFunction(() => window.__game?.renderReady() === true);
-	await page.evaluate(() => window.__game?.stepTicks(0));
-	await page.waitForTimeout(120);
+	// fire the final keystroke and capture the SAME frame it renders, so a fresh
+	// tracer + muzzle flash is in the shot (testMode pushKey advances + renders)
+	await page.evaluate((k) => window.__game?.sendKeys(k), word[half - 1]);
 	await page.screenshot({ path: `${OUT}/probe-type.png` });
 }
 

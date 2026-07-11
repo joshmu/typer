@@ -4,7 +4,6 @@ import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths/math";
-import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder";
 import { CreateDisc } from "@babylonjs/core/Meshes/Builders/discBuilder";
 import { Scene } from "@babylonjs/core/scene";
 
@@ -51,15 +50,8 @@ export function createGameScene(
 	groundMat.diffuseTexture = groundTex;
 	ground.material = groundMat;
 
-	const player = CreateCylinder(
-		"player",
-		{ height: 1.2, diameterTop: 0, diameterBottom: 1 },
-		scene,
-	);
-	player.position.y = 0.6;
-	const playerMat = new StandardMaterial("playerMat", scene);
-	playerMat.emissiveColor = new Color3(0.3, 0.8, 1);
-	player.material = playerMat;
+	// the player is a layered turret (render/turret.ts) built by the loop, not a
+	// static cone — so nothing more is added here.
 
 	return {
 		engine,
