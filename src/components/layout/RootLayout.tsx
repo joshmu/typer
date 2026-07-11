@@ -22,6 +22,12 @@ export default function RootLayout(props: ParentProps) {
 						Home
 					</a>
 					<a
+						href="/game"
+						class="nav-link text-primary hover:text-primary/80 no-underline"
+					>
+						Horde
+					</a>
+					<a
 						href="/settings"
 						class="nav-link text-text-sub hover:text-text no-underline"
 					>

@@ -1,3 +1,4 @@
+import { useNavigate } from "@solidjs/router";
 import { createEffect, For, onMount, Show } from "solid-js";
 import type { TestMode } from "@/lib/core/types";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
@@ -17,6 +18,7 @@ const wordOptions = [10, 25, 50, 100] as const;
 const quoteOptions = ["short", "medium", "long"] as const;
 
 export default function ModeSelector(props: ModeSelectorProps) {
+	const navigate = useNavigate();
 	let containerRef: HTMLDivElement | undefined;
 	let pillRef: HTMLDivElement | undefined;
 	const buttonRefs: Record<string, HTMLButtonElement> = {};
@@ -108,6 +110,17 @@ export default function ModeSelector(props: ModeSelectorProps) {
 						</>
 					)}
 				</For>
+				{/* Horde is a separate arcade mode — navigate away rather than
+				    switching the typing mode. Accent styling sets it apart. */}
+				<div class="w-px h-4 bg-text-sub/20 mx-0.5" />
+				<button
+					type="button"
+					data-testid="mode-horde"
+					class="relative z-10 px-4 py-1.5 text-sm rounded font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+					onClick={() => navigate("/game")}
+				>
+					horde
+				</button>
 			</div>
 
 			{/* Sub-options */}
