@@ -84,13 +84,37 @@ Source: `src/lib/game/sim/score.ts` + `combat.ts`.
 Source: `src/lib/game/sim/spawner.ts`. Player starts with 3 hp; an enemy reaching
 the core (`ARENA.killRadius`) costs 1 hp and gameover fires at 0.
 
+- **Arena:** `ARENA = { spawnRadius: 34, killRadius: 1.6 }` — a large top-down
+  field an enemy takes many seconds to cross. Roster `speed` values are tuned so
+  the straight-line travel time `spawnRadius / (speed × 60)` sits in a survivable
+  band: **regulars 13–45 s, bosses 20–60 s** (asserted in `enemies.test.ts`).
 - **Wave size:** `waveEnemyCount(wave) = 3 + wave × 2`.
 - **Tier gating:** tiers unlock at waves 1 / 3 / 6 / 10; `tierWeight` shifts the
   spawn mix toward higher tiers as waves climb.
 - **Bosses:** every 5th wave has a ~1-in-3 chance to field a boss.
+- **Spawn pacing:** `waveSpawnCooldown(wave) = max(30, 100 − wave × 10)` — wave 1
+  opens slow (90 ticks between spawns) so the arena never floods before a word can
+  be read, tightening to a 30-tick floor by wave 7.
 - **Caps & timing:** `MAX_ALIVE = 8` (soft, wave director), `ALIVE_HARD_CAP = 16`
-  (absolute, includes ability-spawned minions), `SPAWN_COOLDOWN_TICKS = 45`,
-  `INTERMISSION_TICKS = 180`, `INITIAL_INTERMISSION_TICKS = 60`.
+  (absolute, includes ability-spawned minions), `INTERMISSION_TICKS = 180`,
+  `INITIAL_INTERMISSION_TICKS = 60`.
+
+## Motion physics
+
+Source: `src/lib/game/sim/physics.ts` (pure, `dist`/`sqrt` only). Each enemy
+carries a velocity (`EnemyState.vel`); movement behaviours emit a **desired**
+velocity that the physics layer integrates with inertia so the horde moves like
+bodies with mass rather than teleporting dots.
+
+- **`steer(e, desired)`** — bends `vel` toward `desired`, capped at `PHYS.accel`
+  (0.006) per tick, so nothing reverses or turns instantly.
+- **`separate(enemies)`** — pairwise crowd separation: bodies closer than 55% of
+  their combined size shove each other apart (O(n²), n ≤ `ALIVE_HARD_CAP`).
+- **`applyKnockback(e, awayFrom, mult)`** — a completion hit adds an outward
+  impulse (`PHYS.knockback` 0.35); bosses recoil at `mult 0.4`.
+
+`step.ts` runs steer → separate → integrate (`pos += vel × moveScale`, so
+freeze/slow scale the whole step) → core-collision each tick.
 
 ## Persistence
 
@@ -113,7 +137,8 @@ state's canonical JSON, `src/lib/game/sim/replay.ts`). Golden fixtures live in
   committed JSON from the current sim when `RECORD_FIXTURE` is set:
   `RECORD_FIXTURE=1 pnpm test:run -- src/lib/game/sim/replay.test.ts`.
   Re-recording is only legitimate when a **deliberate** sim change alters the
-  hash (e.g. the `hits` counter addition) — an unexpected hash drift is a bug.
+  hash (e.g. the `hits` counter, the roster speed retune, or the enemy `vel`
+  field + physics) — an unexpected hash drift is a bug.
 - **Determinism scan:** `determinism.test.ts` statically bans `Math.hypot/cos/sin/
   tan/random` and `Date.now` in every non-test `sim/` and `content/` source (those
   are engine-approximated or impure). Use the `cosR/sinR` helpers in `math.ts`.
@@ -141,16 +166,52 @@ regenerate after intentional start-screen/HUD drift with
 lands at visual-freeze, after which the snapshot gates CI. The capture waits on
 `window.__game.renderReady()` so it never races async PNG texture decode.
 
+## Rendering & premium visuals
+
+The render layer (`src/lib/game/render/`) is a Babylon adapter driven by the
+loop, kept strictly separate from the pure sim. Key pieces:
+
+- **Camera / arena** (`scene.ts`): a near-vertical top-down `ArcRotateCamera`
+  (beta 0.12, radius 55) over a 38-unit textured floor disc, with a fullscreen
+  nebula background `Layer` filling the corners and a `GlowLayer` (intensity 0.6,
+  blur kernel 16) blooming gameplay emissives (floor and word plates excluded).
+- **Player turret** (`turret.ts`): a layered build — sunk base, pulsing energy
+  core, barrel assembly that lerp-tracks the locked target — plus a core danger
+  ring at the defensive perimeter that flares red as the horde presses within 6
+  units. Exposes `getMuzzle()` for shot origins and `ringPulse()` for powerups.
+- **Projectile tracers + muzzle flash** (`effects.ts`): pooled emissive beams;
+  the loop diffs each enemy's `typedCount`/`hp` per frame to fire a thin bolt on a
+  keystroke and a heavier bolt + flash on a completion/kill. Also owns the pooled
+  death-burst particle system and the screen shake.
+- **Sculpted enemies** (`enemy-models.ts` + `enemy-renderer.ts`): one distinct
+  multi-part model per family (husk spikes, darter arrowhead, wraith ring, charger
+  wedge, weaver twin-orbs, brood bumps, boss flagship + orbiting shards), tinted
+  per tier, scaled ×2.2 for top-down readability, animated render-side (bob / spin
+  / heading-orient / sub-part orbit) from the sim tick and a per-id phase.
+- **Label plates** (`label.ts`): a rounded dark plate with a thin accent border
+  behind each word so it stays legible over the terrain; the locked target's plate
+  is larger with a brighter border.
+
+All render work is pooled with reused scratch vectors — no per-frame allocation —
+keeping the keystroke round-trip well under the 16 ms budget with glow active.
+
 ## Asset pipeline
 
-- **Decision:** game textures are **generated-procedural**, not binary art or glTF.
-  `scripts/gen-assets.ts` is a zero-dependency, seeded (`SEED = 0x9e3779b9`),
-  idempotent node script that hand-rolls a minimal RGBA PNG encoder (filter 0,
-  `node:zlib` deflate, inline CRC32) and emits committed outputs under
-  `public/game/`: `particle.png` (64×64 radial spark) and `ground.png` (512×512
-  tileable value-noise floor with a faint grid). Regenerate with `pnpm gen:assets`;
-  the script prints each output's sha256 (expected hashes documented in its header).
-- **Rationale:** no large opaque binaries in the repo, byte-reproducible from
-  source, reviewable as code. The renderer consumes them via `@babylonjs/core`
-  `Texture` (`ground.png` tiled ×6 on the floor material, `particle.png` on the
-  death-burst particle system).
+Two provenance scripts, both **manually run**; CI never calls the network. The
+committed PNGs under `public/game/` are the artifacts of record.
+
+- **AI-generated environment** (`scripts/gen-ai-assets.mjs`): calls OpenRouter's
+  image-capable Gemini model (`google/gemini-3.1-flash-image`) to produce
+  `terrain.png` (tileable dark hex-grid sci-fi floor with teal circuitry) and
+  `nebula.png` (dark indigo/violet starfield). Run with
+  `OPENROUTER_API_KEY=… node scripts/gen-ai-assets.mjs`, then eyeball the output
+  and keep or re-roll. The key is never committed and the network is never touched
+  from tests/CI. (Gemini may return JPEG bytes under the `.png` name; browsers
+  decode by content so the texture loads correctly.)
+- **Generated-procedural sprites** (`scripts/gen-assets.ts`): a zero-dependency,
+  seeded (`SEED = 0x9e3779b9`) node script with a hand-rolled RGBA PNG encoder,
+  emitting `particle.png` (radial spark, used by the death-burst system). It also
+  emits `ground.png`, now superseded by the AI `terrain.png` for the floor.
+- **Rationale:** the AI textures give a premium, hand-authored look no procedural
+  recipe matched in the playtest, while provenance stays reproducible and the repo
+  never depends on a network call at build time.

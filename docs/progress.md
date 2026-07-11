@@ -71,3 +71,12 @@
 - [x] Start + death screens with derived run stats (WPM, accuracy) and NEW BEST surfacing
 - [x] App integration: Horde entry in mode selector + header nav
 - [x] Docs: gameplay reference, determinism/replay guide, perf budgets, asset pipeline
+
+### Premium visual + physics overhaul (playtest response)
+
+- [x] True top-down camera (beta 0.12) + 70%-larger arena (spawnRadius 34, killRadius 1.6) with survivable wave pacing (`waveSpawnCooldown`)
+- [x] Deterministic motion physics: steering/inertia, crowd separation, knockback (`sim/physics.ts`, enemy `vel`)
+- [x] Rotating player turret with keystroke projectile tracers + muzzle flash (`render/turret.ts`, pooled tracers in `render/effects.ts`)
+- [x] Sculpted per-family multi-part enemy models with idle animation (`render/enemy-models.ts`)
+- [x] AI-generated terrain + nebula textures (OpenRouter/Gemini, `scripts/gen-ai-assets.mjs`), glow layer, core danger ring
+- [x] Word label plates + HUD combo emphasis; darwin visual baseline rebaselined
