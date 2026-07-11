@@ -118,11 +118,11 @@ describe("abilities", () => {
 
 	it("teleport clamps its jump so it never blinks into the kill ring", () => {
 		const s = createInitialState(1);
-		// d = 3, range = 3: an unclamped jump would land the enemy at the origin
-		// (well inside the kill ring); the clamp must keep it at >= killRadius * 2.
+		// d = 4, range = 3: an unclamped jump would land the enemy at d = 1 (well
+		// inside the kill ring); the clamp must keep it at >= killRadius * 2.
 		const e = enemyWith(
 			{ kind: "teleport", interval: 20, range: 3 },
-			{ pos: { x: 3, y: 0 } },
+			{ pos: { x: 4, y: 0 } },
 		);
 		s.enemies = [e];
 		s.tick = 20;

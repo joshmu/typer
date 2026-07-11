@@ -71,16 +71,19 @@ test.describe("horde game mode", () => {
 
 		// drive the sim untyped until the horde overruns the core — bounded per
 		// poll so a single evaluate never spins unboundedly
+		// larger arena + survivable pacing (Task 1) means the horde takes far more
+		// ticks to overrun the core, so drive a bigger chunk per poll to keep the
+		// whole drive comfortably inside the wall-clock timeout
 		await page.waitForFunction(
 			() => {
 				const g = window.__game;
 				if (!g) return false;
 				if (g.getState().status === "gameover") return true;
-				g.stepTicks(120);
+				g.stepTicks(400);
 				return g.getState().status === "gameover";
 			},
 			null,
-			{ timeout: 20000, polling: 100 },
+			{ timeout: 30000, polling: 100 },
 		);
 
 		await expect(page.getByTestId("game-over")).toBeVisible();

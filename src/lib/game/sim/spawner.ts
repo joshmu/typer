@@ -12,12 +12,21 @@ export const MAX_ALIVE = 8;
  * MAX_ALIVE soft cap — can never flood the arena unbounded.
  */
 export const ALIVE_HARD_CAP = 16;
-export const SPAWN_COOLDOWN_TICKS = 45;
 export const INTERMISSION_TICKS = 180;
 export const INITIAL_INTERMISSION_TICKS = 60;
 
 export function waveEnemyCount(wave: number): number {
 	return 3 + wave * 2;
+}
+
+/**
+ * Ticks between spawns within a wave. Wave 1 opens slow (90 ticks ≈ 1.5s apart)
+ * so the arena never fills before the player has read a single word, then tightens
+ * by 10/wave down to a 30-tick floor. Combined with the large spawn radius (long
+ * travel) this is the "survivable pacing" grace the playtest demanded.
+ */
+export function waveSpawnCooldown(wave: number): number {
+	return Math.max(30, 100 - wave * 10);
 }
 
 type Tier = 1 | 2 | 3 | 4;
@@ -121,7 +130,7 @@ export function runWaveDirector(s: GameState): void {
 		s.rngState = r2;
 		spawnFromArchetype(s, id, pos);
 		s.spawnQueueRemaining -= 1;
-		s.spawnCooldown = SPAWN_COOLDOWN_TICKS;
+		s.spawnCooldown = waveSpawnCooldown(s.wave);
 	}
 
 	// recompute after the spawn branch: an enemy fielded this tick must count,

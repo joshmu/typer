@@ -20,11 +20,16 @@ export function createGameScene(
 	const scene = new Scene(engine);
 	scene.clearColor = new Color4(0.04, 0.04, 0.07, 1);
 
+	// near-vertical top-down: beta 0.12 rad off the +Y axis reads as a flat field,
+	// keeping just enough tilt for enemy models to show silhouette depth. radius is
+	// sized so the ~34-unit spawn ring sits near the frame edge (enemies enter from
+	// off-screen with distance to cover) while the core stays centered — verified
+	// by the visual probe, not derived from fov alone.
 	const camera = new ArcRotateCamera(
 		"cam",
 		-Math.PI / 2,
-		0.9,
-		34,
+		0.12,
+		60,
 		Vector3.Zero(),
 		scene,
 	);
@@ -32,7 +37,7 @@ export function createGameScene(
 
 	new HemisphericLight("light", new Vector3(0, 1, 0), scene);
 
-	const ground = CreateDisc("ground", { radius: 22, tessellation: 64 }, scene);
+	const ground = CreateDisc("ground", { radius: 38, tessellation: 96 }, scene);
 	ground.rotation.x = Math.PI / 2;
 	const groundMat = new StandardMaterial("groundMat", scene);
 	// white diffuse so the (already dark) procedural texture shows at its authored

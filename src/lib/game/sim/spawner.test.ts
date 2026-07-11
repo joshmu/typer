@@ -8,6 +8,7 @@ import {
 	selectArchetypeId,
 	spawnFromArchetype,
 	waveEnemyCount,
+	waveSpawnCooldown,
 } from "./spawner";
 import {
 	createInitialState,
@@ -166,6 +167,32 @@ describe("spawner", () => {
 		// must stay active, not complete off a stale (pre-spawn) alive count.
 		expect(s.enemies.filter((e) => e.alive).length).toBe(1);
 		expect(s.wavePhase).toBe("active");
+	});
+
+	it("waveSpawnCooldown grants wave-1 grace and floors at 30", () => {
+		expect(waveSpawnCooldown(1)).toBe(90);
+		expect(waveSpawnCooldown(2)).toBe(80);
+		expect(waveSpawnCooldown(7)).toBe(30);
+		expect(waveSpawnCooldown(12)).toBe(30);
+		// never rises as waves climb, never dips below the floor
+		for (let w = 1; w < 20; w++) {
+			expect(waveSpawnCooldown(w + 1)).toBeLessThanOrEqual(
+				waveSpawnCooldown(w),
+			);
+			expect(waveSpawnCooldown(w)).toBeGreaterThanOrEqual(30);
+		}
+	});
+
+	it("the wave director paces spawns by waveSpawnCooldown(wave)", () => {
+		const s = createInitialState(42);
+		s.wavePhase = "active";
+		s.wave = 1;
+		s.spawnQueueRemaining = 3;
+		s.spawnCooldown = 0;
+		s.enemies = [];
+		s.tick = 100;
+		runWaveDirector(s);
+		expect(s.spawnCooldown).toBe(waveSpawnCooldown(1));
 	});
 
 	it("spawns up to the wave count and never exceeds MAX_ALIVE", () => {
