@@ -26,6 +26,9 @@ type EnemyVisual = {
 	label: Mesh;
 	texture: DynamicTexture;
 	lastText: string;
+	// last visibility written to the model's parts (Babylon default 1). Only
+	// cloak-capable enemies ever change it, and only when the value actually moves.
+	lastVisibility: number;
 };
 
 /** Stable per-id animation phase so a family's models don't bob in lockstep. */
@@ -83,6 +86,7 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 			label,
 			texture,
 			lastText: "",
+			lastVisibility: 1,
 		};
 	}
 
@@ -109,12 +113,19 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 				// idle animation: bob / spin / orient along velocity / orbit sub-parts
 				v.model.animate(state.tick, v.phase, e.vel);
 
-				// cloak → near-invisible with an alpha shimmer; else fully opaque
-				const cloaked = isCloaked(e, state.tick);
-				const vis = cloaked
-					? 0.12 + 0.06 * (0.5 + 0.5 * Math.sin(state.tick * 0.4 + v.phase))
-					: 1;
-				for (const p of v.model.parts) p.visibility = vis;
+				// cloak → near-invisible with an alpha shimmer; else fully opaque. Only
+				// cloak-capable enemies can change visibility, so non-cloakers never
+				// touch their parts after creation; even cloakers write only when the
+				// computed value moves (visible-phase cloakers settle at 1 and stop).
+				if (e.ability?.kind === "cloak") {
+					const vis = isCloaked(e, state.tick)
+						? 0.12 + 0.06 * (0.5 + 0.5 * Math.sin(state.tick * 0.4 + v.phase))
+						: 1;
+					if (vis !== v.lastVisibility) {
+						for (const p of v.model.parts) p.visibility = vis;
+						v.lastVisibility = vis;
+					}
+				}
 
 				// locked target glows: boost the base emissive rather than replacing
 				// it, so each family keeps its hue; its label plate also grows
