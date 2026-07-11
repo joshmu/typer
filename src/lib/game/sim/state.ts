@@ -53,6 +53,7 @@ export type GameState = {
 	targetPowerupId: number | null;
 	powerups: PowerupPickup[];
 	nextPowerupId: number;
+	lastPowerupMilestone: number;
 };
 export const ARENA = { spawnRadius: 20, killRadius: 1.2 } as const;
 
@@ -81,5 +82,6 @@ export function createInitialState(seed: number): GameState {
 		targetPowerupId: null,
 		powerups: [],
 		nextPowerupId: 1,
+		lastPowerupMilestone: 0,
 	};
 }

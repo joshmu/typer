@@ -141,6 +141,31 @@ describe("step", () => {
 		}
 	});
 
+	it("spawns a powerup when the kill milestone advances", () => {
+		let s = createInitialState(1);
+		s.kills = 12;
+		s = step(s, []);
+		expect(s.powerups.length).toBe(1);
+		expect(s.lastPowerupMilestone).toBe(1);
+	});
+
+	it("does not miss a milestone when a double-kill tick skips the multiple", () => {
+		let s = createInitialState(1);
+		s.kills = 13; // jumped past 12 without ever landing on it
+		s.lastPowerupMilestone = 0;
+		s = step(s, []);
+		expect(s.powerups.length).toBe(1); // an exact `kills % 12` check would miss this
+		expect(s.lastPowerupMilestone).toBe(1);
+	});
+
+	it("does not re-trigger a powerup for an already-passed milestone", () => {
+		let s = createInitialState(1);
+		s.kills = 12;
+		s.lastPowerupMilestone = 1; // already claimed
+		s = step(s, []);
+		expect(s.powerups.length).toBe(0);
+	});
+
 	it("is pure — same inputs, same output, no input mutation", () => {
 		const s0 = createInitialState(7);
 		const frozen = JSON.stringify(s0);

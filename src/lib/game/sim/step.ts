@@ -83,11 +83,11 @@ export function step(
 			s.targetPowerupId = null;
 		}
 	}
-	if (
-		s.kills > 0 &&
-		s.kills % POWERUP_SPAWN_EVERY_KILLS === 0 &&
-		s.powerups.length === 0
-	) {
+	// kill-milestone powerup: track the highest kills/12 milestone reached, so a
+	// double-kill tick that jumps past a multiple (e.g. 11 → 13) still spawns.
+	const milestone = Math.floor(s.kills / POWERUP_SPAWN_EVERY_KILLS);
+	if (milestone > s.lastPowerupMilestone) {
+		s.lastPowerupMilestone = milestone;
 		spawnPowerup(s);
 	}
 

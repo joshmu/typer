@@ -12,6 +12,7 @@ describe("createInitialState", () => {
 		expect(s.wave).toBe(0);
 		expect(s.wavePhase).toBe("intermission");
 		expect(s.intermissionTicksLeft).toBe(60);
+		expect(s.lastPowerupMilestone).toBe(0);
 		expect(createInitialState(42)).toEqual(s);
 	});
 });
