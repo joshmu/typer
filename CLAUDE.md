@@ -45,11 +45,16 @@ src/
     results/          # ResultsScreen, StatsCard, WPMChart
     settings/         # ThemePicker, TestConfig
     layout/           # Header, Footer
+    game/             # Horde shell: GameShell, StartScreen, DeathScreen
   lib/core/           # Pure TypeScript — zero framework deps
     engine/           # Typing engine state machine
     calc/             # WPM, accuracy, consistency
     text/             # Text processing, word lists
     types/            # Shared types
+  lib/game/           # Horde mode (see docs/game-design.md)
+    sim/              # Pure fixed-timestep sim — step() sole mutator, seeded rng
+    content/          # Data-driven enemy archetypes + word banding
+    render/           # Babylon adapter + loop (lazy-loaded with /game)
   routes/             # @solidjs/router pages
   styles/             # Tailwind config, themes
 e2e/                  # Playwright tests
@@ -63,6 +68,7 @@ e2e/                  # Playwright tests
 - **Caret positions pre-computed at render time** — never read `offsetLeft`/`offsetTop` during keystroke handling.
 - **WPM/accuracy computed inline** on the main thread — it's nanosecond math, never offload to Web Workers.
 - **No `requestIdleCallback`** for deferred work during typing — it won't fire during sustained input. Use throttled `rAF` or `setTimeout`.
+- **Horde sim (`src/lib/game/sim/`) is pure & deterministic** — `step()` is the sole mutator, seeded rng only, no DOM/framework imports. Use the `cosR/sinR`/`math.ts` helpers (not `Math.cos/sin/hypot`) and never `Math.random`/`Date.now`; `determinism.test.ts` enforces this. A sim change that shifts the replay hash requires an intentional fixture re-record (RECORD_FIXTURE). Rendering (Babylon) is isolated in `src/lib/game/render/` and lazy-loaded with `/game`; the Solid shell lives in `src/components/game/`.
 
 ### Performance Constraint
 
@@ -98,7 +104,7 @@ Pure engine functions (`src/lib/core/`) are the primary TDD targets. UI componen
 ```
 type(scope): description
 ```
-Allowed scopes: `scaffold`, `engine`, `calc`, `text`, `types`, `typing`, `results`, `settings`, `layout`, `theme`, `db`, `prefs`, `ci`, `deploy`, `e2e`, `deps`, `book`
+Allowed scopes: `scaffold`, `engine`, `calc`, `text`, `types`, `typing`, `results`, `settings`, `layout`, `theme`, `db`, `prefs`, `ci`, `deploy`, `e2e`, `deps`, `book`, `game` (Horde sim/content/render/shell)
 
 ### Git Hooks (husky)
 

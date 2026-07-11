@@ -64,3 +64,10 @@
 ## Horde Game Mode (v3.1)
 
 - [x] Walking skeleton: /game route, deterministic sim + replay hash, Babylon arena, E2E smoke + visual snapshot
+- [x] Sim depth: waves, combat, powerups, combo scoring
+- [x] Content breadth: 30-archetype roster (6 families × 4 tiers + 6 bosses), tier-gated spawner
+- [x] Render polish + generated-procedural asset pipeline (`scripts/gen-assets.ts`)
+- [x] Persistence: `gameRuns` (db v4), `saveGameRun` once per run, best-run / recent queries
+- [x] Start + death screens with derived run stats (WPM, accuracy) and NEW BEST surfacing
+- [x] App integration: Horde entry in mode selector + header nav
+- [x] Docs: gameplay reference, determinism/replay guide, perf budgets, asset pipeline
