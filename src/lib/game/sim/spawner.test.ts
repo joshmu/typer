@@ -24,11 +24,57 @@ describe("spawner", () => {
 		expect(waveEnemyCount(1)).toBeGreaterThan(0);
 	});
 
-	it("selectArchetypeId is deterministic and returns a known id", () => {
-		const [a] = selectArchetypeId(1, createRngState(3));
-		const [b] = selectArchetypeId(1, createRngState(3));
+	it("selectArchetypeId is deterministic and returns a roster id", async () => {
+		const ids = new Set(
+			(await import("../content/enemies")).ENEMIES.map((e) => e.id),
+		);
+		const [a, na] = selectArchetypeId(1, createRngState(3));
+		const [b, nb] = selectArchetypeId(1, createRngState(3));
 		expect(a).toBe(b);
-		expect(a).toBe("husk-1");
+		expect(na).toBe(nb);
+		expect(ids.has(a)).toBe(true);
+	});
+
+	it("early waves only field tier-1 regulars", async () => {
+		const roster = new Map(
+			(await import("../content/enemies")).ENEMIES.map((e) => [e.id, e]),
+		);
+		let s = createRngState(11);
+		for (let i = 0; i < 40; i++) {
+			const [id, n] = selectArchetypeId(1, s);
+			const arch = roster.get(id);
+			expect(arch?.tier).toBe(1);
+			expect(arch?.role).toBe("regular");
+			s = n;
+		}
+	});
+
+	it("later waves can field higher-tier regulars", async () => {
+		const roster = new Map(
+			(await import("../content/enemies")).ENEMIES.map((e) => [e.id, e]),
+		);
+		let s = createRngState(11);
+		let sawHigher = false;
+		for (let i = 0; i < 200; i++) {
+			const [id, n] = selectArchetypeId(12, s);
+			if ((roster.get(id)?.tier ?? 1) > 1) sawHigher = true;
+			s = n;
+		}
+		expect(sawHigher).toBe(true);
+	});
+
+	it("boss waves can field a boss", async () => {
+		const roster = new Map(
+			(await import("../content/enemies")).ENEMIES.map((e) => [e.id, e]),
+		);
+		let s = createRngState(11);
+		let sawBoss = false;
+		for (let i = 0; i < 200; i++) {
+			const [id, n] = selectArchetypeId(10, s);
+			if (roster.get(id)?.role === "boss") sawBoss = true;
+			s = n;
+		}
+		expect(sawBoss).toBe(true);
 	});
 
 	it("spawnFromArchetype places one enemy on the spawn radius", () => {

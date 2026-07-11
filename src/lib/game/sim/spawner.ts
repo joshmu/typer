@@ -1,8 +1,8 @@
-import { getArchetype } from "../content/enemies";
+import { ENEMIES, getArchetype } from "../content/enemies";
 import { pickWordForTier } from "../content/words";
 import { createEnemy } from "./enemy-factory";
 import { randomPointOnCircle } from "./math";
-import { nextFloat } from "./rng";
+import { nextFloat, nextInt } from "./rng";
 import { ARENA, type GameState, type Vec2 } from "./state";
 
 export const MAX_ALIVE = 8;
@@ -14,17 +14,57 @@ export function waveEnemyCount(wave: number): number {
 	return 3 + wave * 2;
 }
 
+type Tier = 1 | 2 | 3 | 4;
+const UNLOCK: Record<Tier, number> = { 1: 1, 2: 3, 3: 6, 4: 10 };
+
+function tierWeight(tier: Tier, wave: number): number {
+	if (wave < UNLOCK[tier]) return 0;
+	switch (tier) {
+		case 1:
+			return Math.max(1, 10 - wave * 2);
+		case 2:
+			return Math.min(8, wave - 1);
+		case 3:
+			return Math.min(8, wave - 4);
+		case 4:
+			return Math.min(8, wave - 8);
+	}
+}
+
+const REGULARS = ENEMIES.filter((e) => e.role === "regular");
+const BOSSES = ENEMIES.filter((e) => e.role === "boss");
+
 /**
- * Pick which archetype to spawn for a wave. Plan 2 ships the interim
- * grunt-only body; Plan 3 (roster) replaces the body with wave-banded
- * weighting over the full table WITHOUT changing this signature.
+ * Pick which archetype to spawn for a wave: weights regulars by wave-gated
+ * tiers (unlocked at waves 1/3/6/10) and fields a boss on every 5th wave.
  */
 export function selectArchetypeId(
 	wave: number,
 	rngState: number,
 ): [id: string, next: number] {
-	const [, next] = nextFloat(rngState);
-	return ["husk-1", next];
+	// boss waves: ~1-in-3 chance to field a boss
+	let state = rngState;
+	if (wave % 5 === 0) {
+		const [roll, r1] = nextFloat(state);
+		state = r1;
+		if (roll < 0.34) {
+			const [bi, r2] = nextInt(state, BOSSES.length);
+			return [BOSSES[bi].id, r2];
+		}
+	}
+
+	// weighted pick over unlocked regulars
+	let total = 0;
+	for (const e of REGULARS) total += tierWeight(e.tier as Tier, wave);
+	if (total <= 0) return [REGULARS[0].id, state];
+
+	const [f, next] = nextFloat(state);
+	let roll = f * total;
+	for (const e of REGULARS) {
+		roll -= tierWeight(e.tier as Tier, wave);
+		if (roll < 0) return [e.id, next];
+	}
+	return [REGULARS[REGULARS.length - 1].id, next];
 }
 
 export function spawnFromArchetype(
