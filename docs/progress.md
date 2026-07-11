@@ -80,3 +80,13 @@
 - [x] Sculpted per-family multi-part enemy models with idle animation (`render/enemy-models.ts`)
 - [x] AI-generated terrain + nebula textures (OpenRouter/Gemini, `scripts/gen-ai-assets.mjs`), glow layer, core danger ring
 - [x] Word label plates + HUD combo emphasis; darwin visual baseline rebaselined
+
+### Combat feel & battlefield persistence (Plan 7, round-2 playtest)
+
+- [x] Word chains assigned at spawn: `EnemyState.words[]` + `wordIndex` (`words.length === hp`), `currentWord()`, `advanceWord` appends on absorb (`reassignWord` deleted); golden fixtures re-recorded
+- [x] Free-flow ZType routing in `step.ts`: continue lock → nearest re-route (progress preserved) → cloaked-ignore → miss; Backspace release event wired through GameShell (preventDefault) + `window.__game.sendBackspace`
+- [x] Stacked word-chain labels: current word + queued (55%/40%) + "+n" chip, 0.92 plate + 3px text outline (bright-glow washout fix), progress underline + active chevron
+- [x] Turret aims (atan2 + slerp, holds heading, no idle spin) with hex base, cooling fins, twin recoiling barrels, radar sweep, combo-scaled core
+- [x] Per-family locomotion gaits driven read-only by sim state (`|vel|`-scaled amplitude, dash-phase sync)
+- [x] Corpse/breach decals baked into a ground `DynamicTexture` (Crimsonland technique) — zero live entities, unbounded accumulation
+- [x] E2E: free-flow switch/return + Backspace release specs; docs (routing model, gait table, decal bake); darwin baseline rebaselined
