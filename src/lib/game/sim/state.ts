@@ -19,6 +19,15 @@ export type EnemyState = {
 	ability: Ability | null;
 	abilityState: AbilityState;
 };
+export type PowerupKind = "freeze" | "bomb" | "heal" | "slow";
+export type PowerupPickup = {
+	id: number;
+	kind: PowerupKind;
+	word: string;
+	typedCount: number;
+	pos: Vec2;
+	expiresTick: number;
+};
 export type GameStatus = "running" | "gameover";
 export type GameState = {
 	tick: number;
@@ -38,6 +47,12 @@ export type GameState = {
 	intermissionTicksLeft: number;
 	combo: number;
 	comboTicksLeft: number;
+	maxPlayerHp: number;
+	freezeTicksLeft: number;
+	slowTicksLeft: number;
+	targetPowerupId: number | null;
+	powerups: PowerupPickup[];
+	nextPowerupId: number;
 };
 export const ARENA = { spawnRadius: 20, killRadius: 1.2 } as const;
 
@@ -60,5 +75,11 @@ export function createInitialState(seed: number): GameState {
 		intermissionTicksLeft: 60,
 		combo: 0,
 		comboTicksLeft: 0,
+		maxPlayerHp: 3,
+		freezeTicksLeft: 0,
+		slowTicksLeft: 0,
+		targetPowerupId: null,
+		powerups: [],
+		nextPowerupId: 1,
 	};
 }

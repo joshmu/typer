@@ -3,6 +3,12 @@ import { isTargetable, tickAbility } from "./abilities";
 import { resolveCompletion } from "./combat";
 import { dist } from "./math";
 import { MOVEMENTS, makeNoise } from "./movement";
+import {
+	applyPowerup,
+	POWERUP_SPAWN_EVERY_KILLS,
+	SLOW_FACTOR,
+	spawnPowerup,
+} from "./powerups";
 import { runWaveDirector } from "./spawner";
 import { ARENA, type GameState } from "./state";
 
@@ -22,6 +28,7 @@ export function step(
 			pos: { ...e.pos },
 			abilityState: { ...e.abilityState },
 		})),
+		powerups: state.powerups.map((p) => ({ ...p, pos: { ...p.pos } })),
 	};
 
 	// wave director: intermissions + escalating spawns
@@ -33,11 +40,14 @@ export function step(
 	}
 
 	// movement + player collision
+	let moveScale = 1;
+	if (s.freezeTicksLeft > 0) moveScale = 0;
+	else if (s.slowTicksLeft > 0) moveScale = SLOW_FACTOR;
 	for (const e of s.enemies) {
 		if (!e.alive) continue;
 		const v = MOVEMENTS[e.movement](e, s.tick, makeNoise(e.id));
-		e.pos.x += v.x;
-		e.pos.y += v.y;
+		e.pos.x += v.x * moveScale;
+		e.pos.y += v.y * moveScale;
 		if (dist(e.pos.x, e.pos.y) <= ARENA.killRadius) {
 			e.alive = false;
 			s.playerHp -= 1;
@@ -59,40 +69,98 @@ export function step(
 		if (s.comboTicksLeft === 0) s.combo = 0;
 	}
 
+	// effect timers
+	if (s.freezeTicksLeft > 0) s.freezeTicksLeft -= 1;
+	if (s.slowTicksLeft > 0) s.slowTicksLeft -= 1;
+
+	// powerup lifetime + kill-milestone spawn
+	if (s.powerups.length > 0) {
+		s.powerups = s.powerups.filter((p) => p.expiresTick > s.tick);
+		if (
+			s.targetPowerupId !== null &&
+			!s.powerups.some((p) => p.id === s.targetPowerupId)
+		) {
+			s.targetPowerupId = null;
+		}
+	}
+	if (
+		s.kills > 0 &&
+		s.kills % POWERUP_SPAWN_EVERY_KILLS === 0 &&
+		s.powerups.length === 0
+	) {
+		spawnPowerup(s);
+	}
+
 	// typing
 	for (const ev of events) {
 		if (ev.type !== "key") continue;
-		const target = s.enemies.find((e) => e.id === s.targetId && e.alive);
-		if (!target) {
-			s.targetId = null;
-			const candidates = s.enemies
-				.filter(
-					(e) =>
-						e.alive &&
-						isTargetable(e, s.tick) &&
-						isCharMatch(ev.key, e.word[0]),
-				)
-				.sort((a, b) => dist(a.pos.x, a.pos.y) - dist(b.pos.x, b.pos.y));
-			if (candidates.length === 0) {
+
+		// 1) advance a locked powerup
+		if (s.targetPowerupId !== null) {
+			const pu = s.powerups.find((p) => p.id === s.targetPowerupId);
+			if (pu && isCharMatch(ev.key, pu.word[pu.typedCount])) {
+				pu.typedCount += 1;
+				if (pu.typedCount >= pu.word.length) {
+					applyPowerup(s, pu.kind);
+					s.powerups = s.powerups.filter((p) => p.id !== pu.id);
+					s.targetPowerupId = null;
+				}
+				continue;
+			}
+			if (pu) {
 				s.misses += 1;
 				s.combo = 0;
 				s.comboTicksLeft = 0;
 				continue;
 			}
+			s.targetPowerupId = null;
+		}
+
+		// 2) advance a locked enemy
+		const target = s.enemies.find((e) => e.id === s.targetId && e.alive);
+		if (target) {
+			if (isCharMatch(ev.key, target.word[target.typedCount])) {
+				target.typedCount += 1;
+				resolveCompletion(s, target);
+			} else {
+				s.misses += 1;
+				s.combo = 0;
+				s.comboTicksLeft = 0;
+			}
+			continue;
+		}
+		s.targetId = null;
+
+		// 3) acquire a new enemy target (preferred), then a powerup
+		const candidates = s.enemies
+			.filter(
+				(e) =>
+					e.alive && isTargetable(e, s.tick) && isCharMatch(ev.key, e.word[0]),
+			)
+			.sort((a, b) => dist(a.pos.x, a.pos.y) - dist(b.pos.x, b.pos.y));
+		if (candidates.length > 0) {
 			const picked = candidates[0];
 			picked.typedCount = 1;
 			s.targetId = picked.id;
 			resolveCompletion(s, picked);
 			continue;
 		}
-		if (isCharMatch(ev.key, target.word[target.typedCount])) {
-			target.typedCount += 1;
-			resolveCompletion(s, target);
-		} else {
-			s.misses += 1;
-			s.combo = 0;
-			s.comboTicksLeft = 0;
+
+		const pu = s.powerups.find((p) => isCharMatch(ev.key, p.word[0]));
+		if (pu) {
+			pu.typedCount = 1;
+			s.targetPowerupId = pu.id;
+			if (pu.word.length === 1) {
+				applyPowerup(s, pu.kind);
+				s.powerups = s.powerups.filter((p) => p.id !== pu.id);
+				s.targetPowerupId = null;
+			}
+			continue;
 		}
+
+		s.misses += 1;
+		s.combo = 0;
+		s.comboTicksLeft = 0;
 	}
 
 	// prune enemies killed this tick so state size tracks live enemies only
