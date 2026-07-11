@@ -61,13 +61,16 @@ export function createEnemyRenderer(scene: Scene) {
 		const text = `${word}:${typedCount}`;
 		if (text === v.lastText) return;
 		v.lastText = text;
+		// wipe the previous glyphs so shorter words don't leave a smear behind
+		const ctx = v.texture.getContext();
+		ctx.clearRect(0, 0, 256, 64);
 		v.texture.drawText(
 			word,
 			null,
 			44,
 			"bold 40px monospace",
 			typedCount > 0 ? "#facc15" : "#e5e7eb",
-			"transparent",
+			null,
 			true,
 		);
 	}
