@@ -7,7 +7,7 @@ import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
-import type { GameState } from "../sim/state";
+import type { EnemyState, GameState } from "../sim/state";
 
 const MUZZLE_Y = 1.1; // height the barrel fires from
 const MUZZLE_LEN = 3.1; // distance from core to barrel tip
@@ -165,7 +165,15 @@ export function createTurret(scene: Scene): Turret {
 
 	return {
 		update(state: GameState) {
-			const target = state.enemies.find((e) => e.id === state.targetId);
+			// one pass resolves both the locked target and the nearest enemy — no
+			// per-frame Array.find closure, no second loop for proximity
+			let target: EnemyState | undefined;
+			let nearest = Number.POSITIVE_INFINITY;
+			for (const e of state.enemies) {
+				if (e.id === state.targetId) target = e;
+				const d = Math.hypot(e.pos.x, e.pos.y);
+				if (d < nearest) nearest = d;
+			}
 			if (target) {
 				const desired = Math.atan2(target.pos.x, target.pos.y);
 				yaw = lerpAngle(yaw, desired, 0.25);
@@ -192,13 +200,9 @@ export function createTurret(scene: Scene): Turret {
 				if (ringLife === 0) ring.setEnabled(false);
 			}
 
-			// core danger ring: nearest enemy proximity drives colour + pulse — calm
-			// amber when clear, flaring red and pulsing hard when the horde is close
-			let nearest = Infinity;
-			for (const e of state.enemies) {
-				const d = Math.hypot(e.pos.x, e.pos.y);
-				if (d < nearest) nearest = d;
-			}
+			// core danger ring: nearest enemy proximity (from the pass above) drives
+			// colour + pulse — calm amber when clear, flaring red and pulsing hard
+			// when the horde is close
 			const threat = nearest < 6 ? 1 - nearest / 6 : 0;
 			const beat = 0.5 + 0.5 * Math.sin(state.tick * (0.1 + threat * 0.25));
 			const glow = 0.35 + beat * (0.25 + threat * 0.7);
