@@ -1,5 +1,5 @@
 import { getArchetype } from "../content/enemies";
-import { pickWord } from "../content/words";
+import { pickWordForTier } from "../content/words";
 import { createEnemy } from "./enemy-factory";
 import { randomPointOnCircle } from "./math";
 import { nextFloat } from "./rng";
@@ -36,7 +36,7 @@ export function spawnFromArchetype(
 	const initials = new Set(
 		s.enemies.filter((e) => e.alive).map((e) => e.word[0]),
 	);
-	const [word, next] = pickWord(s.rngState, initials);
+	const [word, next] = pickWordForTier(arch.tier, s.rngState, initials);
 	s.rngState = next;
 	const enemy = createEnemy(arch, s.nextEnemyId, pos, s.tick, word);
 	s.nextEnemyId += 1;

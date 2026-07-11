@@ -1,4 +1,4 @@
-import { pickWord } from "../content/words";
+import { pickWordForTier } from "../content/words";
 import { absorbsCompletion } from "./abilities";
 import { cosR, sinR } from "./math";
 import { COMBO_DECAY_TICKS, killScore } from "./score";
@@ -9,7 +9,7 @@ export function reassignWord(s: GameState, e: EnemyState): void {
 	const initials = new Set(
 		s.enemies.filter((x) => x.alive && x.id !== e.id).map((x) => x.word[0]),
 	);
-	const [word, next] = pickWord(s.rngState, initials);
+	const [word, next] = pickWordForTier(e.tier, s.rngState, initials);
 	s.rngState = next;
 	e.word = word;
 	e.typedCount = 0;

@@ -1,11 +1,11 @@
 {
 	"log": {
 		"seed": 42,
-		"ticks": 97,
+		"ticks": 96,
 		"events": [
 			{
 				"tick": 63,
-				"key": "r"
+				"key": "w"
 			},
 			{
 				"tick": 64,
@@ -13,18 +13,14 @@
 			},
 			{
 				"tick": 65,
-				"key": "g"
+				"key": "s"
 			},
 			{
 				"tick": 66,
 				"key": "h"
-			},
-			{
-				"tick": 67,
-				"key": "t"
 			}
 		]
 	},
-	"expectedHash": "901ad4e3",
+	"expectedHash": "fbcbdfc8",
 	"expectedKills": 1
 }
