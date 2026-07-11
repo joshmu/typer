@@ -9,8 +9,13 @@ import { Scene } from "@babylonjs/core/scene";
 
 export type GameScene = { engine: Engine; scene: Scene; dispose(): void };
 
-export function createGameScene(canvas: HTMLCanvasElement): GameScene {
-	const engine = new Engine(canvas, true, { preserveDrawingBuffer: true });
+export function createGameScene(
+	canvas: HTMLCanvasElement,
+	opts: { preserveDrawingBuffer: boolean },
+): GameScene {
+	const engine = new Engine(canvas, true, {
+		preserveDrawingBuffer: opts.preserveDrawingBuffer,
+	});
 	const scene = new Scene(engine);
 	scene.clearColor = new Color4(0.04, 0.04, 0.07, 1);
 

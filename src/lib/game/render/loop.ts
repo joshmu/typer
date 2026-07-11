@@ -22,7 +22,9 @@ export type GameLoop = {
 };
 
 export function startGameLoop(opts: GameLoopOptions): GameLoop {
-	const gameScene = createGameScene(opts.canvas);
+	const gameScene = createGameScene(opts.canvas, {
+		preserveDrawingBuffer: opts.testMode,
+	});
 	const enemies = createEnemyRenderer(gameScene.scene);
 	let state = createInitialState(opts.seed);
 	let pending: GameEvent[] = [];
