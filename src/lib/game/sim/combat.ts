@@ -9,6 +9,8 @@ export function reassignWord(s: GameState, e: EnemyState): void {
 	const initials = new Set(
 		s.enemies.filter((x) => x.alive && x.id !== e.id).map((x) => x.word[0]),
 	);
+	// reserve active powerup initials too, mirroring spawnFromArchetype
+	for (const p of s.powerups) initials.add(p.word[0]);
 	const [word, next] = pickWordForTier(e.tier, s.rngState, initials);
 	s.rngState = next;
 	e.word = word;

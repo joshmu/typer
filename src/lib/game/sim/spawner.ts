@@ -81,7 +81,10 @@ export function spawnFromArchetype(
 	const alive = s.enemies.filter((e) => e.alive);
 	if (alive.length >= ALIVE_HARD_CAP) return false;
 	const arch = getArchetype(archetypeId);
+	// reserve both live enemy AND active powerup initials so a keystroke is never
+	// ambiguous between a new enemy and a pending powerup pickup
 	const initials = new Set(alive.map((e) => e.word[0]));
+	for (const p of s.powerups) initials.add(p.word[0]);
 	const [word, next] = pickWordForTier(arch.tier, s.rngState, initials);
 	s.rngState = next;
 	const enemy = createEnemy(arch, s.nextEnemyId, pos, s.tick, word);

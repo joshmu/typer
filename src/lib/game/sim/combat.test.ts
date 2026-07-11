@@ -37,6 +37,25 @@ describe("combat", () => {
 		void before;
 	});
 
+	it("reassignWord avoids the initial of an active powerup", () => {
+		const { s } = stateWithEnemy("husk-1");
+		const e = s.enemies[0];
+		s.powerups = [
+			{
+				id: 1,
+				kind: "freeze",
+				word: "volt",
+				typedCount: 0,
+				pos: { x: 0, y: 0 },
+				expiresTick: 9999,
+			},
+		];
+		for (let i = 0; i < 30; i++) {
+			reassignWord(s, e);
+			expect(e.word[0]).not.toBe("v");
+		}
+	});
+
 	it("killEnemy awards combo-scaled score and clears the lock", () => {
 		const { s } = stateWithEnemy("husk-1");
 		const e = s.enemies[0];

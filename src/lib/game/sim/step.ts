@@ -1,5 +1,5 @@
 import { isCharMatch } from "@/lib/core/text/char-match";
-import { isTargetable, tickAbility } from "./abilities";
+import { isCloaked, isTargetable, tickAbility } from "./abilities";
 import { resolveCompletion } from "./combat";
 import { dist } from "./math";
 import { MOVEMENTS } from "./movement";
@@ -155,6 +155,18 @@ export function step(
 				s.powerups = s.powerups.filter((p) => p.id !== pu.id);
 				s.targetPowerupId = null;
 			}
+			continue;
+		}
+
+		// the key matches only a cloaked (hidden-phase) enemy's initial: it is
+		// unfair to penalise a target the player cannot yet see, so ignore it —
+		// no miss, no combo break — rather than count it against them
+		if (
+			s.enemies.some(
+				(e) =>
+					e.alive && isCloaked(e, s.tick) && isCharMatch(ev.key, e.word[0]),
+			)
+		) {
 			continue;
 		}
 

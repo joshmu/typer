@@ -9,7 +9,23 @@ import {
 	spawnFromArchetype,
 	waveEnemyCount,
 } from "./spawner";
-import { createInitialState, type EnemyState, type GameState } from "./state";
+import {
+	createInitialState,
+	type EnemyState,
+	type GameState,
+	type PowerupPickup,
+} from "./state";
+
+function powerup(word: string): PowerupPickup {
+	return {
+		id: 1,
+		kind: "freeze",
+		word,
+		typedCount: 0,
+		pos: { x: 0, y: 0 },
+		expiresTick: 9999,
+	};
+}
 
 function drive(s: GameState, ticks: number): GameState {
 	let cur = s;
@@ -123,6 +139,18 @@ describe("spawner", () => {
 		s.tick = 10; // age % rate === 0 → would emit if not capped
 		tickAbility(s, spawner);
 		expect(s.enemies.length).toBe(before);
+	});
+
+	it("an enemy spawned while a powerup is active never shares its initial", () => {
+		const s = createInitialState(3);
+		s.powerups = [powerup("volt")];
+		for (let i = 0; i < 8; i++) {
+			spawnFromArchetype(s, "husk-1", { x: 20, y: 0 });
+		}
+		expect(s.enemies.length).toBe(8);
+		for (const e of s.enemies) {
+			expect(e.word[0]).not.toBe("v");
+		}
 	});
 
 	it("does not flip to intermission on the tick it spawns the last queued enemy", () => {

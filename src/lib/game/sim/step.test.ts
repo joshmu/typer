@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ALIVE } from "./spawner";
-import { createInitialState, type GameState } from "./state";
+import { MAX_ALIVE, spawnFromArchetype } from "./spawner";
+import { createInitialState, type EnemyState, type GameState } from "./state";
 import { type GameEvent, step } from "./step";
+
+function cloaker(over: Partial<EnemyState> = {}): EnemyState {
+	return {
+		id: 1,
+		archetypeId: "darter-2",
+		pos: { x: 8, y: 0 },
+		word: "zephyr",
+		typedCount: 0,
+		hp: 1,
+		maxHp: 1,
+		alive: true,
+		spawnTick: 0,
+		speed: 0.001,
+		tier: 2,
+		movement: "chase",
+		ability: { kind: "cloak", interval: 30 },
+		abilityState: { shieldHits: 0, enraged: false },
+		...over,
+	};
+}
 
 function run(
 	s: GameState,
@@ -86,6 +106,39 @@ describe("step", () => {
 		const s = run(createInitialState(42), 60 * 60 * 8); // 8 sim minutes untyped
 		expect(s.playerHp).toBe(0);
 		expect(s.status).toBe("gameover");
+	});
+
+	it("ignores a key that matches only a cloaked enemy's initial (no miss, no combo break)", () => {
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		s.enemies = [cloaker({ word: "zephyr" })];
+		s.tick = 30; // steps to 31: (31 - 0) % 60 = 31 >= 30 → hidden phase
+		s.combo = 5;
+		s.comboTicksLeft = 100;
+		s = step(s, [{ type: "key", key: "z" }]);
+		expect(s.misses).toBe(0); // hidden enemy's initial → no penalty
+		expect(s.combo).toBe(5); // combo not broken
+		expect(s.targetId).toBeNull(); // untargetable, so not acquired
+	});
+
+	it("still counts a miss when a key matches nothing at all", () => {
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		s.enemies = [cloaker({ word: "zephyr" })];
+		s.tick = 30;
+		s = step(s, [{ type: "key", key: "q" }]); // matches neither cloaked nor any
+		expect(s.misses).toBe(1);
+	});
+
+	it("keeps a cloaked enemy's initial reserved for new spawns", () => {
+		const s = createInitialState(5);
+		s.enemies = [cloaker({ word: "xylophone", pos: { x: 8, y: 0 } })];
+		s.tick = 30;
+		for (let i = 0; i < 8; i++)
+			spawnFromArchetype(s, "husk-1", { x: 20, y: 0 });
+		for (const e of s.enemies) {
+			if (e.id !== 1) expect(e.word[0]).not.toBe("x");
+		}
 	});
 
 	it("is pure — same inputs, same output, no input mutation", () => {
