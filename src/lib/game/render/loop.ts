@@ -3,6 +3,7 @@ import { createInitialState } from "../sim/state";
 import { type GameEvent, step } from "../sim/step";
 import { createEffects } from "./effects";
 import { createEnemyRenderer } from "./enemy-renderer";
+import { createPowerupRenderer } from "./powerup-renderer";
 import { createGameScene } from "./scene";
 import { visualFor } from "./visuals";
 
@@ -29,6 +30,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 		preserveDrawingBuffer: opts.testMode,
 	});
 	const enemies = createEnemyRenderer(gameScene.scene);
+	const powerups = createPowerupRenderer(gameScene.scene);
 	const effects = createEffects(gameScene.scene);
 	let state = createInitialState(opts.seed);
 	let pending: GameEvent[] = [];
@@ -86,6 +88,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 		deriveEffects();
 		effects.update(state);
 		enemies.sync(state);
+		powerups.sync(state);
 		opts.onState(state);
 		gameScene.scene.render();
 	}
@@ -126,6 +129,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 			gameScene.engine.stopRenderLoop();
 			effects.dispose();
 			enemies.dispose();
+			powerups.dispose();
 			gameScene.dispose();
 		},
 	};

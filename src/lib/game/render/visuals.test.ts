@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ENEMIES } from "../content/enemies";
+import type { PowerupKind } from "../sim/state";
 import {
 	FALLBACK_VISUAL,
 	FAMILY_VISUALS,
+	powerupVisual,
 	tierScale,
 	visualFor,
 } from "./visuals";
@@ -48,6 +50,16 @@ describe("visuals", () => {
 	it("has unique family names in the recipe table", () => {
 		const names = FAMILY_VISUALS.map((f) => f.family);
 		expect(new Set(names).size).toBe(names.length);
+	});
+
+	it("maps every powerup kind to a distinct, emissive color recipe", () => {
+		const kinds: PowerupKind[] = ["freeze", "bomb", "heal", "slow"];
+		const colors = new Set(kinds.map((k) => powerupVisual(k).color.join(",")));
+		expect(colors.size).toBe(kinds.length);
+		for (const k of kinds) {
+			const lum = powerupVisual(k).emissive.reduce((a, b) => a + b, 0);
+			expect(lum).toBeGreaterThan(0);
+		}
 	});
 
 	it("scales tiers monotonically", () => {

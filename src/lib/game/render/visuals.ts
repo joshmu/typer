@@ -7,6 +7,8 @@
  * `${family}-${tier}` (e.g. "husk-3"), bosses are `boss-*`. `visualFor` does a
  * longest-prefix match so any future tier lands on its family automatically.
  */
+import type { PowerupKind } from "../sim/state";
+
 export type EnemyShape =
 	| "sphere"
 	| "box"
@@ -88,6 +90,28 @@ export function visualFor(archetypeId: string): FamilyVisual {
 		}
 	}
 	return best ?? FALLBACK_VISUAL;
+}
+
+/**
+ * Powerup pickup visuals — one recipe per kind, kept here (pure, unit-tested)
+ * alongside the enemy recipes so the render layer maps kind → color/emissive
+ * without a Babylon dependency. Hues are chosen to read as "beneficial pickup"
+ * and stay distinct from the enemy families and from each other.
+ */
+export type PowerupVisualRecipe = {
+	color: [number, number, number];
+	emissive: [number, number, number];
+};
+
+export const POWERUP_VISUALS: Record<PowerupKind, PowerupVisualRecipe> = {
+	freeze: { color: [0.45, 0.78, 0.97], emissive: [0.1, 0.4, 0.62] },
+	bomb: { color: [0.97, 0.42, 0.22], emissive: [0.55, 0.13, 0.05] },
+	heal: { color: [0.42, 0.92, 0.52], emissive: [0.1, 0.48, 0.18] },
+	slow: { color: [0.97, 0.82, 0.32], emissive: [0.55, 0.37, 0.07] },
+};
+
+export function powerupVisual(kind: PowerupKind): PowerupVisualRecipe {
+	return POWERUP_VISUALS[kind];
 }
 
 /** Body scale by tier — monotonic, so higher tiers loom larger. */
