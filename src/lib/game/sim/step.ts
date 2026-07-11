@@ -98,7 +98,10 @@ export function step(
 			}
 		}
 	}
-	if (s.status === "gameover") return s;
+	if (s.status === "gameover") {
+		s.enemies = s.enemies.filter((e) => e.alive);
+		return s;
+	}
 
 	// typing
 	for (const ev of events) {
@@ -127,6 +130,8 @@ export function step(
 		}
 	}
 
+	// prune enemies killed this tick so state size tracks live enemies only
+	s.enemies = s.enemies.filter((e) => e.alive);
 	return s;
 }
 

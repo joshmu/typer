@@ -74,15 +74,16 @@ export function createEnemyRenderer(scene: Scene) {
 
 	return {
 		sync(state: GameState) {
+			// state carries only live enemies; dispose visuals whose enemy is gone
+			const present = new Set(state.enemies.map((e) => e.id));
+			for (const [id, v] of visuals) {
+				if (!present.has(id)) {
+					v.root.dispose(false, true);
+					visuals.delete(id);
+				}
+			}
 			for (const e of state.enemies) {
 				let v = visuals.get(e.id);
-				if (!e.alive) {
-					if (v) {
-						v.root.dispose(false, true);
-						visuals.delete(e.id);
-					}
-					continue;
-				}
 				if (!v) {
 					v = create(e.id, e.archetypeId);
 					visuals.set(e.id, v);

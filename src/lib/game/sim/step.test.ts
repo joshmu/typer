@@ -63,7 +63,7 @@ describe("step", () => {
 			s = step(s, [{ type: "key", key: ch }]);
 		}
 		expect(s.kills).toBe(1);
-		expect(s.enemies[0].alive).toBe(false);
+		expect(s.enemies).toHaveLength(0);
 		expect(s.targetId).toBeNull();
 		expect(s.score).toBe(10 * word.length);
 	});
