@@ -121,7 +121,10 @@ export function runWaveDirector(s: GameState): void {
 		s.spawnCooldown = SPAWN_COOLDOWN_TICKS;
 	}
 
-	if (s.spawnQueueRemaining <= 0 && aliveCount === 0) {
+	// recompute after the spawn branch: an enemy fielded this tick must count,
+	// so the last queued enemy never completes the wave the instant it appears.
+	const aliveAfter = s.enemies.filter((e) => e.alive).length;
+	if (s.spawnQueueRemaining <= 0 && aliveAfter === 0) {
 		s.wavePhase = "intermission";
 		s.intermissionTicksLeft = INTERMISSION_TICKS;
 	}

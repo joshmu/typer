@@ -125,6 +125,21 @@ describe("spawner", () => {
 		expect(s.enemies.length).toBe(before);
 	});
 
+	it("does not flip to intermission on the tick it spawns the last queued enemy", () => {
+		const s = createInitialState(42);
+		s.wavePhase = "active";
+		s.wave = 1;
+		s.spawnQueueRemaining = 1;
+		s.spawnCooldown = 0;
+		s.enemies = [];
+		s.tick = 100;
+		runWaveDirector(s);
+		// the last queued enemy was just spawned into an empty field — the wave
+		// must stay active, not complete off a stale (pre-spawn) alive count.
+		expect(s.enemies.filter((e) => e.alive).length).toBe(1);
+		expect(s.wavePhase).toBe("active");
+	});
+
 	it("spawns up to the wave count and never exceeds MAX_ALIVE", () => {
 		const s = drive(createInitialState(42), 60 * 60);
 		expect(s.enemies.filter((e) => e.alive).length).toBeLessThanOrEqual(
