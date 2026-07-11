@@ -6,6 +6,12 @@ import { nextFloat, nextInt } from "./rng";
 import { ARENA, type GameState, type Vec2 } from "./state";
 
 export const MAX_ALIVE = 8;
+/**
+ * Absolute ceiling on live enemies, enforced inside spawnFromArchetype so that
+ * ability-driven spawns (spawn/split minions) — which bypass the wave-director's
+ * MAX_ALIVE soft cap — can never flood the arena unbounded.
+ */
+export const ALIVE_HARD_CAP = 16;
 export const SPAWN_COOLDOWN_TICKS = 45;
 export const INTERMISSION_TICKS = 180;
 export const INITIAL_INTERMISSION_TICKS = 60;
@@ -71,16 +77,17 @@ export function spawnFromArchetype(
 	s: GameState,
 	archetypeId: string,
 	pos: Vec2,
-): void {
+): boolean {
+	const alive = s.enemies.filter((e) => e.alive);
+	if (alive.length >= ALIVE_HARD_CAP) return false;
 	const arch = getArchetype(archetypeId);
-	const initials = new Set(
-		s.enemies.filter((e) => e.alive).map((e) => e.word[0]),
-	);
+	const initials = new Set(alive.map((e) => e.word[0]));
 	const [word, next] = pickWordForTier(arch.tier, s.rngState, initials);
 	s.rngState = next;
 	const enemy = createEnemy(arch, s.nextEnemyId, pos, s.tick, word);
 	s.nextEnemyId += 1;
 	s.enemies = [...s.enemies, enemy];
+	return true;
 }
 
 export function runWaveDirector(s: GameState): void {

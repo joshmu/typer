@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { tickAbility } from "./abilities";
 import { createRngState } from "./rng";
 import {
+	ALIVE_HARD_CAP,
 	MAX_ALIVE,
 	runWaveDirector,
 	selectArchetypeId,
 	spawnFromArchetype,
 	waveEnemyCount,
 } from "./spawner";
-import { createInitialState, type GameState } from "./state";
+import { createInitialState, type EnemyState, type GameState } from "./state";
 
 function drive(s: GameState, ticks: number): GameState {
 	let cur = s;
@@ -89,6 +91,38 @@ describe("spawner", () => {
 		const s = drive(createInitialState(42), 61);
 		expect(s.wave).toBe(1);
 		expect(s.wavePhase).toBe("active");
+	});
+
+	it("spawnFromArchetype no-ops and returns false at the alive hard cap", () => {
+		const s = createInitialState(1);
+		for (let i = 0; i < ALIVE_HARD_CAP; i++) {
+			spawnFromArchetype(s, "husk-1", { x: 20, y: 0 });
+		}
+		expect(s.enemies.filter((e) => e.alive).length).toBe(ALIVE_HARD_CAP);
+		const before = s.enemies.length;
+		const spawned = spawnFromArchetype(s, "husk-1", { x: 20, y: 0 });
+		expect(spawned).toBe(false);
+		expect(s.enemies.length).toBe(before);
+	});
+
+	it("ability spawns emit nothing once the alive hard cap is reached", () => {
+		const s = createInitialState(1);
+		for (let i = 0; i < ALIVE_HARD_CAP; i++) {
+			spawnFromArchetype(s, "husk-1", { x: 20, y: 0 });
+		}
+		const spawner: EnemyState = {
+			...s.enemies[0],
+			id: 999,
+			archetypeId: "brood-2",
+			ability: { kind: "spawn", minion: "brood-1", rate: 10 },
+			spawnTick: 0,
+			pos: { x: 5, y: 0 },
+		};
+		s.enemies = [...s.enemies, spawner];
+		const before = s.enemies.length;
+		s.tick = 10; // age % rate === 0 → would emit if not capped
+		tickAbility(s, spawner);
+		expect(s.enemies.length).toBe(before);
 	});
 
 	it("spawns up to the wave count and never exceeds MAX_ALIVE", () => {
