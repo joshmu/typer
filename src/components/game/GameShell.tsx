@@ -1,7 +1,18 @@
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import {
+	createEffect,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from "solid-js";
 import type { GameLoop } from "@/lib/game/render/loop";
+import { deriveRunStats } from "@/lib/game/sim/run-stats";
 import { COMBO_DECAY_TICKS, comboMultiplier } from "@/lib/game/sim/score";
 import type { GameState } from "@/lib/game/sim/state";
+import { saveGameRun, useBestRun } from "@/lib/game-runs";
+import DeathScreen from "./DeathScreen";
+import StartScreen from "./StartScreen";
 
 declare global {
 	interface Window {
@@ -18,46 +29,94 @@ export default function GameShell() {
 	let canvasRef: HTMLCanvasElement | undefined;
 	let loop: GameLoop | undefined;
 	let disposed = false;
+	let startLoop: ((seed: number) => Promise<void>) | undefined;
+	// the seed the active run started with — persisted so a run is replayable
+	let currentSeed = 0;
+	// one-shot guard: persist a run exactly once per gameover, reset on restart
+	let saved = false;
 	const [hud, setHud] = createSignal<GameState | null>(null);
 	const [ready, setReady] = createSignal(false);
+	const bestRun = useBestRun();
 
 	const params = new URLSearchParams(window.location.search);
 	// a malformed ?seed (e.g. "abc") must not poison the sim with NaN; fall back
 	// to a time-based seed (Date.now is fine here — shell code, not the sim)
 	const raw = params.get("seed");
 	const parsed = raw === null ? Number.NaN : Number(raw);
-	const seed = Number.isFinite(parsed) ? parsed : Date.now() % 2 ** 31;
+	// an explicit ?seed pins every run (incl. restarts) for reproducibility;
+	// otherwise each run gets a fresh random seed
+	const fixedSeed = Number.isFinite(parsed) ? parsed : null;
 	const testMode = params.get("testMode") === "1";
+
+	// gate typing into the sim until the player starts; testMode auto-starts so
+	// deterministic probes (window.__game) keep working without a keypress
+	const [started, setStarted] = createSignal(testMode);
+	const [newBest, setNewBest] = createSignal(false);
+
+	function nextSeed(): number {
+		return fixedSeed ?? Date.now() % 2 ** 31;
+	}
+
+	// persist the run once when the sim transitions to gameover; capture NEW BEST
+	// against the prior best (read before the save adds this run).
+	createEffect(() => {
+		const state = hud();
+		if (state?.status === "gameover" && !saved) {
+			saved = true;
+			const stats = deriveRunStats(state);
+			const prev = bestRun();
+			setNewBest(prev === undefined || stats.score > prev.score);
+			void saveGameRun({
+				...stats,
+				seed: currentSeed,
+				timestamp: Date.now(),
+			});
+		}
+	});
 
 	onMount(async () => {
 		const { startGameLoop } = await import("@/lib/game/render/loop");
-		// the component may have unmounted during the dynamic import
-		if (disposed || !canvasRef) return;
-		loop = startGameLoop({
-			canvas: canvasRef,
-			seed,
-			testMode,
-			onState: setHud,
-		});
-		// re-check: if cleanup ran between the import and now, tear down safely
-		if (disposed) {
-			loop.dispose();
-			loop = undefined;
-			return;
-		}
-		if (testMode) {
-			const activeLoop = loop;
-			window.__game = {
-				getState: () => activeLoop.getState(),
-				sendKeys: (keys) => {
-					for (const k of keys) activeLoop.pushKey(k);
-				},
-				stepTicks: (n) => activeLoop.stepTicks(n),
-				renderReady: () => activeLoop.renderReady(),
-			};
-		}
-		setReady(true);
+		startLoop = async (seed: number) => {
+			if (disposed || !canvasRef) return;
+			currentSeed = seed;
+			loop = startGameLoop({
+				canvas: canvasRef,
+				seed,
+				testMode,
+				onState: setHud,
+			});
+			// re-check: if cleanup ran between the import and now, tear down safely
+			if (disposed) {
+				loop.dispose();
+				loop = undefined;
+				return;
+			}
+			if (testMode) {
+				const activeLoop = loop;
+				window.__game = {
+					getState: () => activeLoop.getState(),
+					sendKeys: (keys) => {
+						for (const k of keys) activeLoop.pushKey(k);
+					},
+					stepTicks: (n) => activeLoop.stepTicks(n),
+					renderReady: () => activeLoop.renderReady(),
+				};
+			}
+			setReady(true);
+		};
+		await startLoop(nextSeed());
 	});
+
+	function restart() {
+		loop?.dispose();
+		loop = undefined;
+		saved = false;
+		setNewBest(false);
+		setHud(null);
+		setReady(false);
+		setStarted(true);
+		void startLoop?.(nextSeed());
+	}
 
 	onCleanup(() => {
 		disposed = true;
@@ -67,8 +126,21 @@ export default function GameShell() {
 
 	function onKeyDown(e: KeyboardEvent) {
 		if (e.key.length !== 1 || e.metaKey || e.ctrlKey || e.altKey) return;
+		// death screen: R restarts, everything else is inert
+		if (hud()?.status === "gameover") {
+			if (e.key === "r" || e.key === "R") {
+				e.preventDefault();
+				restart();
+			}
+			return;
+		}
 		// stop the browser acting on gameplay keys (space scroll, quick-find, …)
 		e.preventDefault();
+		// first keypress dismisses the start screen without feeding the sim
+		if (!started()) {
+			setStarted(true);
+			return;
+		}
 		loop?.pushKey(e.key);
 	}
 
@@ -151,16 +223,17 @@ export default function GameShell() {
 					</>
 				)}
 			</Show>
-			<Show when={hud()?.status === "gameover"}>
-				<div
-					class="absolute inset-0 grid place-items-center bg-black/60"
-					data-testid="game-over"
-				>
-					<div class="text-center">
-						<p class="text-2xl font-bold">Run over</p>
-						<p class="mt-2 font-mono">score {hud()?.score}</p>
-					</div>
-				</div>
+			<Show when={ready() && !started() && hud()?.status !== "gameover"}>
+				<StartScreen bestRun={bestRun()} />
+			</Show>
+			<Show when={hud()?.status === "gameover" ? hud() : null}>
+				{(state) => (
+					<DeathScreen
+						stats={deriveRunStats(state())}
+						isNewBest={newBest()}
+						onRestart={restart}
+					/>
+				)}
 			</Show>
 		</div>
 	);

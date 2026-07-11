@@ -48,6 +48,43 @@ test.describe("horde game mode", () => {
 		expect(state?.kills).toBe(1);
 	});
 
+	test("shows the death screen with run stats and restarts", async ({
+		page,
+	}) => {
+		await page.goto("/game?seed=42&testMode=1");
+		await expect(page.getByTestId("game-shell")).toBeVisible();
+		await page.waitForFunction(() => window.__game !== undefined);
+
+		// drive the sim untyped until the horde overruns the core — bounded per
+		// poll so a single evaluate never spins unboundedly
+		await page.waitForFunction(
+			() => {
+				const g = window.__game;
+				if (!g) return false;
+				if (g.getState().status === "gameover") return true;
+				g.stepTicks(120);
+				return g.getState().status === "gameover";
+			},
+			null,
+			{ timeout: 20000, polling: 100 },
+		);
+
+		await expect(page.getByTestId("game-over")).toBeVisible();
+		await expect(page.getByTestId("game-over-score")).toBeVisible();
+		await expect(page.getByTestId("game-over-wpm")).toBeVisible();
+		await expect(page.getByTestId("game-restart")).toBeVisible();
+
+		// restart via keyboard R — fresh loop, HUD reset to a running tick-0 state
+		await page.keyboard.press("r");
+		await page.waitForFunction(() => {
+			const s = window.__game?.getState();
+			return s?.status === "running" && s.tick === 0;
+		});
+		await expect(page.getByTestId("game-over")).toBeHidden();
+		await expect(page.getByTestId("game-kills")).toHaveText("kills 0");
+		await expect(page.getByTestId("game-score")).toHaveText("score 0");
+	});
+
 	test("visual: deterministic arena frame", async ({ page }) => {
 		// Baseline exists for darwin only while skeleton visuals churn;
 		// linux CI baseline lands at visual-freeze (render polish plan).
