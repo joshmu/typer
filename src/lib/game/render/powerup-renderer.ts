@@ -8,6 +8,7 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 import type { GameState, PowerupKind } from "../sim/state";
+import { drawLabel } from "./label";
 import { powerupVisual } from "./visuals";
 
 type PowerupVisual = {
@@ -91,35 +92,6 @@ export function createPowerupRenderer(scene: Scene) {
 			texture,
 			lastText: "",
 		};
-	}
-
-	// same label-draw path as the enemy renderer: typed prefix in amber, the rest
-	// white (locked) or grey — redrawn only when the visible content changes
-	function drawLabel(
-		v: PowerupVisual,
-		word: string,
-		typedCount: number,
-		isTarget: boolean,
-	) {
-		const text = `${word}:${typedCount}:${isTarget ? 1 : 0}`;
-		if (text === v.lastText) return;
-		v.lastText = text;
-		const ctx = v.texture.getContext();
-		ctx.clearRect(0, 0, 256, 64);
-		// biome-ignore lint/suspicious/noExplicitAny: ICanvasRenderingContext lacks font metrics typing
-		const c = ctx as any;
-		c.font = isTarget ? "bold 44px monospace" : "bold 36px monospace";
-		const typed = word.slice(0, typedCount);
-		const rest = word.slice(typedCount);
-		const typedW = c.measureText(typed).width;
-		const totalW = typedW + c.measureText(rest).width;
-		const x = (256 - totalW) / 2;
-		const y = 44;
-		c.fillStyle = "#facc15";
-		c.fillText(typed, x, y);
-		c.fillStyle = isTarget ? "#ffffff" : "#9ca3af";
-		c.fillText(rest, x + typedW, y);
-		v.texture.update();
 	}
 
 	return {

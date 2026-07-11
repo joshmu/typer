@@ -14,6 +14,7 @@ import type { Scene } from "@babylonjs/core/scene";
 import { getArchetype } from "../content/enemies";
 import { isCloaked } from "../sim/abilities";
 import type { GameState } from "../sim/state";
+import { drawLabel } from "./label";
 import { type EnemyShape, tierScale, visualFor } from "./visuals";
 
 type EnemyVisual = {
@@ -105,34 +106,6 @@ export function createEnemyRenderer(scene: Scene) {
 		label.material = labelMat;
 
 		return { root, body, mat, baseEmissive, label, texture, lastText: "" };
-	}
-
-	function drawLabel(
-		v: EnemyVisual,
-		word: string,
-		typedCount: number,
-		isTarget: boolean,
-	) {
-		// redraw only when the visible content changes (word / progress / lock)
-		const text = `${word}:${typedCount}:${isTarget ? 1 : 0}`;
-		if (text === v.lastText) return;
-		v.lastText = text;
-		const ctx = v.texture.getContext();
-		ctx.clearRect(0, 0, 256, 64);
-		// biome-ignore lint/suspicious/noExplicitAny: ICanvasRenderingContext lacks font metrics typing
-		const c = ctx as any;
-		c.font = isTarget ? "bold 44px monospace" : "bold 36px monospace";
-		const typed = word.slice(0, typedCount);
-		const rest = word.slice(typedCount);
-		const typedW = c.measureText(typed).width;
-		const totalW = typedW + c.measureText(rest).width;
-		const x = (256 - totalW) / 2;
-		const y = 44;
-		c.fillStyle = "#facc15";
-		c.fillText(typed, x, y);
-		c.fillStyle = isTarget ? "#ffffff" : "#9ca3af";
-		c.fillText(rest, x + typedW, y);
-		v.texture.update();
 	}
 
 	return {
