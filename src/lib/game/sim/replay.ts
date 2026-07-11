@@ -9,6 +9,11 @@ export type InputLog = {
 };
 
 export function runReplay(log: InputLog): GameState {
+	for (const e of log.events) {
+		if (e.tick < 1 || e.tick > log.ticks) {
+			throw new Error(`Replay event tick ${e.tick} outside 1..${log.ticks}`);
+		}
+	}
 	let state = createInitialState(log.seed);
 	for (let t = 1; t <= log.ticks; t++) {
 		const events: GameEvent[] = log.events

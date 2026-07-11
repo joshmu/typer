@@ -22,6 +22,15 @@ describe("replay", () => {
 		expect(stateHash(a)).toBe(stateHash(b));
 	});
 
+	it("rejects events with ticks outside 1..log.ticks", () => {
+		expect(() =>
+			runReplay({ seed: 42, ticks: 10, events: [{ tick: 0, key: "a" }] }),
+		).toThrow(/tick 0 outside 1\.\.10/);
+		expect(() =>
+			runReplay({ seed: 42, ticks: 10, events: [{ tick: 11, key: "a" }] }),
+		).toThrow(/tick 11 outside 1\.\.10/);
+	});
+
 	it("hash changes when outcome changes", () => {
 		const base = { seed: 42, ticks: 300, events: [] };
 		const other = { seed: 43, ticks: 300, events: [] };
