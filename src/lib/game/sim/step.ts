@@ -46,15 +46,19 @@ export function step(
 	if (s.freezeTicksLeft > 0) moveScale = 0;
 	else if (s.slowTicksLeft > 0) moveScale = SLOW_FACTOR;
 	const alive = s.enemies.filter((e) => e.alive);
+	// moveScale gates EVERY velocity mutation this tick — steer, separation,
+	// knockback and integration alike — so a freeze (0) leaves velocity perfectly
+	// inert (nothing accumulates, nothing scatters on unfreeze) and slow (0.5)
+	// scales it all in lockstep, rather than only throttling the final integration.
 	// 1) each behaviour emits a DESIRED velocity; steer bends actual velocity
 	// toward it within an accel budget, so enemies carry inertia (no teleporting)
 	for (const e of alive) {
-		steer(e, MOVEMENTS[e.movement](e, s.tick));
+		steer(e, MOVEMENTS[e.movement](e, s.tick), moveScale);
 	}
 	// 2) crowd separation shoves overlapping bodies apart (adds to velocity)
-	separate(alive);
-	// 3) integrate velocity into position (freeze/slow scale the whole step so
-	// knockback and separation halt too) and resolve core collisions
+	separate(alive, moveScale);
+	// 3) integrate the (already gated) velocity into position and resolve
+	// core collisions
 	for (const e of alive) {
 		e.pos.x += e.vel.x * moveScale;
 		e.pos.y += e.vel.y * moveScale;
@@ -133,7 +137,7 @@ export function step(
 			if (isCharMatch(ev.key, target.word[target.typedCount])) {
 				target.typedCount += 1;
 				s.hits += 1;
-				resolveCompletion(s, target);
+				resolveCompletion(s, target, moveScale);
 			} else {
 				s.misses += 1;
 				s.combo = 0;
@@ -155,7 +159,7 @@ export function step(
 			picked.typedCount = 1;
 			s.hits += 1;
 			s.targetId = picked.id;
-			resolveCompletion(s, picked);
+			resolveCompletion(s, picked, moveScale);
 			continue;
 		}
 

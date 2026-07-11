@@ -22,27 +22,38 @@ export const PHYS = {
 /**
  * Bend `e.vel` toward `desired`, moving at most `PHYS.accel` per tick. Within one
  * accel step of the target it snaps exactly onto it. Mutates the draft enemy.
+ *
+ * `scale` (freeze 0 / slow 0.5, default 1) shrinks the accel budget so the same
+ * time-dilation that scales integration also scales velocity change: at scale 0
+ * the velocity is left perfectly inert (nothing to accumulate, nothing to scatter
+ * on unfreeze); at 0.5 the turn rate is halved in step with the halved speed.
  */
-export function steer(e: EnemyState, desired: Vec2): void {
+export function steer(e: EnemyState, desired: Vec2, scale = 1): void {
+	const accel = PHYS.accel * scale;
 	const dx = desired.x - e.vel.x;
 	const dy = desired.y - e.vel.y;
 	const d = dist(dx, dy);
-	if (d <= PHYS.accel || d === 0) {
+	if (d <= accel || d === 0) {
+		// already within one (scaled) step, or exactly on target: snap. At scale 0
+		// with d>0 this is skipped and the divide below yields a zero delta.
 		e.vel.x = desired.x;
 		e.vel.y = desired.y;
 		return;
 	}
-	const scale = PHYS.accel / d;
-	e.vel.x += dx * scale;
-	e.vel.y += dy * scale;
+	const f = accel / d;
+	e.vel.x += dx * f;
+	e.vel.y += dy * f;
 }
 
 /**
  * Pairwise crowd separation: any two enemies closer than 55% of their combined
  * body size shove each other outward (added to velocity, integrated by the
  * caller). O(n²), but n ≤ ALIVE_HARD_CAP (16) so it stays trivially cheap.
+ *
+ * `scale` (freeze 0 / slow 0.5, default 1) scales the shove impulse so frozen
+ * enemies gain no separation velocity to unleash on unfreeze.
  */
-export function separate(enemies: EnemyState[]): void {
+export function separate(enemies: EnemyState[], scale = 1): void {
 	for (let i = 0; i < enemies.length; i++) {
 		const a = enemies[i];
 		const sizeA = getArchetype(a.archetypeId).size;
@@ -63,7 +74,7 @@ export function separate(enemies: EnemyState[]): void {
 			}
 			// scale the shove by how deep the overlap is, so barely-touching pairs
 			// nudge gently and heavy overlaps snap apart
-			const push = (PHYS.sepStrength * (minGap - d)) / minGap;
+			const push = (PHYS.sepStrength * (minGap - d) * scale) / minGap;
 			const ux = dx / d;
 			const uy = dy / d;
 			a.vel.x += ux * push;
@@ -77,9 +88,16 @@ export function separate(enemies: EnemyState[]): void {
 /**
  * Add a knockback impulse to `e.vel`, directed from `awayFrom` toward the enemy
  * (so a completion hit shoves it back out toward the arena edge). `mult` scales
- * the impulse — bosses take a softened recoil. Mutates the draft enemy.
+ * the impulse — bosses take a softened recoil. `scale` (freeze 0 / slow 0.5,
+ * default 1) gates it in step with the rest of the tick's velocity work, so a
+ * completion landed mid-freeze imparts no recoil. Mutates the draft enemy.
  */
-export function applyKnockback(e: EnemyState, awayFrom: Vec2, mult = 1): void {
+export function applyKnockback(
+	e: EnemyState,
+	awayFrom: Vec2,
+	mult = 1,
+	scale = 1,
+): void {
 	let dx = e.pos.x - awayFrom.x;
 	let dy = e.pos.y - awayFrom.y;
 	let d = dist(dx, dy);
@@ -88,7 +106,7 @@ export function applyKnockback(e: EnemyState, awayFrom: Vec2, mult = 1): void {
 		dy = 0;
 		d = 1;
 	}
-	const impulse = PHYS.knockback * mult;
+	const impulse = PHYS.knockback * mult * scale;
 	e.vel.x += (dx / d) * impulse;
 	e.vel.y += (dy / d) * impulse;
 }

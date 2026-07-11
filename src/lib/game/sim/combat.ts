@@ -38,7 +38,11 @@ export function killEnemy(s: GameState, e: EnemyState): void {
 	}
 }
 
-export function resolveCompletion(s: GameState, e: EnemyState): void {
+export function resolveCompletion(
+	s: GameState,
+	e: EnemyState,
+	moveScale = 1,
+): void {
 	// Called after every keystroke on the target; act only when the word is done.
 	if (e.typedCount < e.word.length) return;
 	if (absorbsCompletion(e)) {
@@ -54,8 +58,9 @@ export function resolveCompletion(s: GameState, e: EnemyState): void {
 	// multi-hp / boss chain: damaged but alive → chip score, recoil, next word.
 	// The hit shoves the enemy back out toward the arena edge; bosses (imposing)
 	// take a softened recoil so they keep their menacing forward pressure.
+	// `moveScale` gates the recoil so a hit landed during a freeze imparts none.
 	const mult = getArchetype(e.archetypeId).role === "boss" ? 0.4 : 1;
-	applyKnockback(e, { x: 0, y: 0 }, mult);
+	applyKnockback(e, { x: 0, y: 0 }, mult, moveScale);
 	s.score += 10 * e.word.length;
 	reassignWord(s, e);
 }

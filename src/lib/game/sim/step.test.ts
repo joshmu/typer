@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { getArchetype } from "../content/enemies";
+import { createEnemy } from "./enemy-factory";
 import { MAX_ALIVE, spawnFromArchetype } from "./spawner";
 import { createInitialState, type EnemyState, type GameState } from "./state";
 import { type GameEvent, step } from "./step";
@@ -165,6 +167,50 @@ describe("step", () => {
 		s.lastPowerupMilestone = 1; // already claimed
 		s = step(s, []);
 		expect(s.powerups.length).toBe(0);
+	});
+
+	it("keeps velocity inert through a freeze and never scatters on unfreeze", () => {
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		s.spawnQueueRemaining = 0; // no new spawns inside the test window
+		// two heavily-overlapping chasers: without gating velocity work, steer and
+		// separation would pump their velocity every frozen tick and fling them
+		// apart the instant the freeze lifts
+		const a = createEnemy(
+			getArchetype("husk-1"),
+			1,
+			{ x: 5, y: 0 },
+			0,
+			"alpha",
+		);
+		const b = createEnemy(
+			getArchetype("husk-1"),
+			2,
+			{ x: 5.1, y: 0 },
+			0,
+			"bravo",
+		);
+		s.enemies = [a, b];
+		s.nextEnemyId = 3;
+		s.freezeTicksLeft = 180;
+
+		for (let i = 0; i < 180; i++) s = step(s, []);
+		expect(s.freezeTicksLeft).toBe(0);
+		// no velocity accumulated across the whole freeze
+		for (const e of s.enemies) {
+			expect(Math.hypot(e.vel.x, e.vel.y)).toBeLessThan(1e-9);
+		}
+
+		// first unfrozen tick: a single ordinary step, not an accumulated fling
+		const before = new Map(
+			s.enemies.map((e) => [e.id, { x: e.pos.x, y: e.pos.y }]),
+		);
+		s = step(s, []);
+		for (const e of s.enemies) {
+			const p = before.get(e.id);
+			if (!p) continue;
+			expect(Math.hypot(e.pos.x - p.x, e.pos.y - p.y)).toBeLessThan(0.05);
+		}
 	});
 
 	it("is pure — same inputs, same output, no input mutation", () => {
