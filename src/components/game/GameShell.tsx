@@ -15,6 +15,7 @@ declare global {
 export default function GameShell() {
 	let canvasRef: HTMLCanvasElement | undefined;
 	let loop: GameLoop | undefined;
+	let disposed = false;
 	const [hud, setHud] = createSignal<GameState | null>(null);
 	const [ready, setReady] = createSignal(false);
 
@@ -24,13 +25,20 @@ export default function GameShell() {
 
 	onMount(async () => {
 		const { startGameLoop } = await import("@/lib/game/render/loop");
-		if (!canvasRef) return;
+		// the component may have unmounted during the dynamic import
+		if (disposed || !canvasRef) return;
 		loop = startGameLoop({
 			canvas: canvasRef,
 			seed,
 			testMode,
 			onState: setHud,
 		});
+		// re-check: if cleanup ran between the import and now, tear down safely
+		if (disposed) {
+			loop.dispose();
+			loop = undefined;
+			return;
+		}
 		if (testMode) {
 			const activeLoop = loop;
 			window.__game = {
@@ -45,6 +53,7 @@ export default function GameShell() {
 	});
 
 	onCleanup(() => {
+		disposed = true;
 		loop?.dispose();
 		if (testMode) window.__game = undefined;
 	});
