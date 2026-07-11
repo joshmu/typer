@@ -36,6 +36,7 @@ export type GameState = {
 	score: number;
 	kills: number;
 	misses: number;
+	hits: number;
 	playerHp: number;
 	targetId: number | null;
 	nextEnemyId: number;
@@ -65,6 +66,7 @@ export function createInitialState(seed: number): GameState {
 		score: 0,
 		kills: 0,
 		misses: 0,
+		hits: 0,
 		playerHp: 3,
 		targetId: null,
 		nextEnemyId: 1,

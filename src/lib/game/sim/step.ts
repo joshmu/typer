@@ -100,6 +100,7 @@ export function step(
 			const pu = s.powerups.find((p) => p.id === s.targetPowerupId);
 			if (pu && isCharMatch(ev.key, pu.word[pu.typedCount])) {
 				pu.typedCount += 1;
+				s.hits += 1;
 				if (pu.typedCount >= pu.word.length) {
 					applyPowerup(s, pu.kind);
 					s.powerups = s.powerups.filter((p) => p.id !== pu.id);
@@ -121,6 +122,7 @@ export function step(
 		if (target) {
 			if (isCharMatch(ev.key, target.word[target.typedCount])) {
 				target.typedCount += 1;
+				s.hits += 1;
 				resolveCompletion(s, target);
 			} else {
 				s.misses += 1;
@@ -141,6 +143,7 @@ export function step(
 		if (candidates.length > 0) {
 			const picked = candidates[0];
 			picked.typedCount = 1;
+			s.hits += 1;
 			s.targetId = picked.id;
 			resolveCompletion(s, picked);
 			continue;
@@ -149,6 +152,7 @@ export function step(
 		const pu = s.powerups.find((p) => isCharMatch(ev.key, p.word[0]));
 		if (pu) {
 			pu.typedCount = 1;
+			s.hits += 1;
 			s.targetPowerupId = pu.id;
 			if (pu.word.length === 1) {
 				applyPowerup(s, pu.kind);
