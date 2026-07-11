@@ -54,13 +54,19 @@ export function steer(e: EnemyState, desired: Vec2, scale = 1): void {
  * enemies gain no separation velocity to unleash on unfreeze.
  */
 export function separate(enemies: EnemyState[], scale = 1): void {
-	for (let i = 0; i < enemies.length; i++) {
+	const n = enemies.length;
+	// hoist body sizes once so the O(n²) pairwise loop below does no getArchetype
+	// (Map) lookups in its inner iterations
+	const sizes = new Array<number>(n);
+	for (let i = 0; i < n; i++) {
+		sizes[i] = getArchetype(enemies[i].archetypeId).size;
+	}
+	for (let i = 0; i < n; i++) {
 		const a = enemies[i];
-		const sizeA = getArchetype(a.archetypeId).size;
-		for (let j = i + 1; j < enemies.length; j++) {
+		const sizeA = sizes[i];
+		for (let j = i + 1; j < n; j++) {
 			const b = enemies[j];
-			const sizeB = getArchetype(b.archetypeId).size;
-			const minGap = (sizeA + sizeB) * 0.55;
+			const minGap = (sizeA + sizes[j]) * 0.55;
 			let dx = a.pos.x - b.pos.x;
 			let dy = a.pos.y - b.pos.y;
 			let d = dist(dx, dy);
