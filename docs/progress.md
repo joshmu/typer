@@ -90,3 +90,12 @@
 - [x] Per-family locomotion gaits driven read-only by sim state (`|vel|`-scaled amplitude, dash-phase sync)
 - [x] Corpse/breach decals baked into a ground `DynamicTexture` (Crimsonland technique) — zero live entities, unbounded accumulation
 - [x] E2E: free-flow switch/return + Backspace release specs; docs (routing model, gait table, decal bake); darwin baseline rebaselined
+
+### 2D pixel-art pivot (Plan 8, round-3 playtest — "Crimsonland is 2D top-down, use sprites")
+
+- [x] Absorb rule: a shield/armored clang resets `typedCount` on the SAME word (no advance, no append); `words.length === hp` invariant for the enemy's whole life; deep-run fixture re-recorded
+- [x] Sprite pipeline (`scripts/gen-sprites.mjs`): OpenRouter per-family magenta sprites → chroma-key + crop + NEAREST downscale + quantize → one 64px atlas (`sprites.png`/`sprites.json`); all 16 creature/hero cells AI, procedural dot/crystal + fallback painter
+- [x] True overhead orthographic camera (no foreshortening, uniform tiles, edge-to-edge floor)
+- [x] Enemies + hero rendered as Babylon `SpriteManager` sprites (NEAREST): enemy angle = atan2(vel), 2 walk cells by distance, boss ×1.6 + pulse, cloak alpha flutter; hero heading = last-shot only (fire/lock, never re-anchors), recoil cell; powerup = crystal sprite; deleted `enemy-models.ts` + mesh turret guts
+- [x] Pixel floor (`terrain.png` regenerated) + chunky hard-edged pixel blood splats (~2×, family-coloured), probe-verified visible after ~10 normal kills; death burst = pixel gibs
+- [x] Docs (art direction, sprite pipeline, absorb rule); darwin visual baseline rebaselined

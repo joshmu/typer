@@ -49,9 +49,13 @@ archetype.hp`, so completing one word deals one damage and `wordIndex` walks the
 chain to death. Only the **first** word obeys the field-uniqueness rule (initials
 of every live enemy **and** active powerup are excluded so the acquiring keystroke
 is never ambiguous); later words in the chain are unconstrained. `currentWord(e)`
-is the sole accessor. Shield/armored-front **absorbs** advance `wordIndex` without
-damage and append a fresh band word (`advanceWord`), so an enemy never runs out of
-words while alive. `typedCount` is progress within the current word.
+is the sole accessor. A shield/armored-front **absorb** deals no damage and does
+**not** change the word — it resets `typedCount` to 0 on the SAME word (a clang),
+so `words.length === archetype.hp` is invariant for the enemy's whole life and
+completing a word never pops a fresh word into the stack. `advanceWord` (the only
+caller is a *damaging* multi-hp/boss completion) redraws the next chain word in
+place without ever growing the array. `typedCount` is progress within the current
+word.
 
 ## Targeting model (free-flow routing)
 
@@ -98,8 +102,9 @@ Source: `src/lib/game/sim/score.ts` + `combat.ts`.
 - **Combo multiplier:** `1 + min(4, floor(combo / 5))` → ranges 1×–5×.
 - **Combo** increments on each kill and decays to 0 after
   `COMBO_DECAY_TICKS = 180` ticks without a kill; any miss also breaks it.
-- **Partial completions** (shield absorb, multi-hp chip, boss chain) award a flat
-  `10 × wordLength` (no combo multiplier) and reassign a fresh word.
+- **Partial completions** award a flat `10 × wordLength` (no combo multiplier). A
+  shield/armored absorb resets the SAME word (clang, no new word); a multi-hp/boss
+  chip advances to the next pre-assigned chain word.
 - **hits counter** (`GameState.hits`) increments on every matched keystroke and
   feeds the run-summary accuracy (`hits / (hits + misses)`) and WPM
   (`hits / 5` per minute, matching core `calculateWPM`) via
@@ -194,45 +199,42 @@ lands at visual-freeze, after which the snapshot gates CI. The capture waits on
 
 ## Rendering & premium visuals
 
-The render layer (`src/lib/game/render/`) is a Babylon adapter driven by the
-loop, kept strictly separate from the pure sim. Key pieces:
+**Art direction — flat 2D top-down pixel art (Crimsonland-like).** The render
+layer is a Babylon adapter driven by the loop, kept strictly separate from the
+pure sim. Enemies and the hero are pixel-art **sprites** under a true overhead
+**orthographic** camera; there are no 3D creature/turret meshes. Everything is
+sampled NEAREST so pixels stay crisp. Key pieces:
 
-- **Camera / arena** (`scene.ts`): a near-vertical top-down `ArcRotateCamera`
-  (beta 0.12, radius 55) over a 38-unit textured floor disc, with a fullscreen
-  nebula background `Layer` filling the corners and a `GlowLayer` (intensity 0.6,
-  blur kernel 16) blooming gameplay emissives (floor and word plates excluded).
-- **Player turret** (`turret.ts`): a layered build — hexagonal two-tier sunk base
-  with cooling fins, a combo-scaled energy core, an independent slow radar sweep,
-  and **twin barrels that AIM** (atan2 + ~0.2 slerp) at the locked target, or the
-  nearest enemy anticipatorily when none is locked, and simply **HOLD** their last
-  heading when the field is clear (no idle spin). The barrels recoil per shot (a
-  spring kicked from the loop, heavier on a completion). Plus a core danger ring at
-  the defensive perimeter that flares red as the horde presses within 6 units.
-  Exposes `getMuzzle()` for shot origins, `recoil()` for shots and `ringPulse()`
-  for powerups.
-- **Projectile tracers + muzzle flash** (`effects.ts`): pooled emissive beams;
-  the loop diffs each enemy's `typedCount`/`hp` per frame to fire a thin bolt on a
-  keystroke and a heavier bolt + flash on a completion/kill. Also owns the pooled
-  death-burst particle system and the screen shake.
-- **Sculpted enemies** (`enemy-models.ts` + `enemy-renderer.ts`): one distinct
-  multi-part model per family (husk spikes, darter arrowhead, wraith ring, charger
-  wedge, weaver twin-orbs, brood bumps, boss flagship + orbiting shards), tinted
-  per tier, scaled ×2.2 for top-down readability. Gait transforms live on an inner
-  `body` node so they never fight the outer size scale.
-- **Locomotion gaits** (`enemy-models.ts`): each family has a procedural gait
-  driven read-only by sim state (tick, `|vel|`, dash phase from `spawnTick`), with
-  amplitude scaling by `|vel|` so a stopped enemy idles subtly instead of gliding.
-
-  | Family  | Gait                                                      |
-  |---------|-----------------------------------------------------------|
-  | Husk    | spikes ripple outward + body roll along travel            |
-  | Darter  | squash-stretch thrust pulses along the heading            |
-  | Wraith  | ring counter-spins the body; core leads/lags              |
-  | Charger | crouch during the pause, lunge during the dash (phase-synced) |
-  | Weaver  | orbs counter-bob; the pair tightens laterally with speed   |
-  | Brood   | child bumps wobble in/out                                  |
-  | Boss    | slow menace sway over the orbiting shard spin              |
-
+- **Camera / arena** (`scene.ts`): a true overhead **orthographic** `ArcRotate`
+  camera (beta ~0, alpha -π/2 looking straight down) with the frustum sized to
+  ±38 world units vertically and left/right following the viewport aspect so world
+  cells stay square (recomputed on resize) — zero foreshortening. A radius-80 floor
+  disc fills the frame edge-to-edge (full-bleed battlefield), a fullscreen nebula
+  `Layer` sits behind, and a `GlowLayer` blooms gameplay emissives (floor and word
+  plates excluded).
+- **Sprite atlas** (`sprite-atlas.ts`): ONE shared `SpriteManager` on the
+  generated `public/game/sprites.png` (uniform 64px cells, NEAREST) backs every
+  on-field sprite — enemies, the hero, powerup crystals. `CELLS` maps names →
+  cellIndex, mirroring `sprites.json`.
+- **Player hero** (`turret.ts`): a top-down marine/turret **sprite** at the core
+  whose heading is the **LAST-SHOT heading** — it snaps toward a target on `fire()`
+  and slerps toward a *locked* target in `update()`, and simply **HOLDS** otherwise,
+  never re-anchoring to the nearest enemy on its own (explicit playtest feedback).
+  A recoil sprite cell flashes for 3 frames per shot. Two flat ground rings survive:
+  a powerup activation pulse (`ringPulse()`) and a red danger perimeter that flares
+  as the horde presses within 6 units. Exposes `getMuzzle()` for shot origins.
+- **Projectile tracers + muzzle flash + gibs** (`effects.ts`): pooled emissive
+  beams; the loop diffs each enemy's `typedCount`/`hp` per frame to fire a thin bolt
+  on a keystroke, a heavier bolt + flash on a completion/kill, and a dull spark on a
+  shield/armored **clang** (a `typedCount` drop with no hp loss). The death burst is
+  **chunky opaque pixel gibs** (a hard NEAREST square, family-coloured) plus the
+  screen shake.
+- **Sprite enemies** (`enemy-renderer.ts`): a `Sprite` per enemy — `angle =
+  atan2(sim vel)` so the creature faces its travel direction, two walk-pose cells
+  alternated by distance travelled, size from archetype × scale (bosses ×1.6 with a
+  slow pulse), cloak = alpha flutter. Sprites are untinted so each family shows its
+  own authored art. Six creature families + boss + hero, drawn as 16-bit pixel-art
+  creatures (`scripts/gen-sprites.mjs`).
 - **Label plates** (`label.ts`): each enemy shows its whole remaining word chain —
   current word on the bottom plate at full brightness, up to two queued words
   stacked above at 55% scale / 40% alpha, and any remainder collapsed into a "+n"
@@ -241,35 +243,45 @@ loop, kept strictly separate from the pure sim. Key pieces:
   every glyph keep the text legible even over a bright bloomed enemy. The active
   target gets a brighter border plate and a chevron; partial enemies get a thin
   amber progress underline. Powerups share the upgraded single-plate path.
-- **Battlefield persistence** (`ground-decals.ts`): the ground diffuse is a single
-  2048² `DynamicTexture`. The AI terrain is baked into it once (tiled 4×4), then
-  corpse and breach decals are stamped straight in on death frames — a dark scorch
-  ellipse + family-tinted splat blobs + debris per corpse (rotation seeded from the
-  enemy id), a red core-side gash per breach. `texture.update()` runs only when a
-  decal is stamped; there are **zero live decal entities** and accumulation is
-  unbounded for free (Crimsonland technique). Emissive stays the static tiled
-  terrain so scorch marks read dark/unlit while the circuitry keeps glowing.
+- **Battlefield persistence** (`ground-decals.ts`): the ground diffuse (and
+  emissive) is a single 2048² `DynamicTexture`, NEAREST-sampled with canvas
+  smoothing off. The pixel terrain is baked in once — a centre-square crop scaled
+  across the whole floor (no tiling seams, no aspect distortion) — then corpse and
+  breach decals are stamped straight in on death frames as **chunky hard-edged
+  pixel blood/goo clusters** on a shared pixel grid (a big central pool + satellite
+  gouts in the family colour per corpse, a red char pool + gash per breach), ~2× the
+  old splats and clearly visible at normal kill counts. `texture.update()` runs only
+  when a decal is stamped; there are **zero live decal entities** and accumulation
+  is unbounded for free (Crimsonland technique).
 
 All render work is pooled with reused scratch vectors — no per-frame allocation —
 keeping the keystroke round-trip well under the 16 ms budget with glow active.
 
 ## Asset pipeline
 
-Two provenance scripts, both **manually run**; CI never calls the network. The
+Three provenance scripts, all **manually run**; CI never calls the network. The
 committed PNGs under `public/game/` are the artifacts of record.
 
-- **AI-generated environment** (`scripts/gen-ai-assets.mjs`): calls OpenRouter's
-  image-capable Gemini model (`google/gemini-3.1-flash-image`) to produce
-  `terrain.png` (tileable dark hex-grid sci-fi floor with teal circuitry) and
-  `nebula.png` (dark indigo/violet starfield). Run with
-  `OPENROUTER_API_KEY=… node scripts/gen-ai-assets.mjs`, then eyeball the output
-  and keep or re-roll. The key is never committed and the network is never touched
-  from tests/CI. (Gemini may return JPEG bytes under the `.png` name; browsers
-  decode by content so the texture loads correctly.)
-- **Generated-procedural sprites** (`scripts/gen-assets.ts`): a zero-dependency,
-  seeded (`SEED = 0x9e3779b9`) node script with a hand-rolled RGBA PNG encoder,
-  emitting `particle.png` (radial spark, used by the death-burst system). It also
-  emits `ground.png`, now superseded by the AI `terrain.png` for the floor.
-- **Rationale:** the AI textures give a premium, hand-authored look no procedural
-  recipe matched in the playtest, while provenance stays reproducible and the repo
-  never depends on a network call at build time.
+- **Creature/hero sprites** (`scripts/gen-sprites.mjs`): the pixel-art atlas
+  pipeline. Per family it prompts OpenRouter (`google/gemini-3.1-flash-image`) for a
+  magenta-background 16-bit top-down sprite, then decode + chroma-key magenta +
+  auto-crop + NEAREST downscale to 64px in a headless Chromium canvas (the model
+  returns mixed PNG/JPEG bytes pure node can't decode), quantize to ≤24 colours, and
+  pack every cell into ONE uniform 64px atlas (`sprites.png` + `sprites.json`
+  manifest with per-family provenance) for the Babylon `SpriteManager`. Quantize +
+  atlas pack + PNG encode are pure node (encoder mirrors `gen-assets.ts`). Accepted
+  cells cache under `.sprites-cache/` (gitignored) so a re-roll of one family never
+  regenerates the rest; a procedural pixel-painter fallback covers any family that
+  can't produce a clean sprite (plus the procedural dot/crystal cells). Run:
+  `OPENROUTER_API_KEY=… node scripts/gen-sprites.mjs [--only fam] [--proc fam]`.
+- **AI-generated environment** (`scripts/gen-ai-assets.mjs`): OpenRouter produces
+  `terrain.png` (16-bit pixel-art scorched-dirt + tech-plate floor) and `nebula.png`
+  (dark starfield backdrop). Eyeball and keep or re-roll. (Gemini may return JPEG
+  bytes under the `.png` name; browsers decode by content so the texture loads.)
+- **Generated-procedural** (`scripts/gen-assets.ts`): a zero-dependency, seeded
+  (`SEED = 0x9e3779b9`) node script with a hand-rolled RGBA PNG encoder, emitting
+  `particle.png` and `ground.png` (both now superseded — the death burst uses a
+  runtime pixel gib and the floor uses `terrain.png`).
+- **Rationale:** AI art gives a hand-authored 2D pixel look no procedural recipe
+  matched, while provenance stays reproducible and the repo never depends on a
+  network call at build time.
