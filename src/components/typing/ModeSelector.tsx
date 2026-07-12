@@ -110,7 +110,7 @@ export default function ModeSelector(props: ModeSelectorProps) {
 						</>
 					)}
 				</For>
-				{/* Horde is a separate arcade mode — navigate away rather than
+				{/* The game is a separate arcade mode — navigate away rather than
 				    switching the typing mode. Accent styling sets it apart. */}
 				<div class="w-px h-4 bg-text-sub/20 mx-0.5" />
 				<button
@@ -119,7 +119,7 @@ export default function ModeSelector(props: ModeSelectorProps) {
 					class="relative z-10 px-4 py-1.5 text-sm rounded font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
 					onClick={() => navigate("/game")}
 				>
-					horde
+					game
 				</button>
 			</div>
 

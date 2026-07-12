@@ -18,10 +18,10 @@ export default function StartScreen(props: StartScreenProps) {
 		>
 			<div class="flex flex-col items-center gap-6 text-center px-8">
 				<h1 class="font-display text-5xl font-bold uppercase tracking-[0.2em] text-primary">
-					Horde
+					Game
 				</h1>
 				<p class="max-w-sm font-mono text-sm text-text-sub">
-					Type the word above an enemy to shoot it. Keep the horde off the core
+					Type the word above an enemy to shoot it. Keep the swarm off the core
 					— chain kills for combo multipliers.
 				</p>
 				<Show when={props.bestRun}>
