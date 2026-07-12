@@ -1,4 +1,5 @@
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
+import { Camera } from "@babylonjs/core/Cameras/camera";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { Layer } from "@babylonjs/core/Layers/layer";
@@ -30,21 +31,40 @@ export function createGameScene(
 	const scene = new Scene(engine);
 	scene.clearColor = new Color4(0.02, 0.02, 0.04, 1);
 
-	// near-vertical top-down: beta 0.12 rad off the +Y axis reads as a flat field,
-	// keeping just enough tilt for enemy models to show silhouette depth. radius is
-	// sized so the ~34-unit spawn ring sits near the frame edge (enemies enter from
-	// off-screen with distance to cover) while the core stays centered — verified
-	// by the visual probe, not derived from fov alone.
+	// TRUE overhead orthographic top-down (Crimsonland is flat 2D, not perspective):
+	// beta ~0 looks straight down the +Y axis, and ORTHOGRAPHIC mode removes all
+	// foreshortening so ground tiles stay uniform edge-to-edge and sprites read as a
+	// flat plane. alpha is held at -π/2 (unchanged from the old camera) so the
+	// on-screen orientation the ground decals were verified against is preserved.
 	const camera = new ArcRotateCamera(
 		"cam",
 		-Math.PI / 2,
-		0.12,
+		0.0001, // effectively straight down; a hair off-axis avoids gimbal degeneracy
 		55,
 		Vector3.Zero(),
 		scene,
 	);
 	camera.inputs.clear(); // fixed camera — typing is the only input
-	camera.maxZ = 1000;
+	camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
+	camera.minZ = -200; // ortho: keep the whole flat field within the clip range
+	camera.maxZ = 400;
+	// ORTHO_HALF is the world half-height the frame shows; the ~34-unit spawn ring
+	// then sits ~90% toward the top/bottom edge. Left/right follow the viewport
+	// aspect so world cells stay SQUARE on screen (no stretch) at any window size.
+	const ORTHO_HALF = 38;
+	function applyOrtho(): void {
+		const aspect = engine.getRenderWidth() / engine.getRenderHeight() || 1;
+		camera.orthoTop = ORTHO_HALF;
+		camera.orthoBottom = -ORTHO_HALF;
+		camera.orthoLeft = -ORTHO_HALF * aspect;
+		camera.orthoRight = ORTHO_HALF * aspect;
+	}
+	applyOrtho();
+	// keep cells square through window/canvas resizes: resize the engine, which
+	// fires onResizeObservable → recompute the ortho frustum from the new aspect
+	const onResize = () => engine.resize();
+	window.addEventListener("resize", onResize);
+	engine.onResizeObservable.add(applyOrtho);
 
 	new HemisphericLight("light", new Vector3(0, 1, 0), scene);
 
@@ -55,7 +75,10 @@ export function createGameScene(
 	const nebula = new Layer("nebula", "/game/nebula.png", scene, true);
 	nebula.color = new Color4(0.85, 0.85, 0.9, 1); // gently dim the backdrop
 
-	const GROUND_RADIUS = 38;
+	// large enough to fill the frame edge-to-edge under the ortho frustum (vertical
+	// ±38, horizontal ±38·aspect) so the floor reads as a full-bleed Crimsonland
+	// battlefield rather than an arena disc floating in space.
+	const GROUND_RADIUS = 80;
 	const ground = CreateDisc(
 		"ground",
 		{ radius: GROUND_RADIUS, tessellation: 96 },
@@ -67,6 +90,7 @@ export function createGameScene(
 	// brightness rather than being multiplied down toward black
 	groundMat.diffuseColor = Color3.White();
 	groundMat.specularColor = Color3.Black();
+	groundMat.backFaceCulling = false; // never a blank floor if the disc faces away
 	// diffuse is a DynamicTexture: the AI terrain is baked into it once loaded and
 	// corpse/breach decals are then stamped straight in — persistent battlefield
 	// scarring with zero live entities and no per-frame cost (Crimsonland technique)
@@ -76,8 +100,10 @@ export function createGameScene(
 	// the dark. Kept as the STATIC tiled terrain (not the decal layer) so scorch
 	// marks stay dark/unlit rather than glowing.
 	const emissiveTex = new Texture("/game/terrain.png", scene);
-	emissiveTex.uScale = 4;
-	emissiveTex.vScale = 4;
+	// scale tiling with the larger floor so the hex cells keep a consistent world
+	// size (~20 units/tile) and stay uniform across the frame under the ortho camera
+	emissiveTex.uScale = 8;
+	emissiveTex.vScale = 8;
 	groundMat.emissiveTexture = emissiveTex;
 	groundMat.emissiveColor = new Color3(0.14, 0.14, 0.16);
 	ground.material = groundMat;
@@ -99,6 +125,7 @@ export function createGameScene(
 		glow,
 		ground: groundDecals,
 		dispose() {
+			window.removeEventListener("resize", onResize);
 			glow.dispose();
 			nebula.dispose();
 			groundDecals.dispose();
