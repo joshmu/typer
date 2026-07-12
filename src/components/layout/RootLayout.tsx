@@ -1,7 +1,18 @@
+import { useLocation } from "@solidjs/router";
 import type { ParentProps } from "solid-js";
 import { isTypingActive } from "@/lib/typing-focus";
 
+const LINKS = [
+	{ href: "/", label: "Home" },
+	{ href: "/game", label: "Game" },
+	{ href: "/settings", label: "Settings" },
+] as const;
+
 export default function RootLayout(props: ParentProps) {
+	const location = useLocation();
+	const isActive = (href: string) =>
+		href === "/" ? location.pathname === "/" : location.pathname === href;
+
 	return (
 		<div class="min-h-screen bg-bg text-text flex flex-col">
 			<header
@@ -15,24 +26,18 @@ export default function RootLayout(props: ParentProps) {
 					typer<span class="text-primary/50">_</span>
 				</a>
 				<nav class="flex gap-6 items-center font-display text-sm">
-					<a
-						href="/"
-						class="nav-link text-text-sub hover:text-text no-underline"
-					>
-						Home
-					</a>
-					<a
-						href="/game"
-						class="nav-link text-primary hover:text-primary/80 no-underline"
-					>
-						Horde
-					</a>
-					<a
-						href="/settings"
-						class="nav-link text-text-sub hover:text-text no-underline"
-					>
-						Settings
-					</a>
+					{LINKS.map((link) => (
+						<a
+							href={link.href}
+							class="nav-link no-underline"
+							classList={{
+								"text-primary hover:text-primary/80": isActive(link.href),
+								"text-text-sub hover:text-text": !isActive(link.href),
+							}}
+						>
+							{link.label}
+						</a>
+					))}
 				</nav>
 			</header>
 			{props.children}
