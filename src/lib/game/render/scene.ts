@@ -59,11 +59,15 @@ export function createGameScene(
 		camera.orthoRight = ORTHO_HALF * aspect;
 	}
 	applyOrtho();
-	// keep cells square through window/canvas resizes: resize the engine, which
-	// fires onResizeObservable → recompute the ortho frustum from the new aspect
+	// recompute the ortho frustum every frame from the LIVE render size: the canvas
+	// may not have settled to its final CSS size at creation, and in testMode no
+	// window resize ever fires to correct a stale aspect — so an edge-to-edge floor
+	// (and square cells) is only guaranteed by re-deriving the bounds each frame.
+	// Cheap (four assignments) and keeps the view correct through any resize.
+	scene.onBeforeRenderObservable.add(applyOrtho);
+	// also resize the drawing buffer on a real window resize so it tracks the canvas
 	const onResize = () => engine.resize();
 	window.addEventListener("resize", onResize);
-	engine.onResizeObservable.add(applyOrtho);
 
 	new HemisphericLight("light", new Vector3(0, 1, 0), scene);
 
