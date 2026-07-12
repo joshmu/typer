@@ -38,13 +38,18 @@ describe("combat", () => {
 		expect(s.targetId).toBe(enemyId);
 	});
 
-	it("advanceWord appends a fresh band word when the chain runs out", () => {
-		const { s } = stateWithEnemy("husk-1"); // hp 1 → single-word chain
+	it("advanceWord never grows the chain — length stays == hp for the enemy's whole life", () => {
+		const { s } = stateWithEnemy("husk-4"); // hp 3 → 3-word chain
 		const e = s.enemies[0];
-		advanceWord(s, e);
-		expect(e.wordIndex).toBe(1);
-		expect(e.words.length).toBe(2); // appended so the enemy always has a word
-		expect(currentWord(e).length).toBeGreaterThan(0);
+		const hp = getArchetype("husk-4").hp;
+		// walk every legitimate advance (one per non-final completion): length is
+		// invariant, the chain is never appended to
+		for (let i = 1; i < hp; i++) {
+			advanceWord(s, e);
+			expect(e.wordIndex).toBe(i);
+			expect(e.words.length).toBe(hp);
+			expect(currentWord(e).length).toBeGreaterThan(0);
+		}
 	});
 
 	it("killEnemy awards combo-scaled score and clears the lock", () => {
@@ -99,21 +104,41 @@ describe("combat", () => {
 		}
 	});
 
-	it("a shield absorb advances the word (appending) without dealing damage", () => {
+	it("a shield absorb CLANGS — resets progress on the SAME word, no damage, no new word", () => {
 		const { s } = stateWithEnemy("weaver-1"); // hp 1, shield hits 1
 		const e = s.enemies[0];
 		expect(e.abilityState.shieldHits).toBe(1);
-		e.typedCount = currentWord(e).length;
+		const word = currentWord(e);
+		const wordsBefore = [...e.words];
+		e.typedCount = word.length;
 		resolveCompletion(s, e);
 		expect(e.alive).toBe(true); // shield ate the completion
 		expect(e.hp).toBe(1);
 		expect(e.abilityState.shieldHits).toBe(0);
-		expect(e.wordIndex).toBe(1);
-		expect(e.words.length).toBe(2); // fresh word appended so it never runs out
+		expect(e.wordIndex).toBe(0); // same word — never advances / pops a new one in
+		expect(e.typedCount).toBe(0); // progress reset so the player retypes it
+		expect(e.words).toEqual(wordsBefore); // chain unchanged: length still == hp
+		expect(currentWord(e)).toBe(word); // literally the same word text
 		// the next completion has no shield left → deals damage and kills
 		e.typedCount = currentWord(e).length;
 		resolveCompletion(s, e);
 		expect(e.alive).toBe(false);
 		expect(s.kills).toBe(1);
+	});
+
+	it("an armored-front absorb (plated side out) clangs the same word without damage", () => {
+		// weaver-3: hp 2, armored-front exposeRadius 4; spawned at dist 5 (> 4 →
+		// plated side faces the core, so the completion is absorbed)
+		const { s } = stateWithEnemy("weaver-3");
+		const e = s.enemies[0];
+		const word = currentWord(e);
+		const wordsBefore = [...e.words];
+		e.typedCount = word.length;
+		resolveCompletion(s, e);
+		expect(e.hp).toBe(2); // no damage while plated
+		expect(e.wordIndex).toBe(0); // same word
+		expect(e.typedCount).toBe(0); // progress reset
+		expect(currentWord(e)).toBe(word);
+		expect(e.words).toEqual(wordsBefore);
 	});
 });

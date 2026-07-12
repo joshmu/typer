@@ -24,14 +24,15 @@ function liveInitials(s: GameState, exceptId: number): Set<string> {
 }
 
 /**
- * Advance to the next word (resetting per-word progress) and DRAW that word
- * fresh, excluding the field's live initials so a chain advance can never make a
- * keystroke ambiguous with another on-screen enemy. Within the pre-assigned
- * `words.length === hp` chain the fresh word replaces the slot in place (length
- * unchanged); once the chain is exhausted — which only happens on an ABSORB
- * completion (shield / armored-front) — it is appended so the enemy always has
- * something to type while alive. Reassigns the array (never mutates the shared
- * prior-state array) to keep `step` pure.
+ * Advance to the next word in the pre-assigned chain (resetting per-word
+ * progress) and DRAW that word fresh, excluding the field's live initials so a
+ * chain advance can never make a keystroke ambiguous with another on-screen
+ * enemy. The fresh word replaces the slot in place, so `words.length` is
+ * invariant (`=== archetype.hp`) for the enemy's whole life — a damaging
+ * completion is the ONLY caller, and one is only possible while `hp > 0`, i.e.
+ * while an unwalked slot remains, so the chain is never exhausted here and never
+ * grows. Reassigns the array (never mutates the shared prior-state array) to keep
+ * `step` pure.
  */
 export function advanceWord(s: GameState, e: EnemyState): void {
 	e.wordIndex += 1;
@@ -42,11 +43,7 @@ export function advanceWord(s: GameState, e: EnemyState): void {
 		liveInitials(s, e.id),
 	);
 	s.rngState = next;
-	if (e.wordIndex >= e.words.length) {
-		e.words = [...e.words, word];
-	} else {
-		e.words = e.words.map((w, i) => (i === e.wordIndex ? word : w));
-	}
+	e.words = e.words.map((w, i) => (i === e.wordIndex ? word : w));
 }
 
 export function killEnemy(s: GameState, e: EnemyState): void {
@@ -77,10 +74,13 @@ export function resolveCompletion(
 	const word = currentWord(e);
 	if (e.typedCount < word.length) return;
 	if (absorbsCompletion(e)) {
-		// shield / armored-front: no damage, but the word is spent — flat score and
-		// advance to (or append) the next word in the chain.
+		// shield / armored-front: the hit CLANGS off the plating — no damage, and
+		// crucially NO new word. The SAME word's progress is reset to 0 so the player
+		// simply retypes it; the chain (and `words.length === hp`) is untouched, so a
+		// completed word never pops a fresh word into the stack. Flat score for the
+		// effort. `shieldHits` was already decremented inside `absorbsCompletion`.
 		s.score += 10 * word.length;
-		advanceWord(s, e);
+		e.typedCount = 0;
 		return;
 	}
 	e.hp -= 1;
