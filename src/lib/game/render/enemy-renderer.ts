@@ -1,7 +1,7 @@
 import type { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
-import { Color3, Color4 } from "@babylonjs/core/Maths/math";
+import { Color4 } from "@babylonjs/core/Maths/math";
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
@@ -21,10 +21,20 @@ const ENEMY_SPRITE_SCALE = 6;
 const BOSS_SCALE = 1.6; // bosses render notably larger on top of their bigger size
 const SPRITE_Y = 1.2; // lift sprites above the ground/decals
 const LABEL_Y = 2.4; // draw label planes above the sprites
-// world offset (screen-up) that floats the label above the creature's body
-const LABEL_OFFSET = 3.2;
 // world distance travelled between the two walk cells — a chunky, readable gait
 const WALK_STEP = 1.1;
+
+// Label plane geometry. The plane is 4 stacked texture rows tall; the CURRENT
+// word plate sits in the bottom row, so its centre hangs LABEL_ROW_DROP below
+// the plane centre. The plane is positioned so that plate lands a small gap
+// above the sprite's top edge — under the top-down ortho camera, +z is
+// screen-up (the old -3.2 offset plus the row drop put labels ~7 units BELOW
+// the enemy, the "strange space" playtest complaint).
+const LABEL_PLANE_SIZE = 11;
+const LABEL_ROW_DROP = LABEL_PLANE_SIZE / 2 - LABEL_PLANE_SIZE / 8; // 4.125
+// half the plate height in world units (104px plate of a 512px texture)
+const LABEL_PLATE_HALF = (104 / 512) * (LABEL_PLANE_SIZE / 2);
+const LABEL_GAP = 0.6; // clearance between sprite top edge and plate bottom
 
 type EnemyVisual = {
 	sprite: Sprite;
@@ -43,6 +53,9 @@ type EnemyVisual = {
 	// world-unit sprite size (archetype size × scale), resolved once at create so
 	// sync never re-reads the archetype table per frame
 	baseSize: number;
+	// screen-up world offset from the enemy to the label plane centre, chosen so
+	// the bottom-row word plate floats just above the sprite (see LABEL_* consts)
+	labelUp: number;
 	phase: number;
 	isBoss: boolean;
 };
@@ -79,25 +92,32 @@ export function createEnemyRenderer(
 		const labelRoot = new TransformNode(`enemy-${id}-labelroot`, scene);
 		const label = CreatePlane(
 			`enemy-${id}-label`,
-			{ width: 11, height: 11 },
+			{ width: LABEL_PLANE_SIZE, height: LABEL_PLANE_SIZE },
 			scene,
 		);
 		label.parent = labelRoot;
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
+		// mipmaps ON: the 512px texture renders ~5-6× minified under the ortho zoom,
+		// and without them the text shimmers into mud (HUD-vs-label clarity gap)
 		const texture = new DynamicTexture(
 			`enemy-${id}-tex`,
 			{ width: 512, height: 512 },
 			scene,
-			false,
+			true,
 		);
 		texture.hasAlpha = true;
+		// unlit: emissive+opacity from the texture so plates render at exactly the
+		// authored colours — diffuse-under-hemispheric-light dimmed the text before
 		const labelMat = new StandardMaterial(`enemy-${id}-labelmat`, scene);
-		labelMat.diffuseTexture = texture;
-		labelMat.emissiveColor = Color3.White();
+		labelMat.disableLighting = true;
+		labelMat.emissiveTexture = texture;
+		labelMat.opacityTexture = texture;
 		labelMat.backFaceCulling = false;
 		label.material = labelMat;
 		glow.addExcludedMesh(label); // word plates stay crisp, never bloomed
 
+		const baseSize = arch.size * ENEMY_SPRITE_SCALE;
+		const renderSize = baseSize * (isBoss ? BOSS_SCALE : 1);
 		return {
 			sprite,
 			cells,
@@ -109,7 +129,8 @@ export function createEnemyRenderer(
 			lastX: 0,
 			lastY: 0,
 			lastAngle: 0,
-			baseSize: arch.size * ENEMY_SPRITE_SCALE,
+			baseSize,
+			labelUp: renderSize / 2 + LABEL_GAP + LABEL_PLATE_HALF + LABEL_ROW_DROP,
 			phase: idPhase(id),
 			isBoss,
 		};
@@ -137,7 +158,7 @@ export function createEnemyRenderer(
 
 				// position the sprite flat on the field; label floats above it on screen
 				v.sprite.position.set(e.pos.x, SPRITE_Y, e.pos.y);
-				v.labelRoot.position.set(e.pos.x, LABEL_Y, e.pos.y - LABEL_OFFSET);
+				v.labelRoot.position.set(e.pos.x, LABEL_Y, e.pos.y + v.labelUp);
 
 				// face travel direction (sim velocity) — a creature walking forward.
 				// Hold the last angle while velocity is negligible so a paused enemy
@@ -176,7 +197,8 @@ export function createEnemyRenderer(
 						: 1;
 				}
 
-				v.label.scaling.setAll(isTarget ? 1.12 : 1);
+				// target emphasis comes from the label draw itself (bigger font, amber
+				// border, chevron) — mesh scaling would shift the bottom-anchored plate
 				drawStackedLabel(v, e.words, e.wordIndex, e.typedCount, isTarget);
 			}
 		},

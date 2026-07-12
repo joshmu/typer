@@ -12,20 +12,12 @@ import { CELLS } from "./sprite-atlas";
 const MUZZLE_Y = 1.2; // height the shots leave from (matches the sprite plane)
 const MUZZLE_LEN = 3.4; // distance from the hero to the muzzle along its heading
 const RING_LIFE = 22; // frames a powerup ring pulse lives
-const AIM_SLERP = 0.35; // heading smoothing toward a LOCKED target
 const RECOIL_FRAMES = 3; // frames the recoil sprite cell shows after a shot
 const HERO_SIZE = 7.5; // world size of the hero sprite
 
-function lerpAngle(a: number, b: number, t: number): number {
-	let diff = b - a;
-	while (diff > Math.PI) diff -= Math.PI * 2;
-	while (diff < -Math.PI) diff += Math.PI * 2;
-	return a + diff * t;
-}
-
 export type Turret = {
-	/** Face a LOCKED target (holding heading when none is locked or the field is
-	 * clear) and advance the recoil / ring animations from the sim tick. */
+	/** Advance the recoil / ring / danger animations from the sim tick. Heading
+	 * is untouched here — it belongs to `fire` alone. */
 	update(state: GameState): void;
 	/** World position of the muzzle along the CURRENT heading, into `out`. */
 	getMuzzle(out: Vector3): Vector3;
@@ -47,10 +39,10 @@ function mat(scene: Scene, name: string, emissive: Color3) {
 
 /**
  * The player: a top-down pixel-art marine/turret sprite at the arena core. Its
- * heading is the LAST-SHOT heading — it snaps to a target only when a shot fires
- * (`fire`) or while a target is locked (`update` slerps toward it), and simply
- * HOLDS otherwise; it never re-anchors to the nearest enemy on its own (explicit
- * playtest feedback). A recoil cell flashes for a few frames on each shot. Two
+ * heading is the LAST-SHOT heading — it changes ONLY when a shot fires (`fire`)
+ * and simply HOLDS otherwise; it never tracks a locked target or re-anchors to
+ * the nearest enemy on its own (explicit playtest feedback: the hero keeps
+ * facing whatever it last shot at). A recoil cell flashes for a few frames on each shot. Two
  * flat rings (drawn on the ground plane) survive from the old turret: a powerup
  * activation pulse and a red danger perimeter that flares as the horde presses in.
  */
@@ -87,10 +79,11 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 	const dangerMat = mat(scene, "turret-danger-mat", new Color3(0.5, 0.4, 0.15));
 	danger.material = dangerMat;
 
-	// heading unit vector in world (sim) space; starts facing "north" (up-screen)
+	// heading unit vector in world (sim) space; starts facing "north" (up-screen).
+	// `fire` is the sole writer — the sprite holds this heading between shots.
 	let hx = 0;
 	let hz = -1;
-	let yaw = spriteAngle(hx, hz);
+	hero.angle = spriteAngle(hx, hz);
 	let recoilFrames = 0;
 
 	function setHeading(x: number, z: number): void {
@@ -102,15 +95,6 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 
 	return {
 		update(state: GameState) {
-			// track a LOCKED target (slerp); otherwise hold the last-shot heading
-			const target = state.enemies.find((e) => e.id === state.targetId);
-			if (target) {
-				setHeading(target.pos.x, target.pos.y);
-			}
-			const desired = spriteAngle(hx, hz);
-			yaw = target ? lerpAngle(yaw, desired, AIM_SLERP) : desired;
-			hero.angle = yaw;
-
 			// recoil cell flashes for a few frames after each shot
 			if (recoilFrames > 0) {
 				recoilFrames -= 1;
@@ -148,8 +132,7 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 		},
 		fire(x: number, z: number) {
 			setHeading(x, z);
-			yaw = spriteAngle(hx, hz);
-			hero.angle = yaw;
+			hero.angle = spriteAngle(hx, hz);
 			recoilFrames = RECOIL_FRAMES;
 		},
 		ringPulse() {

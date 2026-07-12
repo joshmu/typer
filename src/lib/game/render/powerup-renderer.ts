@@ -1,7 +1,7 @@
 import type { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
-import { Color3, Color4 } from "@babylonjs/core/Maths/math";
+import { Color4 } from "@babylonjs/core/Maths/math";
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
@@ -24,7 +24,12 @@ type PowerupVisual = {
 
 const CRYSTAL_Y = 1.2; // hover the pickup above the arena floor
 const CRYSTAL_SIZE = 3.6;
-const LABEL_OFFSET = 2.6;
+// Label plane: 512×192 texture on an 11×4.125 plane (matching aspect). The word
+// plate sits in the bottom 128px band (chevron headroom above), its centre
+// hanging 0.69 world units below the plane centre with a ~1.12-unit half
+// height. +z is screen-up under the ortho camera, so this offset floats the
+// plate just above the crystal even at its locked 1.25× swell.
+const LABEL_UP = (CRYSTAL_SIZE * 1.25) / 2 + 0.5 + 1.12 + 0.69;
 
 /**
  * Pooled renderer for powerup pickups. Mirrors the enemy renderer's discipline:
@@ -60,22 +65,26 @@ export function createPowerupRenderer(
 
 		const label = CreatePlane(
 			`powerup-${id}-label`,
-			{ width: 11, height: 2.75 },
+			{ width: 11, height: 4.125 },
 			scene,
 		);
 		label.parent = root;
-		label.position.set(0, CRYSTAL_Y + 1, -LABEL_OFFSET);
+		label.position.set(0, CRYSTAL_Y + 1, LABEL_UP);
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
+		// mipmaps ON + unlit emissive/opacity material — same clarity treatment as
+		// the enemy labels (see enemy-renderer): crisp under ortho minification,
+		// exact authored colours with no lighting dim
 		const texture = new DynamicTexture(
 			`powerup-${id}-tex`,
-			{ width: 512, height: 128 },
+			{ width: 512, height: 192 },
 			scene,
-			false,
+			true,
 		);
 		texture.hasAlpha = true;
 		const labelMat = new StandardMaterial(`powerup-${id}-labelmat`, scene);
-		labelMat.diffuseTexture = texture;
-		labelMat.emissiveColor = Color3.White();
+		labelMat.disableLighting = true;
+		labelMat.emissiveTexture = texture;
+		labelMat.opacityTexture = texture;
 		labelMat.backFaceCulling = false;
 		label.material = labelMat;
 		glow.addExcludedMesh(label); // word plates stay crisp, never bloomed

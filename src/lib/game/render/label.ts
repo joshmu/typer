@@ -10,6 +10,15 @@ export type LabelTarget = {
 	lastText: string;
 };
 
+// Plate metrics shared by both label paths. Rows are 128px tall in every label
+// texture; these fill the row (playtest: 64px text on the old 512px/11-unit
+// plane landed ~11px on screen — illegibly small next to the DOM HUD text).
+const FONT_TARGET = 80;
+const FONT_IDLE = 68;
+const PLATE_TARGET = 104;
+const PLATE_IDLE = 88;
+const QUEUE_SCALE = 0.55;
+
 const AMBER = "#facc15";
 const AMBER_BORDER = "rgba(250, 204, 21, 0.85)";
 const GREY_BORDER = "rgba(148, 163, 184, 0.4)";
@@ -150,7 +159,9 @@ function drawChip(c: Ctx, cx: number, cy: number, label: string): void {
 
 /**
  * Single-plate label for powerup pickups (they carry one word, never a chain).
- * Redraws only when the visible content changes, tracked via `v.lastText`.
+ * The plate is anchored in the BOTTOM 128px row of the texture (headroom above
+ * is for the target chevron), so callers can position the plane knowing exactly
+ * where the plate sits. Redraws only when the visible content changes.
  */
 export function drawLabel(
 	v: LabelTarget,
@@ -164,11 +175,11 @@ export function drawLabel(
 	const { width: W, height: H } = v.texture.getSize();
 	const c = v.texture.getContext() as Ctx;
 	c.clearRect(0, 0, W, H);
-	drawPlate(c, W / 2, H / 2, {
+	drawPlate(c, W / 2, H - 64, {
 		word,
 		typedCount,
-		fontPx: isTarget ? 64 : 54,
-		plateH: isTarget ? 84 : 72,
+		fontPx: isTarget ? FONT_TARGET : FONT_IDLE,
+		plateH: isTarget ? PLATE_TARGET : PLATE_IDLE,
 		alpha: 1,
 		isTarget,
 		underline: typedCount > 0,
@@ -217,8 +228,8 @@ export function drawStackedLabel(
 			drawPlate(c, cx, cy, {
 				word,
 				typedCount,
-				fontPx: isTarget ? 64 : 54,
-				plateH: isTarget ? 84 : 72,
+				fontPx: isTarget ? FONT_TARGET : FONT_IDLE,
+				plateH: isTarget ? PLATE_TARGET : PLATE_IDLE,
 				alpha: 1,
 				isTarget,
 				underline: typedCount > 0,
@@ -230,8 +241,8 @@ export function drawStackedLabel(
 			drawPlate(c, cx, cy, {
 				word,
 				typedCount: 0,
-				fontPx: 54 * 0.55,
-				plateH: 72 * 0.55,
+				fontPx: FONT_IDLE * QUEUE_SCALE,
+				plateH: PLATE_IDLE * QUEUE_SCALE,
 				alpha: 0.4,
 				isTarget: false,
 				underline: false,
