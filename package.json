@@ -19,7 +19,7 @@
 	},
 	"dependencies": {
 		"@babylonjs/core": "9.16.1",
-		"@solid-primitives/storage": "^4.3.4",
+		"@solid-primitives/storage": "^4.4.0",
 		"@solidjs/router": "^0.16.1",
 		"@tailwindcss/vite": "^4.3.2",
 		"dexie": "^4.4.4",
