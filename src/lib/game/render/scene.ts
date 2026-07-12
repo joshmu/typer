@@ -80,9 +80,11 @@ export function createGameScene(
 
 	// large enough to fill the frame edge-to-edge under the ortho frustum (vertical
 	// ±38, horizontal ±38·aspect) so the floor reads as a full-bleed Crimsonland
-	// battlefield rather than an arena disc floating in space. Sized to cover the
-	// corners even on wide (~2.4:1) gameplay canvases, not just the probe aspect.
-	const GROUND_RADIUS = 100;
+	// battlefield rather than an arena disc floating in space. The disc must reach
+	// the frustum CORNER, at distance sqrt(38² + (38·aspect)²) = 38·√(1+aspect²)
+	// from centre; radius 145 covers aspect ≈ √((145/38)² − 1) ≈ 3.6:1 canvases
+	// (145 = 38·√(1+3.6²)), up from the old 100 which only reached ~2.4:1.
+	const GROUND_RADIUS = 145;
 	const ground = CreateDisc(
 		"ground",
 		{ radius: GROUND_RADIUS, tessellation: 96 },
