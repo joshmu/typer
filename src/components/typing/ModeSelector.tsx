@@ -111,12 +111,14 @@ export default function ModeSelector(props: ModeSelectorProps) {
 					)}
 				</For>
 				{/* The game is a separate arcade mode — navigate away rather than
-				    switching the typing mode. Accent styling sets it apart. */}
+				    switching the typing mode. It is never the ACTIVE mode on typing
+				    pages, so it always wears the inactive style (the old permanent
+				    accent read as "selected" next to time/words/etc). */}
 				<div class="w-px h-4 bg-text-sub/20 mx-0.5" />
 				<button
 					type="button"
 					data-testid="mode-horde"
-					class="relative z-10 px-4 py-1.5 text-sm rounded font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+					class="relative z-10 px-4 py-1.5 text-sm rounded transition-colors text-text-sub hover:text-text"
 					onClick={() => navigate("/game")}
 				>
 					game

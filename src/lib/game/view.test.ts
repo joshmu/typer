@@ -27,10 +27,14 @@ describe("vignetteGradient", () => {
 		}
 	});
 
-	it("goes fully dark before the spawn ring so spawns are never visible", async () => {
+	it("completes to solid black inside the frame AND before the spawn ring", async () => {
 		const { ARENA } = await import("./sim/state");
 		const g = vignetteGradient(2 * ORTHO_HALF); // 1px per world unit
 		const stops = [...g.matchAll(/(\d+)px/g)].map((m) => Number(m[1]));
+		// inside the short half-extent → every screen edge is clean solid black
+		expect(stops[2]).toBeLessThan(ORTHO_HALF);
+		// and before the spawn ring → spawns never pop into view
 		expect(stops[2]).toBeLessThan(ARENA.spawnRadius);
+		expect(g).toContain("rgb(0, 0, 0)");
 	});
 });

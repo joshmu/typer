@@ -13,8 +13,15 @@ export default function RootLayout(props: ParentProps) {
 	const isActive = (href: string) =>
 		href === "/" ? location.pathname === "/" : location.pathname === href;
 
+	// the game arena is a black void behind a vignette — pure-black chrome on
+	// /game lets the header/footer melt into it instead of framing it in grey
+	const isGame = () => location.pathname === "/game";
+
 	return (
-		<div class="min-h-screen bg-bg text-text flex flex-col">
+		<div
+			class="min-h-screen text-text flex flex-col"
+			classList={{ "bg-black": isGame(), "bg-bg": !isGame() }}
+		>
 			<header
 				class="flex items-center justify-between px-8 py-4 transition-opacity duration-500"
 				classList={{ "opacity-0 pointer-events-none": isTypingActive() }}
