@@ -40,6 +40,9 @@ type EnemyVisual = {
 	// a charger mid dash-pause) never snaps to 0 — honours spriteAngle's contract
 	// that callers keep the previous value at near-zero velocity.
 	lastAngle: number;
+	// world-unit sprite size (archetype size × scale), resolved once at create so
+	// sync never re-reads the archetype table per frame
+	baseSize: number;
 	phase: number;
 	isBoss: boolean;
 };
@@ -106,6 +109,7 @@ export function createEnemyRenderer(
 			lastX: 0,
 			lastY: 0,
 			lastAngle: 0,
+			baseSize: arch.size * ENEMY_SPRITE_SCALE,
 			phase: idPhase(id),
 			isBoss,
 		};
@@ -129,7 +133,6 @@ export function createEnemyRenderer(
 					v.lastY = e.pos.y;
 					visuals.set(e.id, v);
 				}
-				const arch = getArchetype(e.archetypeId);
 				const isTarget = state.targetId === e.id;
 
 				// position the sprite flat on the field; label floats above it on screen
@@ -157,7 +160,7 @@ export function createEnemyRenderer(
 
 				// size: archetype size × scale (bosses ×2), with a slow menacing boss
 				// pulse; the locked target swells slightly so it reads as acquired
-				let size = arch.size * ENEMY_SPRITE_SCALE;
+				let size = v.baseSize;
 				if (v.isBoss) {
 					size *=
 						BOSS_SCALE * (1 + 0.06 * Math.sin(state.tick * 0.05 + v.phase));
