@@ -10,6 +10,7 @@ import type { GameLoop } from "@/lib/game/render/loop";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
 import { COMBO_DECAY_TICKS, comboMultiplier } from "@/lib/game/sim/score";
 import type { GameState } from "@/lib/game/sim/state";
+import { vignetteGradient } from "@/lib/game/view";
 import { getBestRun, saveGameRun, useBestRun } from "@/lib/game-runs";
 import DeathScreen from "./DeathScreen";
 import StartScreen from "./StartScreen";
@@ -28,6 +29,7 @@ declare global {
 
 export default function GameShell() {
 	let canvasRef: HTMLCanvasElement | undefined;
+	let shellRef: HTMLDivElement | undefined;
 	let loop: GameLoop | undefined;
 	let disposed = false;
 	let startLoop:
@@ -178,9 +180,33 @@ export default function GameShell() {
 		onCleanup(() => window.removeEventListener("keydown", onKeyDown));
 	});
 
+	// live canvas CSS height → drives the vignette gradient's pixel radii (the
+	// ortho camera always frames 2×ORTHO_HALF world units vertically)
+	const [shellHeight, setShellHeight] = createSignal(0);
+	onMount(() => {
+		if (!shellRef) return;
+		const ro = new ResizeObserver((entries) => {
+			setShellHeight(entries[0]?.contentRect.height ?? 0);
+		});
+		ro.observe(shellRef);
+		onCleanup(() => ro.disconnect());
+	});
+
 	return (
-		<div class="relative h-[calc(100vh-8rem)] w-full" data-testid="game-shell">
+		<div
+			ref={shellRef}
+			class="relative h-[calc(100vh-8rem)] w-full"
+			data-testid="game-shell"
+		>
 			<canvas ref={canvasRef} class="h-full w-full outline-none" />
+			{/* darkness past the spawn ring: enemies emerge from the dark instead of
+			    popping into view mid-screen (the ring sits inside the frame on wide
+			    viewports). Sits above the canvas, below every HUD/overlay element. */}
+			<div
+				data-testid="game-vignette"
+				class="pointer-events-none absolute inset-0"
+				style={{ "background-image": vignetteGradient(shellHeight()) }}
+			/>
 			<Show when={!ready()}>
 				<div class="absolute inset-0 grid place-items-center text-sm opacity-70">
 					Loading arena…

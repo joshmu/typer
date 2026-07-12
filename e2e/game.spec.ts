@@ -49,6 +49,28 @@ test.describe("horde game mode", () => {
 		expect(state?.kills).toBe(1);
 	});
 
+	test("spawn-ring vignette overlays the arena and tracks canvas size", async ({
+		page,
+	}) => {
+		await page.goto("/game?seed=42&testMode=1");
+		await page.waitForFunction(() => window.__game !== undefined);
+		const vignette = page.getByTestId("game-vignette");
+		await expect(vignette).toBeVisible();
+		// a world-radius radial gradient: transparent centre, near-opaque past the
+		// spawn ring, so enemies emerge from darkness instead of popping in
+		const bg = await vignette.evaluate(
+			(el) => getComputedStyle(el).backgroundImage,
+		);
+		expect(bg).toContain("radial-gradient");
+		// gradient is sized from the live canvas, so a resize must rescale it
+		await page.setViewportSize({ width: 800, height: 500 });
+		const bgSmall = await vignette.evaluate(
+			(el) => getComputedStyle(el).backgroundImage,
+		);
+		expect(bgSmall).toContain("radial-gradient");
+		expect(bgSmall).not.toBe(bg);
+	});
+
 	test("holds the sim at tick 0 behind the start overlay", async ({ page }) => {
 		// NON-testMode load (a real session): the loop renders the scene but must
 		// not advance the sim until the player starts. window.__game is

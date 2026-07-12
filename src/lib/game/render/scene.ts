@@ -8,6 +8,7 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths/math";
 import { CreateDisc } from "@babylonjs/core/Meshes/Builders/discBuilder";
 import { Scene } from "@babylonjs/core/scene";
+import { ORTHO_HALF } from "../view";
 import { createGroundDecals, type GroundDecals } from "./ground-decals";
 
 export type GameScene = {
@@ -54,10 +55,10 @@ export function createGameScene(
 	camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
 	camera.minZ = -200; // ortho: keep the whole flat field within the clip range
 	camera.maxZ = 400;
-	// ORTHO_HALF is the world half-height the frame shows; the ~34-unit spawn ring
-	// then sits ~90% toward the top/bottom edge. Left/right follow the viewport
-	// aspect so world cells stay SQUARE on screen (no stretch) at any window size.
-	const ORTHO_HALF = 38;
+	// ORTHO_HALF (shared via ../view so the shell's vignette can mirror the
+	// frame) is the world half-height shown; the ~34-unit spawn ring then sits
+	// ~90% toward the top/bottom edge. Left/right follow the viewport aspect so
+	// world cells stay SQUARE on screen (no stretch) at any window size.
 	function applyOrtho(): void {
 		// guard the aspect against a degenerate render size: a zero height yields
 		// width/0 = Infinity (truthy, so `|| 1` would NOT catch it), and a zero
