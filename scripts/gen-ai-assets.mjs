@@ -31,11 +31,11 @@ const ASSETS = {
 	terrain: {
 		file: "terrain.png",
 		prompt:
-			"A seamless, perfectly tileable top-down sci-fi arena floor texture. " +
-			"Deep navy and charcoal base with a subtle darker hexagonal grid and faint " +
-			"glowing teal circuitry traces. Even, uniform lighting with no vignette, no " +
-			"seams, no text, no characters, no border. Dark, moody, high detail, 1024x1024, " +
-			"suitable for tiling repeatedly across a large floor.",
+			"Seamless perfectly tileable 16-bit PIXEL ART top-down arena floor tile. " +
+			"Scorched dark dirt and battered metal tech-plate flooring, chunky readable " +
+			"pixels, hard-edged, dark moody palette (charcoal, deep brown, muted teal " +
+			"accents), subtle rivets and cracks. Even flat lighting, no vignette, no seams, " +
+			"no text, no characters, no border. Retro game texture, 256x256, tiles cleanly.",
 	},
 	nebula: {
 		file: "nebula.png",

@@ -5,7 +5,6 @@ import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { Layer } from "@babylonjs/core/Layers/layer";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
-import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths/math";
 import { CreateDisc } from "@babylonjs/core/Meshes/Builders/discBuilder";
 import { Scene } from "@babylonjs/core/scene";
@@ -86,26 +85,22 @@ export function createGameScene(
 	);
 	ground.rotation.x = Math.PI / 2;
 	const groundMat = new StandardMaterial("groundMat", scene);
-	// white diffuse so the (already dark) AI texture shows at its authored
-	// brightness rather than being multiplied down toward black
-	groundMat.diffuseColor = Color3.White();
+	// split the floor brightness ~half lit / half self-emissive so the pixel
+	// terrain shows at roughly its authored value without the two contributions
+	// stacking and clipping the bright metal plates toward white
+	groundMat.diffuseColor = new Color3(0.5, 0.5, 0.5);
 	groundMat.specularColor = Color3.Black();
 	groundMat.backFaceCulling = false; // never a blank floor if the disc faces away
-	// diffuse is a DynamicTexture: the AI terrain is baked into it once loaded and
-	// corpse/breach decals are then stamped straight in — persistent battlefield
+	// diffuse is a DynamicTexture: the pixel terrain is baked into it once loaded
+	// and corpse/breach decals are stamped straight in — persistent battlefield
 	// scarring with zero live entities and no per-frame cost (Crimsonland technique)
 	const groundDecals = createGroundDecals(scene, GROUND_RADIUS);
 	groundMat.diffuseTexture = groundDecals.texture;
-	// faint self-illumination of the same map so the circuitry traces read even in
-	// the dark. Kept as the STATIC tiled terrain (not the decal layer) so scorch
-	// marks stay dark/unlit rather than glowing.
-	const emissiveTex = new Texture("/game/terrain.png", scene);
-	// scale tiling with the larger floor so the hex cells keep a consistent world
-	// size (~20 units/tile) and stay uniform across the frame under the ortho camera
-	emissiveTex.uScale = 8;
-	emissiveTex.vScale = 8;
-	groundMat.emissiveTexture = emissiveTex;
-	groundMat.emissiveColor = new Color3(0.14, 0.14, 0.16);
+	// same map drives the emissive so the flat floor reads at an even, consistent
+	// brightness regardless of lighting angle (and the chunky pixels stay crisp);
+	// the decals are dark so they still read as scars, not glowing marks.
+	groundMat.emissiveTexture = groundDecals.texture;
+	groundMat.emissiveColor = new Color3(0.5, 0.5, 0.5);
 	ground.material = groundMat;
 
 	// bloom for gameplay emissives (turret core, tracers, enemy tints, powerups).
@@ -129,7 +124,6 @@ export function createGameScene(
 			glow.dispose();
 			nebula.dispose();
 			groundDecals.dispose();
-			emissiveTex.dispose();
 			scene.dispose();
 			engine.dispose();
 		},
