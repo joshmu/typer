@@ -49,6 +49,14 @@ export function createPowerupRenderer(
 		crystal.isPickable = false;
 		crystal.width = CRYSTAL_SIZE;
 		crystal.height = CRYSTAL_SIZE;
+		// own the sprite's Color4 once and mutate it per frame (see sync) — the hot
+		// path allocates nothing, matching the enemy renderer's discipline
+		crystal.color = new Color4(
+			recipe.color[0],
+			recipe.color[1],
+			recipe.color[2],
+			1,
+		);
 
 		const label = CreatePlane(
 			`powerup-${id}-label`,
@@ -96,9 +104,10 @@ export function createPowerupRenderer(
 				const isTarget = state.targetPowerupId === p.id;
 				v.root.position.set(p.pos.x, CRYSTAL_Y, p.pos.y);
 				v.crystal.position.set(p.pos.x, CRYSTAL_Y, p.pos.y);
-				// locked pickup burns brighter and swells; otherwise a gentle idle pulse
+				// locked pickup burns brighter and swells; otherwise a gentle idle pulse.
+				// mutate the sprite's own Color4 in place — no per-frame allocation
 				const gain = Math.min(1, pulse * (isTarget ? 1.3 : 1));
-				v.crystal.color = new Color4(
+				v.crystal.color.set(
 					v.tint[0] * gain + (1 - gain),
 					v.tint[1] * gain + (1 - gain),
 					v.tint[2] * gain + (1 - gain),
