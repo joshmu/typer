@@ -33,7 +33,7 @@ export type GroundDecals = {
 
 const SIZE = 2048;
 const TAU = Math.PI * 2;
-const CHUNK = 6; // texture px per blood "pixel" — chunky, hard-edged goo
+const CHUNK = 3; // texture px per blood "pixel" — chunky, hard-edged goo (~0.4 world units)
 
 // biome-ignore lint/suspicious/noExplicitAny: 2d canvas context, untyped here
 type Ctx = any;
@@ -121,22 +121,22 @@ export function createGroundDecals(
 		const main = `rgb(${Math.round(r * 190)}, ${Math.round(g * 190)}, ${Math.round(b * 190)})`;
 		const dark = `rgb(${Math.round(r * 90)}, ${Math.round(g * 90)}, ${Math.round(b * 90)})`;
 
-		// a big central pool (~2× the old splat) plus 3–4 satellite gouts, all
-		// chunky and opaque so the kill leaves a clearly-visible mark on the floor
-		blob(px, py, 1.9, dark);
-		blob(px, py, 1.5, main);
+		// a central pool plus 3–4 satellite gouts, all chunky and opaque so the
+		// kill leaves a clearly-visible mark — sized against the ~2-unit creatures
+		blob(px, py, 0.7, dark);
+		blob(px, py, 0.55, main);
 		const gouts = 3 + (seed % 2);
 		for (let i = 0; i < gouts; i++) {
 			const a = seedRand(seed * 31 + i * 97) * TAU;
-			const d = (1.4 + seedRand(seed + i * 13) * 1.6) * pxPerWorld;
+			const d = (0.5 + seedRand(seed + i * 13) * 0.6) * pxPerWorld;
 			const gx = px + Math.cos(a) * d;
 			const gy = py + Math.sin(a) * d;
-			blob(gx, gy, 0.5 + seedRand(seed + i * 7) * 0.5, i % 2 ? dark : main);
+			blob(gx, gy, 0.2 + seedRand(seed + i * 7) * 0.2, i % 2 ? dark : main);
 		}
 		// a few dark specks flung further out
 		for (let i = 0; i < 5; i++) {
 			const a = seedRand(seed * 7 + i * 53) * TAU;
-			const d = (2.2 + seedRand(seed + i * 17) * 1.4) * pxPerWorld;
+			const d = (0.8 + seedRand(seed + i * 17) * 0.5) * pxPerWorld;
 			chunkAt(px + Math.cos(a) * d, py + Math.sin(a) * d, dark);
 		}
 		dirty = true;
@@ -145,11 +145,11 @@ export function createGroundDecals(
 	function stampScar(x: number, y: number, seed: number): void {
 		const [px, py] = toCanvas(x, y);
 		// red core-side breach scar: a chunky char pool with a hot red gash
-		blob(px, py, 1.7, "rgb(18, 8, 8)");
-		blob(px, py, 1.1, "rgb(120, 26, 22)");
+		blob(px, py, 0.65, "rgb(18, 8, 8)");
+		blob(px, py, 0.4, "rgb(120, 26, 22)");
 		for (let i = 0; i < 6; i++) {
 			const a = seedRand(seed * 19 + i * 41) * TAU;
-			const d = (0.6 + seedRand(seed + i * 11) * 1.4) * pxPerWorld;
+			const d = (0.25 + seedRand(seed + i * 11) * 0.55) * pxPerWorld;
 			chunkAt(px + Math.cos(a) * d, py + Math.sin(a) * d, "rgb(180, 40, 30)");
 		}
 		dirty = true;

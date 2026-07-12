@@ -17,12 +17,15 @@ import { walkCells } from "./sprite-atlas";
 
 // World-unit size of a size-1 archetype sprite. Tuned for top-down readability
 // under the ortho camera (playtest: enemies were "basic pixels", too small).
-const ENEMY_SPRITE_SCALE = 6;
+// Playtest 2026-07-12: the first pass (scale 6) filled the frame with giant
+// creatures — the whole render scale read ~3× too big against the arena, so
+// sprites/labels/effects were brought down together (camera and sim untouched).
+const ENEMY_SPRITE_SCALE = 2;
 const BOSS_SCALE = 1.6; // bosses render notably larger on top of their bigger size
 const SPRITE_Y = 1.2; // lift sprites above the ground/decals
 const LABEL_Y = 2.4; // draw label planes above the sprites
 // world distance travelled between the two walk cells — a chunky, readable gait
-const WALK_STEP = 1.1;
+const WALK_STEP = 0.4;
 
 // Label plane geometry. The plane is 4 stacked texture rows tall; the CURRENT
 // word plate sits in the bottom row, so its centre hangs LABEL_ROW_DROP below
@@ -30,11 +33,13 @@ const WALK_STEP = 1.1;
 // above the sprite's top edge — under the top-down ortho camera, +z is
 // screen-up (the old -3.2 offset plus the row drop put labels ~7 units BELOW
 // the enemy, the "strange space" playtest complaint).
-const LABEL_PLANE_SIZE = 11;
-const LABEL_ROW_DROP = LABEL_PLANE_SIZE / 2 - LABEL_PLANE_SIZE / 8; // 4.125
+// Label planes shrink LESS than the sprites (7, not ~3.7): they are UI, and the
+// word must stay readable (~14px on a ~970px-tall canvas) over the smaller art.
+const LABEL_PLANE_SIZE = 7;
+const LABEL_ROW_DROP = LABEL_PLANE_SIZE / 2 - LABEL_PLANE_SIZE / 8;
 // half the plate height in world units (104px plate of a 512px texture)
 const LABEL_PLATE_HALF = (104 / 512) * (LABEL_PLANE_SIZE / 2);
-const LABEL_GAP = 0.6; // clearance between sprite top edge and plate bottom
+const LABEL_GAP = 0.35; // clearance between sprite top edge and plate bottom
 
 type EnemyVisual = {
 	sprite: Sprite;

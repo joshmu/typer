@@ -71,18 +71,19 @@ export function createEffects(scene: Scene): Effects {
 	const ps = new ParticleSystem("fx-deaths", 200, scene);
 	ps.particleTexture = gib;
 	ps.emitter = emitter;
-	// chunky gibs: bigger than the old spark so they're clearly visible on a kill
-	ps.minSize = 0.6;
-	ps.maxSize = 1.6;
+	// chunky gibs, sized against the ~2-unit creatures (playtest: the old 0.6–1.6
+	// gibs matched the previous 3×-too-big sprite scale)
+	ps.minSize = 0.25;
+	ps.maxSize = 0.6;
 	ps.minLifeTime = 0.3;
 	ps.maxLifeTime = 0.65;
 	ps.emitRate = 0;
 	ps.blendMode = ParticleSystem.BLENDMODE_STANDARD; // opaque debris, not glow
-	ps.gravity = new Vector3(0, -9, 0);
+	ps.gravity = new Vector3(0, -5, 0);
 	ps.direction1 = new Vector3(-4, 4, -4);
 	ps.direction2 = new Vector3(4, 7, 4);
-	ps.minEmitPower = 2;
-	ps.maxEmitPower = 5.5;
+	ps.minEmitPower = 1;
+	ps.maxEmitPower = 2.5;
 	ps.updateSpeed = 1 / 60;
 	ps.preventAutoStart = true;
 	ps.manualEmitCount = 0;
@@ -158,7 +159,7 @@ export function createEffects(scene: Scene): Effects {
 			const len = Math.hypot(dx, dz) || 0.001;
 			t.mesh.position.set((from.x + to.x) / 2, from.y, (from.z + to.z) / 2);
 			t.mesh.rotation.y = Math.atan2(dx, dz);
-			const w = heavy ? 0.22 : 0.09;
+			const w = heavy ? 0.12 : 0.06;
 			t.mesh.scaling.set(w, w, len);
 			t.mesh.material = heavy ? heavyMat : tracerMat;
 			t.maxLife = heavy ? TRACER_LIFE_HEAVY : TRACER_LIFE;
@@ -169,7 +170,7 @@ export function createEffects(scene: Scene): Effects {
 		muzzleFlash(at, heavy) {
 			const f = acquire(flashes);
 			f.mesh.position.copyFrom(at);
-			f.mesh.scaling.setAll(heavy ? 1.5 : 1);
+			f.mesh.scaling.setAll(heavy ? 0.6 : 0.4);
 			f.life = FLASH_LIFE;
 			f.mesh.visibility = 1;
 			f.mesh.setEnabled(true);

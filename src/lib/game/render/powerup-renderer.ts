@@ -23,13 +23,13 @@ type PowerupVisual = {
 };
 
 const CRYSTAL_Y = 1.2; // hover the pickup above the arena floor
-const CRYSTAL_SIZE = 3.6;
-// Label plane: 512×192 texture on an 11×4.125 plane (matching aspect). The word
+const CRYSTAL_SIZE = 1.4; // playtest: 3.6 read ~3× too big against the arena
+// Label plane: 512×192 texture on a 7×2.625 plane (matching aspect). The word
 // plate sits in the bottom 128px band (chevron headroom above), its centre
-// hanging 0.69 world units below the plane centre with a ~1.12-unit half
+// hanging 0.44 world units below the plane centre with a ~0.71-unit half
 // height. +z is screen-up under the ortho camera, so this offset floats the
 // plate just above the crystal even at its locked 1.25× swell.
-const LABEL_UP = (CRYSTAL_SIZE * 1.25) / 2 + 0.5 + 1.12 + 0.69;
+const LABEL_UP = (CRYSTAL_SIZE * 1.25) / 2 + 0.35 + 0.71 + 0.44;
 
 /**
  * Pooled renderer for powerup pickups. Mirrors the enemy renderer's discipline:
@@ -65,7 +65,7 @@ export function createPowerupRenderer(
 
 		const label = CreatePlane(
 			`powerup-${id}-label`,
-			{ width: 11, height: 4.125 },
+			{ width: 7, height: 2.625 },
 			scene,
 		);
 		label.parent = root;

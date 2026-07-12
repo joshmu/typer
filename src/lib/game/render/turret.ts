@@ -10,10 +10,10 @@ import { spriteAngle } from "./sprite-angle";
 import { CELLS } from "./sprite-atlas";
 
 const MUZZLE_Y = 1.2; // height the shots leave from (matches the sprite plane)
-const MUZZLE_LEN = 3.4; // distance from the hero to the muzzle along its heading
+const MUZZLE_LEN = 1.2; // distance from the hero to the muzzle along its heading
 const RING_LIFE = 22; // frames a powerup ring pulse lives
 const RECOIL_FRAMES = 3; // frames the recoil sprite cell shows after a shot
-const HERO_SIZE = 7.5; // world size of the hero sprite
+const HERO_SIZE = 2.5; // world size of the hero sprite (playtest: 7.5 read ~3× too big)
 
 export type Turret = {
 	/** Advance the recoil / ring / danger animations from the sim tick. Heading
@@ -57,7 +57,7 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 	// pooled powerup ring pulse (flat on the ground)
 	const ring = CreateTorus(
 		"turret-ring",
-		{ diameter: 2, thickness: 0.18, tessellation: 40 },
+		{ diameter: 1.2, thickness: 0.12, tessellation: 40 },
 		scene,
 	);
 	// torus lies flat in XZ by default → reads as a circle on the ground under the
@@ -72,7 +72,7 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 	// red danger perimeter the player defends
 	const danger = CreateTorus(
 		"turret-danger",
-		{ diameter: 9, thickness: 0.14, tessellation: 64 },
+		{ diameter: 5, thickness: 0.1, tessellation: 64 },
 		scene,
 	);
 	danger.position.y = 0.12; // flat on the ground (see ring above)
