@@ -81,6 +81,7 @@ export function resolveCompletion(
 		// effort. `shieldHits` was already decremented inside `absorbsCompletion`.
 		s.score += 10 * word.length;
 		e.typedCount = 0;
+		s.absorbs += 1;
 		return;
 	}
 	e.hp -= 1;

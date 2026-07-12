@@ -84,6 +84,11 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 	// powerupsUsed is the single unambiguous "player triggered a powerup" signal →
 	// ring pulse. An expiring (never-completed) pickup no longer fakes it.
 	let lastPowerupsUsed = state.powerupsUsed;
+	// absorb-clang watch: the sim counts every completion that clanged off plating
+	// (shield / armored-front), so a rise in absorbs is the single unambiguous
+	// "a hit rang off" signal → dull-spark clang. Counter-driven so a same-frame
+	// typedCount reset (retype right after the clang) can never lose the feedback.
+	let lastAbsorbs = state.absorbs;
 
 	function advance(ticks: number) {
 		for (let i = 0; i < ticks; i++) {
@@ -98,25 +103,20 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 			const info = lastSeen.get(e.id);
 			if (info) {
 				// a keystroke landed on this enemy this frame → visible shot; an hp
-				// drop means a damaging completion → heavier bolt + muzzle flash. A
-				// word completed on a shield / armored-front CLANGS: the absorb resets
-				// typedCount to 0 on the same word with NO hp drop, so a mid-word drop
-				// in progress while hp holds is that clang — it still deserves feedback
-				// (a bolt + DULL spark), distinct from the kill burst on a vanished
-				// enemy. (A damaging multi-hp completion also zeroes typedCount, but
-				// that carries an hp drop and is handled as `damaged`.)
+				// drop means a damaging completion → heavier bolt + muzzle flash. The
+				// shield / armored-front CLANG is NOT inferred here — it rides the sim's
+				// monotonic absorbs counter below, which no same-frame typedCount reset
+				// can hide.
 				const typed = e.typedCount > info.typedCount;
 				const damaged = e.hp < info.hp;
-				const absorbed = e.typedCount < info.typedCount && !damaged;
-				if (damaged || typed || absorbed) {
+				if (damaged || typed) {
 					// snap the hero's heading to this target (last-shot heading) and
 					// read the fresh muzzle along it before drawing the bolt
 					turret.fire(e.pos.x, e.pos.y);
 					turret.getMuzzle(muzzle);
 					shotTo.set(e.pos.x, 1, e.pos.y);
-					effects.fireTracer(muzzle, shotTo, damaged || absorbed);
+					effects.fireTracer(muzzle, shotTo, damaged);
 					if (damaged) effects.muzzleFlash(muzzle, true);
-					else if (absorbed) effects.muzzleFlash(muzzle, false); // dull spark
 				}
 				info.x = e.pos.x;
 				info.y = e.pos.y;
@@ -180,6 +180,22 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 		// one GPU upload for every corpse/scar stamped this frame
 		gameScene.ground.flush();
 		if (state.playerHp < lastPlayerHp) effects.playerHit();
+
+		// absorb clang: fired on the rise of the sim's monotonic absorbs counter, so
+		// it can never be lost to a same-frame typedCount reset. A clang is a bolt +
+		// DULL spark rung off the locked target (the enemy the completion clanged
+		// against) — no hp drop, distinct from the kill burst.
+		if (state.absorbs > lastAbsorbs) {
+			const target = state.enemies.find((e) => e.id === state.targetId);
+			if (target) {
+				turret.fire(target.pos.x, target.pos.y);
+				turret.getMuzzle(muzzle);
+				shotTo.set(target.pos.x, 1, target.pos.y);
+				effects.fireTracer(muzzle, shotTo, true);
+				effects.muzzleFlash(muzzle, false); // dull spark
+			}
+		}
+		lastAbsorbs = state.absorbs;
 
 		// powerup activation → radial ring pulse from the turret, fired only on the
 		// rise of the sim's applied-powerup counter

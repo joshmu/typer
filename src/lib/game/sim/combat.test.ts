@@ -126,6 +126,22 @@ describe("combat", () => {
 		expect(s.kills).toBe(1);
 	});
 
+	it("increments the absorbs counter only when a completion is absorbed", () => {
+		const { s } = stateWithEnemy("weaver-1"); // hp 1, shield hits 1
+		const e = s.enemies[0];
+		expect(s.absorbs).toBe(0);
+		// first completion clangs off the shield → absorb
+		e.typedCount = currentWord(e).length;
+		resolveCompletion(s, e);
+		expect(s.absorbs).toBe(1);
+		expect(e.alive).toBe(true);
+		// next completion has no shield left → damages/kills, never an absorb
+		e.typedCount = currentWord(e).length;
+		resolveCompletion(s, e);
+		expect(e.alive).toBe(false);
+		expect(s.absorbs).toBe(1);
+	});
+
 	it("an armored-front absorb (plated side out) clangs the same word without damage", () => {
 		// weaver-3: hp 2, armored-front exposeRadius 4; spawned at dist 5 (> 4 →
 		// plated side faces the core, so the completion is absorbed)

@@ -45,6 +45,10 @@ export type GameState = {
 	kills: number;
 	misses: number;
 	hits: number;
+	// monotonic count of completions that CLANGED off plating (shield / armored-
+	// front) — the render layer fires its dull-spark clang only when this
+	// increments, so a same-frame typedCount reset can never lose the feedback
+	absorbs: number;
 	playerHp: number;
 	targetId: number | null;
 	nextEnemyId: number;
@@ -83,6 +87,7 @@ export function createInitialState(seed: number): GameState {
 		kills: 0,
 		misses: 0,
 		hits: 0,
+		absorbs: 0,
 		playerHp: 3,
 		targetId: null,
 		nextEnemyId: 1,
