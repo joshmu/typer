@@ -75,7 +75,6 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 		y: number;
 		color: [number, number, number];
 		typedCount: number;
-		wordIndex: number;
 		hp: number;
 		seen: boolean;
 	};
@@ -100,14 +99,15 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 			if (info) {
 				// a keystroke landed on this enemy this frame → visible shot; an hp
 				// drop means a damaging completion → heavier bolt + muzzle flash. A
-				// word completed with NO hp drop (shield / armored-front absorb: the
-				// word index advanced while hp held and the enemy is still alive) still
-				// deserves feedback — a bolt, barrel recoil and a DULL spark — so the
-				// player sees the hit land and get soaked up, distinct from the kill
-				// burst that only fires on a vanished enemy.
+				// word completed on a shield / armored-front CLANGS: the absorb resets
+				// typedCount to 0 on the same word with NO hp drop, so a mid-word drop
+				// in progress while hp holds is that clang — it still deserves feedback
+				// (a bolt + DULL spark), distinct from the kill burst on a vanished
+				// enemy. (A damaging multi-hp completion also zeroes typedCount, but
+				// that carries an hp drop and is handled as `damaged`.)
 				const typed = e.typedCount > info.typedCount;
 				const damaged = e.hp < info.hp;
-				const absorbed = e.wordIndex > info.wordIndex && !damaged;
+				const absorbed = e.typedCount < info.typedCount && !damaged;
 				if (damaged || typed || absorbed) {
 					// snap the hero's heading to this target (last-shot heading) and
 					// read the fresh muzzle along it before drawing the bolt
@@ -121,7 +121,6 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 				info.x = e.pos.x;
 				info.y = e.pos.y;
 				info.typedCount = e.typedCount;
-				info.wordIndex = e.wordIndex;
 				info.hp = e.hp;
 				info.seen = true;
 			} else {
@@ -135,7 +134,6 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 					y: e.pos.y,
 					color: [r, g, b],
 					typedCount: e.typedCount,
-					wordIndex: e.wordIndex,
 					hp: e.hp,
 					seen: true,
 				});
