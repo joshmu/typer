@@ -68,7 +68,7 @@ export function createEnemyRenderer(
 		const labelRoot = new TransformNode(`enemy-${id}-labelroot`, scene);
 		const label = CreatePlane(
 			`enemy-${id}-label`,
-			{ width: 7, height: 7 },
+			{ width: 11, height: 11 },
 			scene,
 		);
 		label.parent = labelRoot;

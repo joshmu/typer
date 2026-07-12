@@ -52,7 +52,7 @@ export function createPowerupRenderer(
 
 		const label = CreatePlane(
 			`powerup-${id}-label`,
-			{ width: 7, height: 1.75 },
+			{ width: 11, height: 2.75 },
 			scene,
 		);
 		label.parent = root;
