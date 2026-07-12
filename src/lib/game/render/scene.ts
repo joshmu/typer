@@ -52,7 +52,14 @@ export function createGameScene(
 	// aspect so world cells stay SQUARE on screen (no stretch) at any window size.
 	const ORTHO_HALF = 38;
 	function applyOrtho(): void {
-		const aspect = engine.getRenderWidth() / engine.getRenderHeight() || 1;
+		// guard the aspect against a degenerate render size: a zero height yields
+		// width/0 = Infinity (truthy, so `|| 1` would NOT catch it), and a zero
+		// width or NaN dim yields NaN — any non-finite or non-positive dimension
+		// falls back to a square (aspect 1) rather than corrupting the frustum.
+		const w = engine.getRenderWidth();
+		const h = engine.getRenderHeight();
+		const aspect =
+			w > 0 && h > 0 && Number.isFinite(w) && Number.isFinite(h) ? w / h : 1;
 		camera.orthoTop = ORTHO_HALF;
 		camera.orthoBottom = -ORTHO_HALF;
 		camera.orthoLeft = -ORTHO_HALF * aspect;
