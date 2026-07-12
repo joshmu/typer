@@ -1,0 +1,38 @@
+{
+	"atlas": "sprites.png",
+	"cell": 64,
+	"cols": 8,
+	"rows": 3,
+	"atlasWidth": 512,
+	"atlasHeight": 192,
+	"cells": {
+		"husk-walk-0": 0,
+		"husk-walk-1": 1,
+		"darter-walk-0": 2,
+		"darter-walk-1": 3,
+		"wraith-walk-0": 4,
+		"wraith-walk-1": 5,
+		"charger-walk-0": 6,
+		"charger-walk-1": 7,
+		"weaver-walk-0": 8,
+		"weaver-walk-1": 9,
+		"brood-walk-0": 10,
+		"brood-walk-1": 11,
+		"boss-walk-0": 12,
+		"boss-walk-1": 13,
+		"hero-idle": 14,
+		"hero-recoil": 15,
+		"dot": 16,
+		"crystal": 17
+	},
+	"provenance": {
+		"husk": "ai",
+		"darter": "ai",
+		"wraith": "ai",
+		"charger": "ai",
+		"weaver": "ai",
+		"brood": "ai",
+		"boss": "ai",
+		"hero": "ai"
+	}
+}

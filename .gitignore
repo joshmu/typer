@@ -26,6 +26,9 @@ playwright-report/
 # Visual probe output
 .probe/
 
+# Sprite generation cache (scripts/gen-sprites.mjs) — committed outputs live in public/game/
+.sprites-cache/
+
 # Vercel
 .vercel/
 
