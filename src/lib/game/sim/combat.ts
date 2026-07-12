@@ -13,7 +13,7 @@ import { currentWord, type EnemyState, type GameState } from "./state";
  * is the same reservation `spawn` uses, so a freshly drawn word can never make a
  * keystroke ambiguous between two on-screen targets.
  */
-function liveInitials(s: GameState, exceptId: number): Set<string> {
+export function liveInitials(s: GameState, exceptId: number): Set<string> {
 	const initials = new Set<string>();
 	for (const other of s.enemies) {
 		if (other.alive && other.id !== exceptId)

@@ -6,7 +6,13 @@ import {
 	isTargetable,
 	tickAbility,
 } from "./abilities";
-import { ARENA, createInitialState, type EnemyState } from "./state";
+import { resolveCompletion } from "./combat";
+import {
+	ARENA,
+	createInitialState,
+	currentWord,
+	type EnemyState,
+} from "./state";
 
 function enemyWith(
 	ability: Ability | null,
@@ -150,5 +156,49 @@ describe("abilities", () => {
 		s.tick = 20;
 		tickAbility(s, healer);
 		expect(s.enemies.find((x) => x.id === 2)?.hp).toBe(2);
+	});
+
+	it("heal-aura grows the word stack so a heal never overruns the chain (crash repro)", () => {
+		// An ally deep into its chain (wordIndex 2 of a 3-word chain, hp 1) heals
+		// back to hp 2 — but only ONE unwalked slot remains, so without growing the
+		// stack a later non-fatal completion advances wordIndex to 3 and
+		// currentWord() goes undefined → TypeError on the next keystroke.
+		const s = createInitialState(1);
+		const healer = enemyWith(
+			{ kind: "heal-aura", radius: 5, amount: 1, interval: 20 },
+			{ id: 1, pos: { x: 0, y: 0 } },
+		);
+		const ally = enemyWith(null, {
+			id: 2,
+			archetypeId: "husk-4", // real archetype so resolveCompletion can read its role
+			pos: { x: 2, y: 0 },
+			words: ["aaa", "bbb", "ccc"],
+			wordIndex: 2,
+			typedCount: 0,
+			hp: 1,
+			maxHp: 3,
+		});
+		s.enemies = [healer, ally];
+		s.tick = 20;
+		tickAbility(s, healer);
+
+		const healed = s.enemies.find((x) => x.id === 2);
+		expect(healed).toBeDefined();
+		if (!healed) return;
+		expect(healed.hp).toBe(2);
+		// invariant: hp never exceeds the unwalked word slots
+		expect(healed.hp).toBeLessThanOrEqual(
+			healed.words.length - healed.wordIndex,
+		);
+
+		// a non-fatal completion now advances safely — currentWord stays defined
+		healed.typedCount = currentWord(healed).length;
+		resolveCompletion(s, healed);
+		expect(healed.alive).toBe(true);
+		expect(healed.hp).toBe(1);
+		expect(currentWord(healed)).toBeDefined();
+		// the very next keystroke reads currentWord()[typedCount] — must not throw
+		expect(() => currentWord(healed)[healed.typedCount]).not.toThrow();
+		expect(currentWord(healed)[healed.typedCount]).toBeDefined();
 	});
 });

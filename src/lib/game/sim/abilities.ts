@@ -1,3 +1,5 @@
+import { pickWordForTier } from "../content/words";
+import { liveInitials } from "./combat";
 import { cosR, dist, sinR } from "./math";
 import { spawnFromArchetype } from "./spawner";
 import { ARENA, type EnemyState, type GameState } from "./state";
@@ -78,6 +80,30 @@ export function tickAbility(s: GameState, e: EnemyState): void {
 					const dy = ally.pos.y - e.pos.y;
 					if (dist(dx, dy) <= ability.radius) {
 						ally.hp = Math.min(ally.maxHp, ally.hp + ability.amount);
+						// A wounded ally that has already walked into its chain has fewer
+						// unwalked slots (`words.length - wordIndex`) than its restored hp.
+						// If left alone, a later non-fatal completion advances `wordIndex`
+						// past the last word and `currentWord()` goes undefined → a crash on
+						// the next keystroke. Grow the visible stack HERE, the moment the
+						// heal lands, so the invariant `hp <= words.length - wordIndex`
+						// always holds. Fresh words honour the same live-field initial
+						// reservation `advanceWord` uses (rng threaded through s.rngState);
+						// the array is reassigned (never the shared prior-state array
+						// mutated) to keep `step` pure.
+						const remaining = ally.words.length - ally.wordIndex;
+						if (ally.hp > remaining) {
+							const extra: string[] = [];
+							for (let i = remaining; i < ally.hp; i++) {
+								const [word, next] = pickWordForTier(
+									ally.tier,
+									s.rngState,
+									liveInitials(s, ally.id),
+								);
+								s.rngState = next;
+								extra.push(word);
+							}
+							ally.words = [...ally.words, ...extra];
+						}
 					}
 				}
 			}
