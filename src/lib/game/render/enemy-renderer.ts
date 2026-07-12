@@ -36,9 +36,17 @@ type EnemyVisual = {
 	walkDist: number;
 	lastX: number;
 	lastY: number;
+	// last facing angle, held while velocity is negligible so a paused enemy (e.g.
+	// a charger mid dash-pause) never snaps to 0 — honours spriteAngle's contract
+	// that callers keep the previous value at near-zero velocity.
+	lastAngle: number;
 	phase: number;
 	isBoss: boolean;
 };
+
+// squared-velocity threshold below which facing is held (matches sprite-angle's
+// own negligible-velocity guard)
+const FACING_EPSILON_SQ = 1e-8;
 
 /** Stable per-id phase so a family's sprites don't pulse in lockstep. */
 function idPhase(id: number): number {
@@ -97,6 +105,7 @@ export function createEnemyRenderer(
 			walkDist: 0,
 			lastX: 0,
 			lastY: 0,
+			lastAngle: 0,
 			phase: idPhase(id),
 			isBoss,
 		};
@@ -127,8 +136,14 @@ export function createEnemyRenderer(
 				v.sprite.position.set(e.pos.x, SPRITE_Y, e.pos.y);
 				v.labelRoot.position.set(e.pos.x, LABEL_Y, e.pos.y - LABEL_OFFSET);
 
-				// face travel direction (sim velocity) — a creature walking forward
-				v.sprite.angle = spriteAngle(e.vel.x, e.vel.y);
+				// face travel direction (sim velocity) — a creature walking forward.
+				// Hold the last angle while velocity is negligible so a paused enemy
+				// keeps its heading instead of snapping to 0 (spriteAngle returns 0 at
+				// near-zero velocity, expecting the caller to keep the prior value).
+				if (e.vel.x * e.vel.x + e.vel.y * e.vel.y > FACING_EPSILON_SQ) {
+					v.lastAngle = spriteAngle(e.vel.x, e.vel.y);
+				}
+				v.sprite.angle = v.lastAngle;
 
 				// walk-cycle: alternate the two pose cells by distance travelled so a
 				// faster enemy visibly steps faster and a stopped one holds a pose
