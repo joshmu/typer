@@ -17,7 +17,10 @@ const FONT_TARGET = 80;
 const FONT_IDLE = 68;
 const PLATE_TARGET = 104;
 const PLATE_IDLE = 88;
-const QUEUE_SCALE = 0.55;
+// queued words render at this scale/alpha — large and bright enough to READ
+// (playtest: the old 0.55/0.4 queue was illegibly dim)
+const QUEUE_SCALE = 0.7;
+const QUEUE_ALPHA = 0.75;
 
 const AMBER = "#facc15";
 const AMBER_BORDER = "rgba(250, 204, 21, 0.85)";
@@ -189,16 +192,20 @@ export function drawLabel(
 	v.texture.update();
 }
 
-const MAX_STACK = 3; // words shown before collapsing the rest into a "+n" chip
+// words shown before collapsing the rest into a "+n" chip. 5 covers every
+// authored chain (boss hp max 5) — only heal-aura growth ever overflows
+// (playtest: hiding queued words behind a "+n" made multi-word enemies opaque)
+const MAX_STACK = 5;
 
 /**
  * Stacked word-chain label for enemies. The current word sits on the bottom
- * plate (nearest the enemy) at full brightness; up to two queued words stack
- * above it at 55% scale / 40% alpha; any further words collapse into a "+n" chip
- * at the top. Everything is drawn into ONE fixed tall texture (four 1/4-height
- * rows) in a single pass — the plane height is sized once for the worst case and
- * the unused upper rows stay transparent, so there is no per-completion texture
- * reallocation. Redraws only when the visible slice / progress / lock changes.
+ * plate (nearest the enemy) at full brightness; queued words stack above it at
+ * QUEUE_SCALE/QUEUE_ALPHA; anything beyond MAX_STACK collapses into a "+n"
+ * chip at the top. Everything is drawn into ONE fixed tall texture (128px
+ * rows) in a single pass — the plane height is sized once for the worst case
+ * and unused upper rows stay transparent, so there is no per-completion
+ * texture reallocation. Redraws only when the visible slice / progress / lock
+ * changes.
  */
 export function drawStackedLabel(
 	v: LabelTarget,
@@ -218,7 +225,7 @@ export function drawStackedLabel(
 	const { width: W, height: H } = v.texture.getSize();
 	const c = v.texture.getContext() as Ctx;
 	c.clearRect(0, 0, W, H);
-	const ROW = H / 4;
+	const ROW = W / 4; // 128px rows regardless of texture height
 	const cx = W / 2;
 
 	for (let i = 0; i < visible; i++) {
@@ -237,13 +244,13 @@ export function drawStackedLabel(
 				texW: W,
 			});
 		} else {
-			// queued words: dimmer + smaller, no progress (not yet started)
+			// queued words: smaller + slightly dimmed, no progress (not yet started)
 			drawPlate(c, cx, cy, {
 				word,
 				typedCount: 0,
 				fontPx: FONT_IDLE * QUEUE_SCALE,
 				plateH: PLATE_IDLE * QUEUE_SCALE,
-				alpha: 0.4,
+				alpha: QUEUE_ALPHA,
 				isTarget: false,
 				underline: false,
 				chevron: false,

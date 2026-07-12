@@ -103,11 +103,14 @@ export function createGroundDecals(
 	};
 	img.src = "/game/terrain.png";
 
-	// world → canvas pixel. The ground disc maps world (x, z=sim-y) linearly to uv
-	// centred at 0.5; the DynamicTexture samples with v inverted, so canvas-y flips.
+	// world → canvas pixel. The ground disc maps world (x, z=sim-y) linearly to
+	// uv centred at 0.5. NO y flip: probe-verified — the disc's UV orientation
+	// under its rotation.x=π/2 plus the DynamicTexture upload cancel out, and
+	// the old `SIZE/2 - y` form mirrored every decal across the horizontal axis
+	// (playtest: "remains show up in the wrong place").
 	const pxPerWorld = SIZE / (2 * worldRadius);
 	function toCanvas(x: number, y: number): [number, number] {
-		return [SIZE / 2 + x * pxPerWorld, SIZE / 2 - y * pxPerWorld];
+		return [SIZE / 2 + x * pxPerWorld, SIZE / 2 + y * pxPerWorld];
 	}
 
 	/** Fill one grid-aligned chunky "pixel" so every stamp shares a pixel grid. */

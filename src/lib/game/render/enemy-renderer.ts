@@ -27,18 +27,21 @@ const LABEL_Y = 2.4; // draw label planes above the sprites
 // world distance travelled between the two walk cells — a chunky, readable gait
 const WALK_STEP = 0.4;
 
-// Label plane geometry. The plane is 4 stacked texture rows tall; the CURRENT
-// word plate sits in the bottom row, so its centre hangs LABEL_ROW_DROP below
-// the plane centre. The plane is positioned so that plate lands a small gap
-// above the sprite's top edge — under the top-down ortho camera, +z is
-// screen-up (the old -3.2 offset plus the row drop put labels ~7 units BELOW
-// the enemy, the "strange space" playtest complaint).
-// Label planes shrink LESS than the sprites (7, not ~3.7): they are UI, and the
-// word must stay readable (~14px on a ~970px-tall canvas) over the smaller art.
-const LABEL_PLANE_SIZE = 7;
-const LABEL_ROW_DROP = LABEL_PLANE_SIZE / 2 - LABEL_PLANE_SIZE / 8;
-// half the plate height in world units (104px plate of a 512px texture)
-const LABEL_PLATE_HALF = (104 / 512) * (LABEL_PLANE_SIZE / 2);
+// Label plane geometry. The texture is 512×768 — six 128px rows: the CURRENT
+// word plate sits in the bottom row (its centre hangs LABEL_ROW_DROP below the
+// plane centre), up to four queued words stack above it, and the top row holds
+// the overflow chip. The plane is positioned so the bottom plate lands a small
+// gap above the sprite's top edge — under the top-down ortho camera, +z is
+// screen-up. Label planes are UI: the word must stay readable (~14px on a
+// ~970px-tall canvas) over the much smaller art.
+const LABEL_PLANE_W = 7;
+const LABEL_TEX_W = 512;
+const LABEL_TEX_H = 768;
+const LABEL_PLANE_H = LABEL_PLANE_W * (LABEL_TEX_H / LABEL_TEX_W); // 10.5
+const LABEL_ROW_W = (128 / LABEL_TEX_H) * LABEL_PLANE_H; // one row in world units
+const LABEL_ROW_DROP = LABEL_PLANE_H / 2 - LABEL_ROW_W / 2;
+// half the plate height in world units (104px plate row)
+const LABEL_PLATE_HALF = (104 / LABEL_TEX_H) * (LABEL_PLANE_H / 2);
 const LABEL_GAP = 0.35; // clearance between sprite top edge and plate bottom
 
 type EnemyVisual = {
@@ -93,11 +96,11 @@ export function createEnemyRenderer(
 		sprite.isPickable = false;
 		sprite.color = new Color4(1, 1, 1, 1); // show the art's own colours untinted
 
-		// tall billboard label: four stacked rows (current word bottom, queued above)
+		// tall billboard label: six stacked rows (current word bottom, queue above)
 		const labelRoot = new TransformNode(`enemy-${id}-labelroot`, scene);
 		const label = CreatePlane(
 			`enemy-${id}-label`,
-			{ width: LABEL_PLANE_SIZE, height: LABEL_PLANE_SIZE },
+			{ width: LABEL_PLANE_W, height: LABEL_PLANE_H },
 			scene,
 		);
 		label.parent = labelRoot;
@@ -106,7 +109,7 @@ export function createEnemyRenderer(
 		// and without them the text shimmers into mud (HUD-vs-label clarity gap)
 		const texture = new DynamicTexture(
 			`enemy-${id}-tex`,
-			{ width: 512, height: 512 },
+			{ width: LABEL_TEX_W, height: LABEL_TEX_H },
 			scene,
 			true,
 		);
