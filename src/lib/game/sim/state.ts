@@ -71,7 +71,9 @@ export type GameState = {
 	// activation ring only when this increments, so an expiring pickup can't fake it
 	powerupsUsed: number;
 };
-export const ARENA = { spawnRadius: 34, killRadius: 1.6 } as const;
+// spawnRadius 51 (playtest 2026-07-12: arena grown 1.5× from 34 — softer wave
+// pacing via the longer approach, and a larger lit field under the vignette)
+export const ARENA = { spawnRadius: 51, killRadius: 1.6 } as const;
 
 /** The word an enemy is currently being typed against (`words[wordIndex]`). */
 export function currentWord(e: EnemyState): string {

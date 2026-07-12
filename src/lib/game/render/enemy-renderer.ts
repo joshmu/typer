@@ -21,7 +21,7 @@ import { walkCells } from "./sprite-atlas";
 // creatures — the whole render scale read ~3× too big against the arena, so
 // sprites/labels/effects were brought down together (camera and sim untouched).
 const ENEMY_SPRITE_SCALE = 2;
-const BOSS_SCALE = 1.6; // bosses render notably larger on top of their bigger size
+const BOSS_SCALE = 1.2; // bosses render larger on top of their bigger size (1.6 read oversized)
 const SPRITE_Y = 1.2; // lift sprites above the ground/decals
 const LABEL_Y = 2.4; // draw label planes above the sprites
 // world distance travelled between the two walk cells — a chunky, readable gait

@@ -77,22 +77,23 @@ describe("enemy roster", () => {
 		}
 	});
 
-	it("gives survivable straight-line travel from the spawn edge (regulars 13-45s, bosses 20-60s)", () => {
+	it("gives survivable straight-line travel from the spawn edge (regulars 18-55s, bosses 40-70s)", () => {
 		// The arena must read as a large top-down field an enemy takes many seconds
 		// to cross. At 60 ticks/s a straight run from the spawn edge to the core is
 		// spawnRadius / (speed * 60) seconds. Regulars stay in a survivable band;
 		// bosses lumber in slower still. Movement multipliers (dash 2.2x, dive 1.6x)
 		// only shorten the *tail* of a run, so the straight-line bound is the floor
-		// on how long a family pressures the core.
+		// on how long a family pressures the core. Bands re-derived for the 51-unit
+		// arena (playtest 2026-07-12: grown 1.5× for softer pacing).
 		const TPS = 60;
 		for (const e of ENEMIES) {
 			const seconds = ARENA.spawnRadius / (e.speed * TPS);
 			if (e.role === "regular") {
-				expect(seconds).toBeGreaterThanOrEqual(13);
-				expect(seconds).toBeLessThanOrEqual(45);
+				expect(seconds).toBeGreaterThanOrEqual(18);
+				expect(seconds).toBeLessThanOrEqual(55);
 			} else {
-				expect(seconds).toBeGreaterThanOrEqual(20);
-				expect(seconds).toBeLessThanOrEqual(60);
+				expect(seconds).toBeGreaterThanOrEqual(40);
+				expect(seconds).toBeLessThanOrEqual(70);
 			}
 		}
 	});

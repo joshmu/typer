@@ -132,7 +132,6 @@ export function createEffects(scene: Scene): Effects {
 		return pick;
 	}
 
-	const camTarget = new Vector3(0, 0, 0);
 	let shake = 0;
 	let shakeStep = 0;
 
@@ -209,19 +208,23 @@ export function createEffects(scene: Scene): Effects {
 			scene.clearColor.g = lerp(BASE_CLEAR[1], tint[1], t);
 			scene.clearColor.b = lerp(BASE_CLEAR[2], tint[2], t);
 
-			// screen shake: decaying deterministic camera-target jitter
+			// screen shake: decaying deterministic SCREEN-SPACE jitter. Never move
+			// the camera target: ArcRotateCamera.setTarget re-derives alpha/beta,
+			// and at the gimbal-degenerate beta≈0 pose that spins alpha — the whole
+			// view visibly ROTATED on every hit and never returned, leaving sprites
+			// (whose angles are calibrated to alpha = -π/2) pointing away from the
+			// world-space tracers. targetScreenOffset pans the projection only.
 			const cam = scene.activeCamera as ArcRotateCamera | null;
 			if (cam) {
 				if (shake > 0) {
 					const m = (shake / SHAKE_FRAMES) * SHAKE_MAG;
-					camTarget.set(jitter(shakeStep) * m, 0, jitter(shakeStep + 7) * m);
-					cam.setTarget(camTarget);
+					cam.targetScreenOffset.set(
+						jitter(shakeStep) * m,
+						jitter(shakeStep + 7) * m,
+					);
 					shakeStep += 1;
 					shake -= 1;
-					if (shake === 0) {
-						camTarget.set(0, 0, 0);
-						cam.setTarget(camTarget);
-					}
+					if (shake === 0) cam.targetScreenOffset.set(0, 0);
 				}
 			}
 		},

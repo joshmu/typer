@@ -27,10 +27,10 @@ describe("vignetteGradient", () => {
 		}
 	});
 
-	it("keeps the darkness inside the frame's half-height in world units", () => {
-		// the darkest stop must sit below ORTHO_HALF so the gradient is visible
+	it("goes fully dark before the spawn ring so spawns are never visible", async () => {
+		const { ARENA } = await import("./sim/state");
 		const g = vignetteGradient(2 * ORTHO_HALF); // 1px per world unit
 		const stops = [...g.matchAll(/(\d+)px/g)].map((m) => Number(m[1]));
-		expect(stops[2]).toBeLessThan(ORTHO_HALF);
+		expect(stops[2]).toBeLessThan(ARENA.spawnRadius);
 	});
 });

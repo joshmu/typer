@@ -1,3 +1,5 @@
+import { ARENA } from "./sim/state";
+
 /**
  * Shared view constants/math between the Babylon scene and the Solid shell.
  * MUST stay free of Babylon imports — the shell uses it inside the main bundle
@@ -8,13 +10,14 @@
 // half-width follows the viewport aspect so world cells stay square on screen
 export const ORTHO_HALF = 38;
 
-// Vignette bands in world units. Enemies spawn at ARENA.spawnRadius (34) which
-// on wide viewports sits well INSIDE the visible frame — the vignette hides the
-// ring behind near-opaque darkness so enemies emerge from the dark instead of
-// popping into existence. Powerups (radius ≤ 17) stay in the clear zone.
-const CLEAR_RADIUS = 19; // fully transparent out to here
-const DIM_RADIUS = 26; // mid fade — approaching enemies become readable
-const DARK_RADIUS = 31; // near-opaque before the 34-unit spawn ring
+// Vignette bands in world units, anchored to the sim's spawn ring. Enemies
+// spawn at ARENA.spawnRadius, which on wide viewports sits INSIDE the visible
+// frame — the vignette hides the ring behind near-opaque darkness so enemies
+// emerge from the dark instead of popping into existence. Powerups (radius ≤
+// spawnRadius/2) stay in the clear zone.
+const DARK_RADIUS = ARENA.spawnRadius - 4; // near-opaque before the spawn ring
+const DIM_RADIUS = DARK_RADIUS - 8; // mid fade — approaching enemies readable
+const CLEAR_RADIUS = DARK_RADIUS - 19; // fully transparent out to here
 
 /**
  * Screen-space radial gradient for the darkness vignette, sized from the live

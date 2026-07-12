@@ -71,16 +71,34 @@ export function createGroundDecals(
 	ctx.fillRect(0, 0, SIZE, SIZE);
 	texture.update();
 
-	// bake the pixel terrain once it loads: a CENTRE SQUARE crop scaled to fill
-	// the whole floor (the model returns a non-square tile) — no tiling seams, no
-	// aspect distortion, and imageSmoothing is off so the pixels stay hard-edged
+	// bake the pixel terrain once it loads: a CENTRE SQUARE crop TILED 4×4 across
+	// the floor. A single stretch put one image over the whole 290-unit disc —
+	// each metal plate read building-sized on screen (playtest: "bg scaled too
+	// much"). Tiling shrinks the features 4× while imageSmoothing stays off so
+	// the pixels remain hard-edged.
+	const TILES = 4;
 	const img = new Image();
 	img.onload = () => {
 		const side = Math.min(img.width, img.height);
 		const sx = (img.width - side) / 2;
 		const sy = (img.height - side) / 2;
 		ctx.imageSmoothingEnabled = false;
-		ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+		const tile = SIZE / TILES;
+		for (let ty = 0; ty < TILES; ty++) {
+			for (let tx = 0; tx < TILES; tx++) {
+				ctx.drawImage(
+					img,
+					sx,
+					sy,
+					side,
+					side,
+					tx * tile,
+					ty * tile,
+					tile,
+					tile,
+				);
+			}
+		}
 		texture.update();
 	};
 	img.src = "/game/terrain.png";

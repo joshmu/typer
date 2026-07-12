@@ -68,6 +68,11 @@ export function createGameScene(
 		const h = engine.getRenderHeight();
 		const aspect =
 			w > 0 && h > 0 && Number.isFinite(w) && Number.isFinite(h) ? w / h : 1;
+		// pin the orientation every frame: nothing may ever rotate this camera —
+		// sprite angles, ground decals and the DOM vignette are all calibrated to
+		// this exact pose, and the beta≈0 gimbal makes any drift catastrophic
+		camera.alpha = -Math.PI / 2;
+		camera.beta = 0.0001;
 		camera.orthoTop = ORTHO_HALF;
 		camera.orthoBottom = -ORTHO_HALF;
 		camera.orthoLeft = -ORTHO_HALF * aspect;

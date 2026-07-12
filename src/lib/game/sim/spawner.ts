@@ -51,21 +51,19 @@ const BOSSES = ENEMIES.filter((e) => e.role === "boss");
 
 /**
  * Pick which archetype to spawn for a wave: weights regulars by wave-gated
- * tiers (unlocked at waves 1/3/6/10) and fields a boss on every 5th wave.
+ * tiers (unlocked at waves 1/3/6/10). Every 5th wave fields exactly ONE boss —
+ * its FIRST spawn (playtest: the old ~1-in-3 roll PER SPAWN could stack four
+ * or five bosses into wave 5, an unbeatable wall of yellow).
  */
 export function selectArchetypeId(
 	wave: number,
 	rngState: number,
+	isFirstOfWave = false,
 ): [id: string, next: number] {
-	// boss waves: ~1-in-3 chance to field a boss
-	let state = rngState;
-	if (wave % 5 === 0) {
-		const [roll, r1] = nextFloat(state);
-		state = r1;
-		if (roll < 0.34) {
-			const [bi, r2] = nextInt(state, BOSSES.length);
-			return [BOSSES[bi].id, r2];
-		}
+	const state = rngState;
+	if (wave % 5 === 0 && isFirstOfWave) {
+		const [bi, r1] = nextInt(state, BOSSES.length);
+		return [BOSSES[bi].id, r1];
 	}
 
 	// weighted pick over unlocked regulars
@@ -128,7 +126,10 @@ export function runWaveDirector(s: GameState): void {
 	) {
 		const [pos, r1] = randomPointOnCircle(s.rngState, ARENA.spawnRadius);
 		s.rngState = r1;
-		const [id, r2] = selectArchetypeId(s.wave, s.rngState);
+		// the first spawn of a wave still has the full queue outstanding — that
+		// spawn (and only that one) may field the boss on 5th waves
+		const isFirstOfWave = s.spawnQueueRemaining === waveEnemyCount(s.wave);
+		const [id, r2] = selectArchetypeId(s.wave, s.rngState, isFirstOfWave);
 		s.rngState = r2;
 		spawnFromArchetype(s, id, pos);
 		s.spawnQueueRemaining -= 1;

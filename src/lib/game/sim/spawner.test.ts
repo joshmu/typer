@@ -83,18 +83,21 @@ describe("spawner", () => {
 		expect(sawHigher).toBe(true);
 	});
 
-	it("boss waves can field a boss", async () => {
+	it("boss waves field a boss on the wave's FIRST spawn only", async () => {
 		const roster = new Map(
 			(await import("../content/enemies")).ENEMIES.map((e) => [e.id, e]),
 		);
+		// first spawn of a 5th wave: always a boss
+		const [first] = selectArchetypeId(10, createRngState(11), true);
+		expect(roster.get(first)?.role).toBe("boss");
+		// every later spawn of the same wave: never a boss (a single wave must not
+		// stack multiple bosses)
 		let s = createRngState(11);
-		let sawBoss = false;
 		for (let i = 0; i < 200; i++) {
 			const [id, n] = selectArchetypeId(10, s);
-			if (roster.get(id)?.role === "boss") sawBoss = true;
+			expect(roster.get(id)?.role).toBe("regular");
 			s = n;
 		}
-		expect(sawBoss).toBe(true);
 	});
 
 	it("spawnFromArchetype places one enemy on the spawn radius", () => {
