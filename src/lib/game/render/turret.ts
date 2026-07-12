@@ -31,7 +31,7 @@ export type Turret = {
 	getMuzzle(out: Vector3): Vector3;
 	/** Fire toward a world point: snap the hero's heading there (last-shot
 	 * heading — never re-anchors on its own) and kick the recoil sprite cell. */
-	fire(x: number, z: number, heavy: boolean): void;
+	fire(x: number, z: number): void;
 	/** Kick off a radial ring pulse from the hero (powerup activation). */
 	ringPulse(): void;
 	dispose(): void;
@@ -146,7 +146,7 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 			out.set(hx * MUZZLE_LEN, MUZZLE_Y, hz * MUZZLE_LEN);
 			return out;
 		},
-		fire(x: number, z: number, _heavy: boolean) {
+		fire(x: number, z: number) {
 			setHeading(x, z);
 			yaw = spriteAngle(hx, hz);
 			hero.angle = yaw;

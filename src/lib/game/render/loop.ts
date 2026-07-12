@@ -111,7 +111,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 				if (damaged || typed || absorbed) {
 					// snap the hero's heading to this target (last-shot heading) and
 					// read the fresh muzzle along it before drawing the bolt
-					turret.fire(e.pos.x, e.pos.y, damaged);
+					turret.fire(e.pos.x, e.pos.y);
 					turret.getMuzzle(muzzle);
 					shotTo.set(e.pos.x, 1, e.pos.y);
 					effects.fireTracer(muzzle, shotTo, damaged || absorbed);
@@ -166,7 +166,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 				gameScene.ground.stampScar(info.x, info.y, id);
 			} else {
 				// a typed-to-death enemy: final bolt + muzzle flash, then burst
-				turret.fire(info.x, info.y, true);
+				turret.fire(info.x, info.y);
 				turret.getMuzzle(muzzle);
 				shotTo.set(info.x, 1, info.y);
 				effects.fireTracer(muzzle, shotTo, true);
