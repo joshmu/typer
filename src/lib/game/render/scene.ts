@@ -24,9 +24,16 @@ export function createGameScene(
 	canvas: HTMLCanvasElement,
 	opts: { preserveDrawingBuffer: boolean },
 ): GameScene {
-	const engine = new Engine(canvas, true, {
-		preserveDrawingBuffer: opts.preserveDrawingBuffer,
-	});
+	// adaptToDeviceRatio: render at the display's native pixel density. Without
+	// it the canvas backing store stays at CSS size and the browser upscales it
+	// (2× blur on retina) — sprites smeared fat and label text mushy while the
+	// DOM HUD text right next to it renders pin-sharp.
+	const engine = new Engine(
+		canvas,
+		true,
+		{ preserveDrawingBuffer: opts.preserveDrawingBuffer },
+		true,
+	);
 	const scene = new Scene(engine);
 	scene.clearColor = new Color4(0.02, 0.02, 0.04, 1);
 
