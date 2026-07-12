@@ -1,8 +1,9 @@
 /**
  * Pure visual recipes for enemy families. No Babylon imports — this is data plus
  * small pure helpers so it stays trivially unit-testable. Colors are [r, g, b] in
- * 0..1 (Babylon Color3 space). The render layer maps each recipe's `family` to a
- * sculpted multi-part mesh builder (see enemy-models.ts).
+ * 0..1 (Babylon Color3 space). The render layer uses each recipe's `family`
+ * colour to tint ground death splats and derive the death-burst gib colour; the
+ * on-field creatures themselves are pixel sprites (see sprite-atlas.ts).
  *
  * Families are derived from the roster ids in ../content/enemies.ts: each id is
  * `${family}-${tier}` (e.g. "husk-3"), bosses are `boss-*`. `visualFor` does a

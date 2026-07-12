@@ -1,5 +1,6 @@
 import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths/math";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
@@ -51,25 +52,37 @@ export type Effects = {
 };
 
 export function createEffects(scene: Scene): Effects {
-	// seeded radial spark sprite (scripts/gen-assets.ts)
-	const sprite = new Texture("/game/particle.png", scene);
-	sprite.hasAlpha = true;
+	// hard-edged solid pixel used as the death-burst gib: a chunky square sampled
+	// NEAREST so the burst reads as flying pixel debris, not a soft spark cloud
+	const gib = new DynamicTexture(
+		"fx-gib",
+		{ width: 8, height: 8 },
+		scene,
+		false,
+	);
+	// biome-ignore lint/suspicious/noExplicitAny: 2d canvas context, untyped here
+	const gctx = gib.getContext() as any;
+	gctx.fillStyle = "#ffffff";
+	gctx.fillRect(0, 0, 8, 8);
+	gib.update();
+	gib.updateSamplingMode(Texture.NEAREST_SAMPLINGMODE);
 
-	const emitter = new Vector3(0, 0.5, 0);
+	const emitter = new Vector3(0, 0.6, 0);
 	const ps = new ParticleSystem("fx-deaths", 200, scene);
-	ps.particleTexture = sprite;
+	ps.particleTexture = gib;
 	ps.emitter = emitter;
-	ps.minSize = 0.25;
-	ps.maxSize = 0.7;
-	ps.minLifeTime = 0.25;
-	ps.maxLifeTime = 0.6;
+	// chunky gibs: bigger than the old spark so they're clearly visible on a kill
+	ps.minSize = 0.6;
+	ps.maxSize = 1.6;
+	ps.minLifeTime = 0.3;
+	ps.maxLifeTime = 0.65;
 	ps.emitRate = 0;
-	ps.blendMode = ParticleSystem.BLENDMODE_ONEONE;
-	ps.gravity = new Vector3(0, -6, 0);
-	ps.direction1 = new Vector3(-3, 3, -3);
-	ps.direction2 = new Vector3(3, 6, 3);
-	ps.minEmitPower = 1.5;
-	ps.maxEmitPower = 4;
+	ps.blendMode = ParticleSystem.BLENDMODE_STANDARD; // opaque debris, not glow
+	ps.gravity = new Vector3(0, -9, 0);
+	ps.direction1 = new Vector3(-4, 4, -4);
+	ps.direction2 = new Vector3(4, 7, 4);
+	ps.minEmitPower = 2;
+	ps.maxEmitPower = 5.5;
 	ps.updateSpeed = 1 / 60;
 	ps.preventAutoStart = true;
 	ps.manualEmitCount = 0;
@@ -213,7 +226,7 @@ export function createEffects(scene: Scene): Effects {
 		},
 		dispose() {
 			ps.dispose();
-			sprite.dispose();
+			gib.dispose();
 			for (const t of tracers) t.mesh.dispose(false, true);
 			for (const f of flashes) f.mesh.dispose(false, true);
 			tracerMat.dispose();

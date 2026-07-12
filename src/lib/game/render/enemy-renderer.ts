@@ -1,72 +1,77 @@
 import type { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
-import { Color3 } from "@babylonjs/core/Maths/math";
+import { Color3, Color4 } from "@babylonjs/core/Maths/math";
 import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import { Sprite } from "@babylonjs/core/Sprites/sprite";
+import type { SpriteManager } from "@babylonjs/core/Sprites/spriteManager";
 import type { Scene } from "@babylonjs/core/scene";
 import { getArchetype } from "../content/enemies";
 import { isCloaked } from "../sim/abilities";
 import type { GameState } from "../sim/state";
-import { buildEnemyModel, type EnemyModel } from "./enemy-models";
 import { drawStackedLabel } from "./label";
-import { tierTint, visualFor } from "./visuals";
+import { spriteAngle } from "./sprite-angle";
+import { walkCells } from "./sprite-atlas";
 
-// overall enemy model scale on top of archetype size — makes silhouettes read
-// at top-down gameplay zoom (playtest: "basic pixels", enemies too small)
-const MODEL_SCALE = 2.2;
+// World-unit size of a size-1 archetype sprite. Tuned for top-down readability
+// under the ortho camera (playtest: enemies were "basic pixels", too small).
+const ENEMY_SPRITE_SCALE = 6;
+const BOSS_SCALE = 1.6; // bosses render notably larger on top of their bigger size
+const SPRITE_Y = 1.2; // lift sprites above the ground/decals
+const LABEL_Y = 2.4; // draw label planes above the sprites
+// world offset (screen-up) that floats the label above the creature's body
+const LABEL_OFFSET = 3.2;
+// world distance travelled between the two walk cells — a chunky, readable gait
+const WALK_STEP = 1.1;
 
 type EnemyVisual = {
-	root: TransformNode;
-	model: EnemyModel;
-	mat: StandardMaterial;
-	baseEmissive: Color3;
-	phase: number;
+	sprite: Sprite;
+	cells: readonly [number, number];
 	label: Mesh;
+	labelRoot: TransformNode;
 	texture: DynamicTexture;
 	lastText: string;
-	// last visibility written to the model's parts (Babylon default 1). Only
-	// cloak-capable enemies ever change it, and only when the value actually moves.
-	lastVisibility: number;
+	walkDist: number;
+	lastX: number;
+	lastY: number;
+	phase: number;
+	isBoss: boolean;
 };
 
-/** Stable per-id animation phase so a family's models don't bob in lockstep. */
+/** Stable per-id phase so a family's sprites don't pulse in lockstep. */
 function idPhase(id: number): number {
 	const h = (Math.imul(id, 0x9e3779b1) >>> 0) / 4294967296;
 	return h * Math.PI * 2;
 }
 
-export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
+export function createEnemyRenderer(
+	scene: Scene,
+	glow: GlowLayer,
+	manager: SpriteManager,
+) {
 	const visuals = new Map<number, EnemyVisual>();
 
 	function create(id: number, archetypeId: string): EnemyVisual {
 		const arch = getArchetype(archetypeId);
-		const recipe = visualFor(archetypeId);
-		const root = new TransformNode(`enemy-${id}`, scene);
+		const family = archetypeId.split("-")[0];
+		const isBoss = arch.role === "boss";
+		const cells = isBoss ? walkCells("boss") : walkCells(family);
 
-		const mat = new StandardMaterial(`enemy-${id}-mat`, scene);
-		mat.diffuseColor = new Color3(...tierTint(recipe.color, arch.tier));
-		const baseEmissive = new Color3(...recipe.emissive);
-		mat.emissiveColor = baseEmissive.clone();
-		mat.specularColor = new Color3(0.25, 0.25, 0.3);
+		const sprite = new Sprite(`enemy-${id}`, manager);
+		sprite.cellIndex = cells[0];
+		sprite.isPickable = false;
+		sprite.color = new Color4(1, 1, 1, 1); // show the art's own colours untinted
 
-		const model = buildEnemyModel(scene, recipe, mat);
-		model.node.parent = root;
-		model.node.scaling.setAll(arch.size * MODEL_SCALE);
-
-		// tall billboard: the texture holds four stacked 1/4-height rows (current
-		// word on the bottom row, up to two queued words + a "+n" chip above). The
-		// bottom row is offset down so the current word sits just above the enemy at
-		// the same height a single plate used to; the upper rows stay transparent
-		// when unused.
+		// tall billboard label: four stacked rows (current word bottom, queued above)
+		const labelRoot = new TransformNode(`enemy-${id}-labelroot`, scene);
 		const label = CreatePlane(
 			`enemy-${id}-label`,
 			{ width: 7, height: 7 },
 			scene,
 		);
-		label.parent = root;
-		label.position.y = arch.size * MODEL_SCALE + 0.9 + 2.625;
+		label.parent = labelRoot;
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
 		const texture = new DynamicTexture(
 			`enemy-${id}-tex`,
@@ -83,25 +88,27 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 		glow.addExcludedMesh(label); // word plates stay crisp, never bloomed
 
 		return {
-			root,
-			model,
-			mat,
-			baseEmissive,
-			phase: idPhase(id),
+			sprite,
+			cells,
 			label,
+			labelRoot,
 			texture,
 			lastText: "",
-			lastVisibility: 1,
+			walkDist: 0,
+			lastX: 0,
+			lastY: 0,
+			phase: idPhase(id),
+			isBoss,
 		};
 	}
 
 	return {
 		sync(state: GameState) {
-			// state carries only live enemies; dispose visuals whose enemy is gone
 			const present = new Set(state.enemies.map((e) => e.id));
 			for (const [id, v] of visuals) {
 				if (!present.has(id)) {
-					v.root.dispose(false, true);
+					v.sprite.dispose();
+					v.labelRoot.dispose(false, true);
 					visuals.delete(id);
 				}
 			}
@@ -109,40 +116,57 @@ export function createEnemyRenderer(scene: Scene, glow: GlowLayer) {
 				let v = visuals.get(e.id);
 				if (!v) {
 					v = create(e.id, e.archetypeId);
+					v.lastX = e.pos.x;
+					v.lastY = e.pos.y;
 					visuals.set(e.id, v);
 				}
+				const arch = getArchetype(e.archetypeId);
 				const isTarget = state.targetId === e.id;
-				v.root.position.x = e.pos.x;
-				v.root.position.z = e.pos.y;
 
-				// per-family locomotion gait (bob / roll / thrust / dash-lunge / …),
-				// amplitude scaled by |vel| and dash phase synced via spawnTick
-				v.model.animate(state.tick, v.phase, e.vel, e.spawnTick);
+				// position the sprite flat on the field; label floats above it on screen
+				v.sprite.position.set(e.pos.x, SPRITE_Y, e.pos.y);
+				v.labelRoot.position.set(e.pos.x, LABEL_Y, e.pos.y - LABEL_OFFSET);
 
-				// cloak → near-invisible with an alpha shimmer; else fully opaque. Only
-				// cloak-capable enemies can change visibility, so non-cloakers never
-				// touch their parts after creation; even cloakers write only when the
-				// computed value moves (visible-phase cloakers settle at 1 and stop).
+				// face travel direction (sim velocity) — a creature walking forward
+				v.sprite.angle = spriteAngle(e.vel.x, e.vel.y);
+
+				// walk-cycle: alternate the two pose cells by distance travelled so a
+				// faster enemy visibly steps faster and a stopped one holds a pose
+				const dx = e.pos.x - v.lastX;
+				const dy = e.pos.y - v.lastY;
+				v.walkDist += Math.sqrt(dx * dx + dy * dy);
+				v.lastX = e.pos.x;
+				v.lastY = e.pos.y;
+				const frame = Math.floor(v.walkDist / WALK_STEP) % 2;
+				v.sprite.cellIndex = v.cells[frame];
+
+				// size: archetype size × scale (bosses ×2), with a slow menacing boss
+				// pulse; the locked target swells slightly so it reads as acquired
+				let size = arch.size * ENEMY_SPRITE_SCALE;
+				if (v.isBoss) {
+					size *=
+						BOSS_SCALE * (1 + 0.06 * Math.sin(state.tick * 0.05 + v.phase));
+				}
+				if (isTarget) size *= 1.12;
+				v.sprite.width = size;
+				v.sprite.height = size;
+
+				// cloak → alpha flutter while hidden; else fully opaque
 				if (e.ability?.kind === "cloak") {
-					const vis = isCloaked(e, state.tick)
-						? 0.12 + 0.06 * (0.5 + 0.5 * Math.sin(state.tick * 0.4 + v.phase))
+					v.sprite.color.a = isCloaked(e, state.tick)
+						? 0.18 + 0.1 * (0.5 + 0.5 * Math.sin(state.tick * 0.4 + v.phase))
 						: 1;
-					if (vis !== v.lastVisibility) {
-						for (const p of v.model.parts) p.visibility = vis;
-						v.lastVisibility = vis;
-					}
 				}
 
-				// locked target glows: boost the base emissive rather than replacing
-				// it, so each family keeps its hue; its label plate also grows
-				v.mat.emissiveColor.copyFrom(v.baseEmissive);
-				if (isTarget) v.mat.emissiveColor.scaleInPlace(2.4);
 				v.label.scaling.setAll(isTarget ? 1.12 : 1);
 				drawStackedLabel(v, e.words, e.wordIndex, e.typedCount, isTarget);
 			}
 		},
 		dispose() {
-			for (const v of visuals.values()) v.root.dispose(false, true);
+			for (const v of visuals.values()) {
+				v.sprite.dispose();
+				v.labelRoot.dispose(false, true);
+			}
 			visuals.clear();
 		},
 	};

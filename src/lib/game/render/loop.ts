@@ -6,6 +6,7 @@ import { createEffects } from "./effects";
 import { createEnemyRenderer } from "./enemy-renderer";
 import { createPowerupRenderer } from "./powerup-renderer";
 import { createGameScene } from "./scene";
+import { createSpriteAtlas } from "./sprite-atlas";
 import { createTurret } from "./turret";
 import { visualFor } from "./visuals";
 
@@ -40,10 +41,20 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 	const gameScene = createGameScene(opts.canvas, {
 		preserveDrawingBuffer: opts.testMode,
 	});
-	const enemies = createEnemyRenderer(gameScene.scene, gameScene.glow);
-	const powerups = createPowerupRenderer(gameScene.scene, gameScene.glow);
+	// ONE shared pixel-art sprite atlas backs enemies, the hero and powerups
+	const atlas = createSpriteAtlas(gameScene.scene);
+	const enemies = createEnemyRenderer(
+		gameScene.scene,
+		gameScene.glow,
+		atlas.manager,
+	);
+	const powerups = createPowerupRenderer(
+		gameScene.scene,
+		gameScene.glow,
+		atlas.manager,
+	);
 	const effects = createEffects(gameScene.scene);
-	const turret = createTurret(gameScene.scene);
+	const turret = createTurret(gameScene.scene, atlas.manager);
 	// scratch vectors reused every frame — the hot path allocates nothing
 	const muzzle = new Vector3();
 	const shotTo = new Vector3();
@@ -83,8 +94,6 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 	}
 
 	function deriveEffects() {
-		// muzzle reflects the turret's CURRENT facing (updated earlier this frame)
-		turret.getMuzzle(muzzle);
 		for (const info of lastSeen.values()) info.seen = false;
 		for (const e of state.enemies) {
 			const info = lastSeen.get(e.id);
@@ -100,9 +109,12 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 				const damaged = e.hp < info.hp;
 				const absorbed = e.wordIndex > info.wordIndex && !damaged;
 				if (damaged || typed || absorbed) {
+					// snap the hero's heading to this target (last-shot heading) and
+					// read the fresh muzzle along it before drawing the bolt
+					turret.fire(e.pos.x, e.pos.y, damaged);
+					turret.getMuzzle(muzzle);
 					shotTo.set(e.pos.x, 1, e.pos.y);
 					effects.fireTracer(muzzle, shotTo, damaged || absorbed);
-					turret.recoil(damaged);
 					if (damaged) effects.muzzleFlash(muzzle, true);
 					else if (absorbed) effects.muzzleFlash(muzzle, false); // dull spark
 				}
@@ -156,9 +168,10 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 				gameScene.ground.stampScar(info.x, info.y, id);
 			} else {
 				// a typed-to-death enemy: final bolt + muzzle flash, then burst
+				turret.fire(info.x, info.y, true);
+				turret.getMuzzle(muzzle);
 				shotTo.set(info.x, 1, info.y);
 				effects.fireTracer(muzzle, shotTo, true);
-				turret.recoil(true);
 				effects.muzzleFlash(muzzle, true);
 				effects.deathBurst(info, info.color);
 				// bake a persistent corpse decal into the ground at the death spot
@@ -247,6 +260,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 			turret.dispose();
 			enemies.dispose();
 			powerups.dispose();
+			atlas.dispose();
 			gameScene.dispose();
 		},
 	};

@@ -1,41 +1,20 @@
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Color3, type Vector3 } from "@babylonjs/core/Maths/math";
-import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
-import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder";
-import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import { Sprite } from "@babylonjs/core/Sprites/sprite";
+import type { SpriteManager } from "@babylonjs/core/Sprites/spriteManager";
 import type { Scene } from "@babylonjs/core/scene";
-import { isCloaked } from "../sim/abilities";
-import type { EnemyState, GameState } from "../sim/state";
+import type { GameState } from "../sim/state";
+import { spriteAngle } from "./sprite-angle";
+import { CELLS } from "./sprite-atlas";
 
-const MUZZLE_Y = 1.1; // height the barrels fire from
-const MUZZLE_LEN = 3.1; // distance from core to barrel tip
+const MUZZLE_Y = 1.2; // height the shots leave from (matches the sprite plane)
+const MUZZLE_LEN = 3.4; // distance from the hero to the muzzle along its heading
 const RING_LIFE = 22; // frames a powerup ring pulse lives
-const AIM_SLERP = 0.2; // heading smoothing toward the aim target
-const RECOIL_DECAY = 0.82; // per-frame recoil spring relaxation
-
-export type Turret = {
-	/** Aim the barrels at the active/nearest target (holding heading when the
-	 * field is clear); animate core, radar and recoil from the sim tick. */
-	update(state: GameState): void;
-	/** World position of the barrel tip along the CURRENT facing, into `out`. */
-	getMuzzle(out: Vector3): Vector3;
-	/** Kick the barrel recoil spring on a shot (heavier for a completion). */
-	recoil(heavy: boolean): void;
-	/** Kick off a radial ring pulse from the player (powerup activation). */
-	ringPulse(): void;
-	dispose(): void;
-};
-
-function mat(scene: Scene, name: string, diffuse: Color3, emissive: Color3) {
-	const m = new StandardMaterial(name, scene);
-	m.diffuseColor = diffuse;
-	m.emissiveColor = emissive;
-	m.specularColor = new Color3(0.2, 0.2, 0.25);
-	return m;
-}
+const AIM_SLERP = 0.35; // heading smoothing toward a LOCKED target
+const RECOIL_FRAMES = 3; // frames the recoil sprite cell shows after a shot
+const HERO_SIZE = 7.5; // world size of the hero sprite
 
 function lerpAngle(a: number, b: number, t: number): number {
 	let diff = b - a;
@@ -44,230 +23,101 @@ function lerpAngle(a: number, b: number, t: number): number {
 	return a + diff * t;
 }
 
+export type Turret = {
+	/** Face a LOCKED target (holding heading when none is locked or the field is
+	 * clear) and advance the recoil / ring animations from the sim tick. */
+	update(state: GameState): void;
+	/** World position of the muzzle along the CURRENT heading, into `out`. */
+	getMuzzle(out: Vector3): Vector3;
+	/** Fire toward a world point: snap the hero's heading there (last-shot
+	 * heading — never re-anchors on its own) and kick the recoil sprite cell. */
+	fire(x: number, z: number, heavy: boolean): void;
+	/** Kick off a radial ring pulse from the hero (powerup activation). */
+	ringPulse(): void;
+	dispose(): void;
+};
+
+function mat(scene: Scene, name: string, emissive: Color3) {
+	const m = new StandardMaterial(name, scene);
+	m.diffuseColor = new Color3(0, 0, 0);
+	m.emissiveColor = emissive;
+	m.disableLighting = true;
+	return m;
+}
+
 /**
- * The player: a layered defensive turret at the arena core. A hexagonal sunk
- * base with cooling fins, a combo-scaled energy core, a slow independent radar
- * sweep, and a twin-barrel assembly that AIMS (atan2 + slerp) at the active
- * target — or, with none locked, the nearest enemy anticipatorily — and simply
- * HOLDS its last heading when the field is clear (no idle spin). Everything is
- * built once and animated render-side from the sim tick; no per-frame allocation.
+ * The player: a top-down pixel-art marine/turret sprite at the arena core. Its
+ * heading is the LAST-SHOT heading — it snaps to a target only when a shot fires
+ * (`fire`) or while a target is locked (`update` slerps toward it), and simply
+ * HOLDS otherwise; it never re-anchors to the nearest enemy on its own (explicit
+ * playtest feedback). A recoil cell flashes for a few frames on each shot. Two
+ * flat rings (drawn on the ground plane) survive from the old turret: a powerup
+ * activation pulse and a red danger perimeter that flares as the horde presses in.
  */
-export function createTurret(scene: Scene): Turret {
-	const root = new TransformNode("turret", scene);
+export function createTurret(scene: Scene, manager: SpriteManager): Turret {
+	const hero = new Sprite("hero", manager);
+	hero.cellIndex = CELLS.heroIdle;
+	hero.isPickable = false;
+	hero.width = HERO_SIZE;
+	hero.height = HERO_SIZE;
+	hero.position.set(0, MUZZLE_Y, 0);
 
-	const baseMat = mat(
-		scene,
-		"turret-base-mat",
-		new Color3(0.14, 0.16, 0.22),
-		new Color3(0.02, 0.03, 0.05),
-	);
-	// hexagonal sunk base plate + a narrower upper hex tier for a machined look
-	const base = CreateCylinder(
-		"turret-base",
-		{ height: 0.5, diameterTop: 3.4, diameterBottom: 4, tessellation: 6 },
-		scene,
-	);
-	base.position.y = 0.25;
-	base.material = baseMat;
-	base.parent = root;
-	const baseTop = CreateCylinder(
-		"turret-base-top",
-		{ height: 0.3, diameterTop: 2.2, diameterBottom: 3.0, tessellation: 6 },
-		scene,
-	);
-	baseTop.position.y = 0.62;
-	baseTop.material = baseMat;
-	baseTop.parent = root;
-
-	// six cooling fins radiating from the base hex edges
-	const finMat = mat(
-		scene,
-		"turret-fin-mat",
-		new Color3(0.3, 0.34, 0.42),
-		new Color3(0.04, 0.06, 0.09),
-	);
-	for (let i = 0; i < 6; i++) {
-		const a = (i / 6) * Math.PI * 2;
-		const fin = CreateBox(
-			"turret-cooling-fin",
-			{ width: 0.22, height: 0.5, depth: 1.0 },
-			scene,
-		);
-		fin.position.set(Math.sin(a) * 1.9, 0.35, Math.cos(a) * 1.9);
-		fin.rotation.y = a;
-		fin.material = finMat;
-		fin.parent = root;
-	}
-
-	// pulsing energy core
-	const core = CreateSphere(
-		"turret-core",
-		{ diameter: 1.5, segments: 16 },
-		scene,
-	);
-	core.position.y = 1.0;
-	const coreMat = mat(
-		scene,
-		"turret-core-mat",
-		new Color3(0.3, 0.8, 1),
-		new Color3(0.15, 0.55, 0.9),
-	);
-	core.material = coreMat;
-	core.parent = root;
-
-	// aiming assembly: rotates in yaw to face the target
-	const barrel = new TransformNode("turret-barrel", scene);
-	barrel.position.y = MUZZLE_Y;
-	barrel.parent = root;
-
-	const barrelMat = mat(
-		scene,
-		"turret-barrel-mat",
-		new Color3(0.55, 0.62, 0.72),
-		new Color3(0.05, 0.08, 0.12),
-	);
-	const tipMat = mat(
-		scene,
-		"turret-tip-mat",
-		new Color3(0.6, 0.9, 1),
-		new Color3(0.4, 0.8, 1),
-	);
-	// twin barrels: each is its own node so it can recoil independently in z
-	const barrelNodes: TransformNode[] = [];
-	for (const sx of [-1, 1]) {
-		const bn = new TransformNode(`turret-barrel-${sx}`, scene);
-		bn.position.set(sx * 0.42, 0, 0);
-		bn.parent = barrel;
-		const shaft = CreateBox(
-			"turret-shaft",
-			{ width: 0.42, height: 0.42, depth: 2.6 },
-			scene,
-		);
-		shaft.position.z = 1.3;
-		shaft.material = barrelMat;
-		shaft.parent = bn;
-		const tip = CreateBox(
-			"turret-tip",
-			{ width: 0.58, height: 0.58, depth: 0.6 },
-			scene,
-		);
-		tip.position.z = 2.7;
-		tip.material = tipMat;
-		tip.parent = bn;
-		barrelNodes.push(bn);
-	}
-
-	// slow, independent radar sweep — a thin lit spoke rotating at its own rate,
-	// reading as an always-scanning sensor regardless of where the barrels aim
-	const radar = new TransformNode("turret-radar", scene);
-	radar.position.y = 0.15;
-	radar.parent = root;
-	const radarMat = mat(
-		scene,
-		"turret-radar-mat",
-		new Color3(0.3, 0.7, 0.9),
-		new Color3(0.2, 0.55, 0.8),
-	);
-	const spoke = CreateBox(
-		"turret-radar-spoke",
-		{ width: 0.1, height: 0.05, depth: 4.4 },
-		scene,
-	);
-	spoke.position.z = 2.2;
-	spoke.material = radarMat;
-	spoke.parent = radar;
-
-	// pooled powerup ring pulse (single, retriggerable)
+	// pooled powerup ring pulse (flat on the ground)
 	const ring = CreateTorus(
 		"turret-ring",
 		{ diameter: 2, thickness: 0.18, tessellation: 40 },
 		scene,
 	);
-	ring.rotation.x = Math.PI / 2;
+	// torus lies flat in XZ by default → reads as a circle on the ground under the
+	// overhead ortho camera (a standing ring would collapse to an edge-on line)
 	ring.position.y = 0.3;
-	const ringMat = mat(
-		scene,
-		"turret-ring-mat",
-		new Color3(0.5, 0.9, 1),
-		new Color3(0.4, 0.85, 1),
-	);
+	const ringMat = mat(scene, "turret-ring-mat", new Color3(0.4, 0.85, 1));
 	ringMat.alpha = 0;
 	ring.material = ringMat;
 	ring.setEnabled(false);
 	let ringLife = 0;
 
-	// core danger ring: the defensive perimeter the player protects
+	// red danger perimeter the player defends
 	const danger = CreateTorus(
 		"turret-danger",
 		{ diameter: 9, thickness: 0.14, tessellation: 64 },
 		scene,
 	);
-	danger.rotation.x = Math.PI / 2;
-	danger.position.y = 0.12;
-	const dangerMat = mat(
-		scene,
-		"turret-danger-mat",
-		new Color3(0.5, 0.4, 0.15),
-		new Color3(0.5, 0.4, 0.15),
-	);
+	danger.position.y = 0.12; // flat on the ground (see ring above)
+	const dangerMat = mat(scene, "turret-danger-mat", new Color3(0.5, 0.4, 0.15));
 	danger.material = dangerMat;
 
-	let yaw = 0;
-	let recoilSpring = 0; // 0..1, kicked on a shot, relaxes each frame
-	let radarAngle = 0;
+	// heading unit vector in world (sim) space; starts facing "north" (up-screen)
+	let hx = 0;
+	let hz = -1;
+	let yaw = spriteAngle(hx, hz);
+	let recoilFrames = 0;
+
+	function setHeading(x: number, z: number): void {
+		const len = Math.hypot(x, z);
+		if (len < 1e-6) return;
+		hx = x / len;
+		hz = z / len;
+	}
 
 	return {
 		update(state: GameState) {
-			// one pass resolves the locked target, the nearest AIMABLE enemy (cloaked
-			// hidden-phase enemies excluded so the barrels don't telegraph them), and
-			// the nearest enemy overall for the danger ring (any enemy threatens)
-			let target: EnemyState | undefined;
-			let nearestAimEnemy: EnemyState | undefined;
-			let nearestAim = Number.POSITIVE_INFINITY;
-			let nearest = Number.POSITIVE_INFINITY;
-			for (const e of state.enemies) {
-				if (e.id === state.targetId) target = e;
-				const d = Math.hypot(e.pos.x, e.pos.y);
-				if (d < nearest) nearest = d;
-				// aim scan skips cloaked enemies so barrels never point at a target
-				// the player can't yet see
-				if (!isCloaked(e, state.tick) && d < nearestAim) {
-					nearestAim = d;
-					nearestAimEnemy = e;
-				}
+			// track a LOCKED target (slerp); otherwise hold the last-shot heading
+			const target = state.enemies.find((e) => e.id === state.targetId);
+			if (target) {
+				setHeading(target.pos.x, target.pos.y);
 			}
-			// aim priority: locked target → nearest enemy (anticipatory) → HOLD
-			const aimAt = target ?? nearestAimEnemy;
-			if (aimAt) {
-				const desired = Math.atan2(aimAt.pos.x, aimAt.pos.y);
-				yaw = lerpAngle(yaw, desired, AIM_SLERP);
+			const desired = spriteAngle(hx, hz);
+			yaw = target ? lerpAngle(yaw, desired, AIM_SLERP) : desired;
+			hero.angle = yaw;
+
+			// recoil cell flashes for a few frames after each shot
+			if (recoilFrames > 0) {
+				recoilFrames -= 1;
+				hero.cellIndex = CELLS.heroRecoil;
+			} else {
+				hero.cellIndex = CELLS.heroIdle;
 			}
-			barrel.rotation.y = yaw;
-
-			// per-shot recoil: pull both barrels back proportionally, relax each frame
-			recoilSpring *= RECOIL_DECAY;
-			if (recoilSpring < 0.001) recoilSpring = 0;
-			const back = -recoilSpring * 0.5;
-			barrelNodes[0].position.z = back;
-			barrelNodes[1].position.z = back;
-
-			// combo-scaled core glow: hotter core as the streak climbs, plus a pulse
-			const pulse = 0.5 + 0.5 * Math.sin(state.tick * 0.12);
-			const comboGain = 1 + Math.min(1.6, state.combo * 0.12);
-			const lock = target ? 1.25 : 1;
-			const gain = comboGain * lock;
-			coreMat.emissiveColor.set(
-				0.15 * (1 + pulse) * gain,
-				0.55 * (0.7 + pulse * 0.5) * gain,
-				0.9 * (0.7 + pulse * 0.5) * gain,
-			);
-			core.scaling.setAll(
-				1 + pulse * 0.08 + Math.min(0.12, state.combo * 0.01),
-			);
-
-			// slow independent radar sweep
-			radarAngle += 0.02;
-			radar.rotation.y = radarAngle;
 
 			if (ringLife > 0) {
 				ringLife -= 1;
@@ -277,7 +127,12 @@ export function createTurret(scene: Scene): Turret {
 				if (ringLife === 0) ring.setEnabled(false);
 			}
 
-			// core danger ring: nearest enemy proximity drives colour + pulse
+			// danger ring: nearest enemy proximity drives colour + pulse
+			let nearest = Number.POSITIVE_INFINITY;
+			for (const e of state.enemies) {
+				const d = Math.hypot(e.pos.x, e.pos.y);
+				if (d < nearest) nearest = d;
+			}
 			const threat = nearest < 6 ? 1 - nearest / 6 : 0;
 			const beat = 0.5 + 0.5 * Math.sin(state.tick * (0.1 + threat * 0.25));
 			const glow = 0.35 + beat * (0.25 + threat * 0.7);
@@ -288,12 +143,14 @@ export function createTurret(scene: Scene): Turret {
 			);
 		},
 		getMuzzle(out: Vector3): Vector3 {
-			out.set(Math.sin(yaw) * MUZZLE_LEN, MUZZLE_Y, Math.cos(yaw) * MUZZLE_LEN);
+			out.set(hx * MUZZLE_LEN, MUZZLE_Y, hz * MUZZLE_LEN);
 			return out;
 		},
-		recoil(heavy: boolean) {
-			const kick = heavy ? 1 : 0.55;
-			if (kick > recoilSpring) recoilSpring = kick;
+		fire(x: number, z: number, _heavy: boolean) {
+			setHeading(x, z);
+			yaw = spriteAngle(hx, hz);
+			hero.angle = yaw;
+			recoilFrames = RECOIL_FRAMES;
 		},
 		ringPulse() {
 			ringLife = RING_LIFE;
@@ -302,7 +159,7 @@ export function createTurret(scene: Scene): Turret {
 			ringMat.alpha = 0.7;
 		},
 		dispose() {
-			root.dispose(false, true);
+			hero.dispose();
 			(ring as Mesh).dispose(false, true);
 			(danger as Mesh).dispose(false, true);
 		},
