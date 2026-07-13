@@ -37,6 +37,25 @@ export function pickWord(
 	return pickWordForTier(1, rngState, excludeInitials);
 }
 
+const ALPHABET = "abcdefghijklmnopqrstuvwxyz".split("");
+
+/**
+ * Draw a single a–z letter uniformly from the letters NOT in `exclude`, used as
+ * a swarm enemy's one-word chain. `exclude` is the live field's initials so the
+ * frenzy stays keystroke-unambiguous (with the hard cap of 16 alive, ≥10 letters
+ * always remain). If every letter is somehow excluded, fall back to the full
+ * alphabet rather than draw from an empty pool. Threads the rng deterministically.
+ */
+export function pickLetter(
+	rngState: number,
+	exclude: ReadonlySet<string>,
+): [letter: string, next: number] {
+	const filtered = ALPHABET.filter((l) => !exclude.has(l));
+	const usable = filtered.length > 0 ? filtered : ALPHABET;
+	const [i, next] = nextInt(rngState, usable.length);
+	return [usable[i], next];
+}
+
 /**
  * Draw a chain of `count` band words for an enemy's word list. Every word obeys
  * the field-uniqueness reservation (`excludeInitials`) so both the fresh enemy's

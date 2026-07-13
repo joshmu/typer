@@ -61,6 +61,13 @@ export type GameState = {
 	enemies: EnemyState[];
 	wave: number;
 	wavePhase: "intermission" | "active";
+	// classification of the ACTIVE wave, decided the instant the wave increments
+	// (see runWaveDirector). "boss" every 5th wave; "swarm" a seeded frenzy of
+	// single-letter tier-1 smalls; "normal" otherwise. Serialized in the hash.
+	waveKind: "normal" | "swarm" | "boss";
+	// the last wave number that rolled "swarm" — guards against back-to-back
+	// frenzies (a swarm can never immediately follow another swarm).
+	lastSwarmWave: number;
 	spawnQueueRemaining: number;
 	spawnCooldown: number;
 	intermissionTicksLeft: number;
@@ -102,6 +109,8 @@ export function createInitialState(seed: number): GameState {
 		enemies: [],
 		wave: 0,
 		wavePhase: "intermission",
+		waveKind: "normal",
+		lastSwarmWave: 0,
 		spawnQueueRemaining: 0,
 		spawnCooldown: 0,
 		intermissionTicksLeft: 60,

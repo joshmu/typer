@@ -139,6 +139,16 @@ the core (`ARENA.killRadius`) costs 1 hp and gameover fires at 0.
 - **Caps & timing:** `MAX_ALIVE = 8` (soft, wave director), `ALIVE_HARD_CAP = 16`
   (absolute, includes ability-spawned minions), `INTERMISSION_TICKS = 180`,
   `INITIAL_INTERMISSION_TICKS = 60`.
+- **Frenzy (swarm) waves:** `GameState.waveKind` is fixed the instant a wave goes
+  active. Every 5th wave is `"boss"`; otherwise waves past 3 roll a seeded
+  `SWARM_CHANCE` (20%) for `"swarm"`, never two in a row (`lastSwarmWave` guard,
+  one `nextFloat` draw per eligible wave-start). A swarm floods the arena with
+  single-letter tier-1 smalls: enemy count ×4 (`waveEnemyCount × 4`), spawn
+  cooldown `max(10, ⌊waveSpawnCooldown ÷ 3⌋)`, the soft alive cap raised to
+  `SWARM_MAX_ALIVE = 12` (hard cap 16 unchanged), the spawn table forced to
+  `husk-1`/`darter-1` (seeded 50/50, bosses can never appear), and every chain a
+  single a–z letter drawn to avoid live field initials (`pickLetter`). The HUD
+  wave chip flips to a red/amber **FRENZY** banner while `waveKind === "swarm"`.
 
 ## Motion physics
 

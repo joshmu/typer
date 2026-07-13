@@ -207,3 +207,174 @@ describe("spawner", () => {
 		expect(s.enemies.length).toBeGreaterThan(0);
 	});
 });
+
+/** Advance a crafted intermission state so the wave increments by exactly one. */
+function incrementWave(s: GameState): void {
+	s.wavePhase = "intermission";
+	s.intermissionTicksLeft = 0;
+	runWaveDirector(s);
+}
+
+/**
+ * Find a seed whose first eligible wave (wave 4) rolls a swarm, and return the
+ * state at the moment that wave went active. The 20% roll fires for ~1 in 5
+ * seeds so a small search space suffices.
+ */
+function craftSwarmWave(): GameState {
+	for (let seed = 0; seed < 5000; seed++) {
+		const s = createInitialState(seed);
+		s.wave = 3;
+		s.lastSwarmWave = 0;
+		incrementWave(s);
+		if (s.waveKind === "swarm") return s;
+	}
+	throw new Error("no swarm seed found in search space");
+}
+
+describe("frenzy swarm waves", () => {
+	it("initialises waveKind normal and lastSwarmWave 0", () => {
+		const s = createInitialState(1);
+		expect(s.waveKind).toBe("normal");
+		expect(s.lastSwarmWave).toBe(0);
+	});
+
+	it("every 5th wave is a boss wave", () => {
+		const s = createInitialState(1);
+		s.wave = 4;
+		incrementWave(s);
+		expect(s.wave).toBe(5);
+		expect(s.waveKind).toBe("boss");
+	});
+
+	it("waves 1-3 are never swarm, regardless of seed", () => {
+		for (let seed = 0; seed < 200; seed++) {
+			for (const target of [1, 2, 3]) {
+				const s = createInitialState(seed);
+				s.wave = target - 1;
+				incrementWave(s);
+				expect(s.wave).toBe(target);
+				expect(s.waveKind).not.toBe("swarm");
+			}
+		}
+	});
+
+	it("some seed turns a wave >3 into a swarm", () => {
+		let found = false;
+		for (let seed = 0; seed < 5000 && !found; seed++) {
+			const s = createInitialState(seed);
+			s.wave = 3;
+			s.lastSwarmWave = 0;
+			incrementWave(s);
+			if (s.wave === 4 && s.waveKind === "swarm") found = true;
+		}
+		expect(found).toBe(true);
+	});
+
+	it("never rolls a swarm the wave immediately after a swarm", () => {
+		// lastSwarmWave = new wave - 1 must skip the roll for every seed, even the
+		// ones that would otherwise have rolled a swarm.
+		for (let seed = 0; seed < 400; seed++) {
+			const s = createInitialState(seed);
+			s.wave = 3;
+			s.lastSwarmWave = 3; // target wave 4 immediately follows a swarm → roll skipped
+			incrementWave(s);
+			expect(s.wave).toBe(4);
+			expect(s.waveKind).not.toBe("swarm");
+		}
+	});
+
+	it("a swarm wave queues 4x the normal enemy count", () => {
+		const s = craftSwarmWave();
+		expect(s.wave).toBe(4);
+		expect(s.lastSwarmWave).toBe(4);
+		expect(s.spawnQueueRemaining).toBe(waveEnemyCount(4) * 4);
+	});
+
+	it("a swarm wave fields only tier-1 smalls with unique single-letter words", () => {
+		const s = craftSwarmWave();
+		for (let i = 0; i < 800; i++) {
+			s.tick += 1;
+			runWaveDirector(s);
+		}
+		const alive = s.enemies.filter((e) => e.alive);
+		expect(alive.length).toBeGreaterThan(0);
+		for (const e of alive) {
+			expect(["husk-1", "darter-1"]).toContain(e.archetypeId);
+			expect(currentWord(e)).toMatch(/^[a-z]$/);
+			expect(e.hp).toBe(1);
+			expect(e.words.length).toBe(1);
+		}
+		const initials = alive.map((e) => currentWord(e)[0]);
+		expect(new Set(initials).size).toBe(initials.length);
+	});
+
+	it("swarm soft cap lets the live field exceed MAX_ALIVE (up to 12)", () => {
+		const s = createInitialState(1);
+		s.wave = 4;
+		s.waveKind = "swarm";
+		s.wavePhase = "active";
+		s.spawnQueueRemaining = 100;
+		s.spawnCooldown = 0;
+		for (let i = 0; i < 3000; i++) {
+			s.tick += 1;
+			runWaveDirector(s);
+		}
+		const alive = s.enemies.filter((e) => e.alive).length;
+		expect(alive).toBeGreaterThan(MAX_ALIVE);
+		expect(alive).toBeLessThanOrEqual(12);
+	});
+
+	it("swarm spawning continues at 9 alive but stops at the soft cap of 12", () => {
+		const nine = createInitialState(1);
+		nine.wave = 4;
+		nine.waveKind = "swarm";
+		nine.wavePhase = "active";
+		nine.spawnQueueRemaining = 20;
+		nine.spawnCooldown = 0;
+		for (let i = 0; i < 9; i++) {
+			spawnFromArchetype(nine, "husk-1", { x: 20, y: 0 }, true);
+		}
+		expect(nine.enemies.filter((e) => e.alive).length).toBe(9);
+		const q = nine.spawnQueueRemaining;
+		nine.tick += 1;
+		runWaveDirector(nine);
+		expect(nine.spawnQueueRemaining).toBe(q - 1);
+		expect(nine.enemies.filter((e) => e.alive).length).toBe(10);
+
+		const twelve = createInitialState(1);
+		twelve.wave = 4;
+		twelve.waveKind = "swarm";
+		twelve.wavePhase = "active";
+		twelve.spawnQueueRemaining = 20;
+		twelve.spawnCooldown = 0;
+		for (let i = 0; i < 12; i++) {
+			spawnFromArchetype(twelve, "husk-1", { x: 20, y: 0 }, true);
+		}
+		expect(twelve.enemies.filter((e) => e.alive).length).toBe(12);
+		const q2 = twelve.spawnQueueRemaining;
+		twelve.tick += 1;
+		runWaveDirector(twelve);
+		expect(twelve.spawnQueueRemaining).toBe(q2);
+		expect(twelve.enemies.filter((e) => e.alive).length).toBe(12);
+	});
+
+	it("swarm spawn cooldown is a third of the normal cadence, floored at 10", () => {
+		const s = createInitialState(1);
+		s.wave = 4;
+		s.waveKind = "swarm";
+		s.wavePhase = "active";
+		s.spawnQueueRemaining = 20;
+		s.spawnCooldown = 0;
+		s.tick = 100;
+		runWaveDirector(s);
+		expect(s.spawnCooldown).toBe(
+			Math.max(10, Math.floor(waveSpawnCooldown(4) / 3)),
+		);
+	});
+
+	it("both forced swarm archetypes are hp 1 (single-letter chain invariant)", async () => {
+		const { getArchetype } = await import("../content/enemies");
+		expect(getArchetype("husk-1").hp).toBe(1);
+		expect(getArchetype("darter-1").hp).toBe(1);
+	});
+});

@@ -237,12 +237,24 @@ export default function GameShell() {
 						{/* top-left: active wave chip + combo meter */}
 						<div class="pointer-events-none absolute top-3 left-3 flex flex-col gap-2 font-mono text-xs">
 							<Show when={state().wavePhase === "active"}>
-								<span
-									data-testid="game-wave"
-									class="rounded bg-white/10 px-2 py-1"
+								<Show
+									when={state().waveKind === "swarm"}
+									fallback={
+										<span
+											data-testid="game-wave"
+											class="rounded bg-white/10 px-2 py-1"
+										>
+											wave {state().wave}
+										</span>
+									}
 								>
-									wave {state().wave}
-								</span>
+									<span
+										data-testid="wave-frenzy"
+										class="animate-pulse rounded bg-red-500/25 px-2 py-1 font-bold tracking-wider text-amber-300 shadow-[0_0_12px_rgba(248,113,113,0.7)]"
+									>
+										FRENZY · wave {state().wave}
+									</span>
+								</Show>
 							</Show>
 							<Show when={state().combo > 0}>
 								<div
