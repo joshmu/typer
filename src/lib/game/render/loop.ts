@@ -30,6 +30,8 @@ export type GameLoop = {
 	pushKey(key: string): void;
 	/** Release the active target (Backspace) — keeps all typed progress. */
 	pushBackspace(): void;
+	/** Pick perk card `index` (0|1|2) during the perk-choice overlay. */
+	pushPerk(index: number): void;
 	stepTicks(n: number): void;
 	setRunning(running: boolean): void;
 	getState(): GameState;
@@ -245,6 +247,13 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 		},
 		pushBackspace() {
 			pending.push({ type: "backspace" });
+			if (opts.testMode) {
+				advance(1);
+				render();
+			}
+		},
+		pushPerk(index: number) {
+			pending.push({ type: "perk", index });
 			if (opts.testMode) {
 				advance(1);
 				render();

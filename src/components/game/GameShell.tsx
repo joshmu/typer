@@ -8,6 +8,7 @@ import {
 } from "solid-js";
 import { getArchetype } from "@/lib/game/content/enemies";
 import type { GameLoop } from "@/lib/game/render/loop";
+import { PERK_DEFS } from "@/lib/game/sim/perks";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
 import { COMBO_DECAY_TICKS, comboMultiplier } from "@/lib/game/sim/score";
 import type { EnemyState, GameState } from "@/lib/game/sim/state";
@@ -22,6 +23,7 @@ declare global {
 			getState(): GameState;
 			sendKeys(keys: string): void;
 			sendBackspace(): void;
+			sendPerk(index: number): void;
 			stepTicks(n: number): void;
 			renderReady(): boolean;
 		};
@@ -33,6 +35,14 @@ function firstAliveBoss(state: GameState): EnemyState | undefined {
 	return state.enemies.find(
 		(e) => e.alive && getArchetype(e.archetypeId).role === "boss",
 	);
+}
+
+/** Rarity accent for a perk card: slate (common) / cyan (rare) / amber glow (epic). */
+function perkAccent(rarity: "common" | "rare" | "epic"): string {
+	if (rarity === "epic")
+		return "border-amber-400 shadow-[0_0_22px_rgba(251,191,36,0.45)]";
+	if (rarity === "rare") return "border-cyan-400";
+	return "border-slate-500";
 }
 
 export default function GameShell() {
@@ -123,6 +133,7 @@ export default function GameShell() {
 						for (const k of keys) activeLoop.pushKey(k);
 					},
 					sendBackspace: () => activeLoop.pushBackspace(),
+					sendPerk: (index) => activeLoop.pushPerk(index),
 					stepTicks: (n) => activeLoop.stepTicks(n),
 					renderReady: () => activeLoop.renderReady(),
 				};
@@ -168,6 +179,15 @@ export default function GameShell() {
 			if (e.key === "r" || e.key === "R") {
 				e.preventDefault();
 				restart();
+			}
+			return;
+		}
+		// perk-choice overlay: digits 1/2/3 pick a card; every other key is inert
+		// (the sim ignores keys in this phase anyway — swallow them for cleanliness)
+		if (hud()?.wavePhase === "perk-choice") {
+			e.preventDefault();
+			if (e.key === "1" || e.key === "2" || e.key === "3") {
+				loop?.pushPerk(Number(e.key) - 1);
 			}
 			return;
 		}
@@ -338,7 +358,69 @@ export default function GameShell() {
 								WAVE {state().wave + 1} INCOMING
 							</div>
 						</Show>
+
+						{/* bottom-left: owned-perk strip (short names, tiny mono chips) */}
+						<Show when={state().perks.length > 0}>
+							<div
+								data-testid="perk-strip"
+								class="pointer-events-none absolute bottom-3 left-3 flex max-w-[42vw] flex-wrap gap-1 font-mono text-[10px] leading-none"
+							>
+								<For each={state().perks}>
+									{(id) => (
+										<span class="rounded bg-white/10 px-1.5 py-1 tracking-wide opacity-80">
+											{PERK_DEFS[id].name.slice(0, 8)}
+										</span>
+									)}
+								</For>
+							</div>
+						</Show>
 					</>
+				)}
+			</Show>
+
+			{/* perk draft overlay: three rarity-accented cards, keys [1]/[2]/[3] */}
+			<Show when={hud()?.wavePhase === "perk-choice" ? hud() : null}>
+				{(state) => (
+					<div
+						data-testid="perk-overlay"
+						class="absolute inset-0 z-10 grid place-items-center bg-black/80 backdrop-blur-sm"
+					>
+						<div class="flex flex-col items-center gap-6 px-4">
+							<h2 class="font-mono text-xl font-bold tracking-[0.3em] text-amber-300">
+								CHOOSE YOUR UPGRADE
+							</h2>
+							<div class="flex flex-wrap justify-center gap-4">
+								<For each={state().perkOffer ?? []}>
+									{(id, i) => (
+										<button
+											type="button"
+											data-testid={`perk-card-${i()}`}
+											onClick={() => loop?.pushPerk(i())}
+											class={`flex w-56 flex-col gap-3 rounded-lg border-2 bg-white/5 p-4 text-left transition hover:bg-white/10 ${perkAccent(
+												PERK_DEFS[id].rarity,
+											)}`}
+										>
+											<div class="flex items-center justify-between">
+												<span class="font-mono text-[10px] uppercase tracking-wider opacity-60">
+													{PERK_DEFS[id].rarity}
+												</span>
+												<kbd class="rounded bg-white/15 px-2 py-0.5 font-mono text-sm">
+													{i() + 1}
+												</kbd>
+											</div>
+											<span class="font-mono text-lg font-bold">
+												{PERK_DEFS[id].name}
+											</span>
+											<span class="text-sm opacity-80">
+												{PERK_DEFS[id].desc}
+											</span>
+										</button>
+									)}
+								</For>
+							</div>
+							<p class="font-mono text-xs opacity-50">press 1 · 2 · 3</p>
+						</div>
+					</div>
 				)}
 			</Show>
 			<Show when={ready() && !started() && hud()?.status !== "gameover"}>

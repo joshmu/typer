@@ -3,6 +3,7 @@ import { ENEMIES, getArchetype } from "../content/enemies";
 import { pickLetter, pickWordChain } from "../content/words";
 import { createEnemy } from "./enemy-factory";
 import { randomPointOnCircle } from "./math";
+import { drawPerkOffer } from "./perks";
 import { nextFloat, nextInt } from "./rng";
 import { ARENA, currentWord, type GameState, type Vec2 } from "./state";
 
@@ -127,6 +128,10 @@ export function spawnFromArchetype(
 }
 
 export function runWaveDirector(s: GameState): void {
+	// perk-choice is frozen: no cooldown decay, no spawns, no wave advance. Only a
+	// perk event (handled in step) leaves this phase. step already early-returns
+	// before calling us in that phase; this guard keeps the director self-safe.
+	if (s.wavePhase === "perk-choice") return;
 	if (s.spawnCooldown > 0) s.spawnCooldown -= 1;
 
 	if (s.wavePhase === "intermission") {
@@ -205,7 +210,12 @@ export function runWaveDirector(s: GameState): void {
 	// so the last queued enemy never completes the wave the instant it appears.
 	const aliveAfter = s.enemies.filter((e) => e.alive).length;
 	if (s.spawnQueueRemaining <= 0 && aliveAfter === 0) {
-		s.wavePhase = "intermission";
-		s.intermissionTicksLeft = INTERMISSION_TICKS;
+		// wave cleared → offer a perk BEFORE the next intermission. Enter the frozen
+		// "perk-choice" phase and draw the 3-card offer (rng-threaded here so the
+		// draw is part of the deterministic fold). The perk event flips this to
+		// intermission (see applyPerkChoice in step.ts). The initial wave 0→1
+		// intermission is untouched — it is seeded in createInitialState, never here.
+		s.wavePhase = "perk-choice";
+		drawPerkOffer(s);
 	}
 }

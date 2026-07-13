@@ -1,5 +1,6 @@
 import { pickWord } from "../content/words";
 import { cosR, sinR } from "./math";
+import { cryoDurationMult } from "./perks";
 import { nextFloat, nextInt } from "./rng";
 import { ARENA, currentWord, type GameState, type PowerupKind } from "./state";
 
@@ -59,12 +60,15 @@ export function applyPowerup(s: GameState, kind: PowerupKind): void {
 	// count the activation so the render layer can pulse its ring on the rise of
 	// this counter alone — never on a pickup merely expiring while locked
 	s.powerupsUsed += 1;
+	// cryo-mastery stretches the crowd-control windows at APPLICATION time (floored
+	// so tick counts stay integers and the state hash stays cross-engine stable).
+	const cryo = cryoDurationMult(s);
 	switch (kind) {
 		case "freeze":
-			s.freezeTicksLeft = FREEZE_TICKS;
+			s.freezeTicksLeft = Math.floor(FREEZE_TICKS * cryo);
 			return;
 		case "slow":
-			s.slowTicksLeft = SLOW_TICKS;
+			s.slowTicksLeft = Math.floor(SLOW_TICKS * cryo);
 			return;
 		case "heal":
 			s.playerHp = Math.min(s.maxPlayerHp, s.playerHp + 1);

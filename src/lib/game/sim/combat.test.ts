@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { getArchetype } from "../content/enemies";
-import { advanceWord, killEnemy, resolveCompletion } from "./combat";
+import {
+	advanceWord,
+	dealDamage,
+	killEnemy,
+	resolveCompletion,
+} from "./combat";
 import { createEnemy } from "./enemy-factory";
-import { createInitialState, currentWord, type GameState } from "./state";
+import type { PerkId } from "./perks";
+import {
+	createInitialState,
+	currentWord,
+	type EnemyState,
+	type GameState,
+} from "./state";
 
 function chain(len: number, count: number): string[] {
 	// distinct filler words of a fixed length for deterministic tests
@@ -218,5 +229,154 @@ describe("combat", () => {
 		expect(e.typedCount).toBe(0); // progress reset
 		expect(currentWord(e)).toBe(word);
 		expect(e.words).toEqual(wordsBefore);
+	});
+});
+
+/** Place an enemy at a position with a single-letter (hp-1) chain unless a
+ * word list is given, so a lone completion fells it. */
+function enemyAt(
+	archetypeId: string,
+	id: number,
+	pos: { x: number; y: number },
+	words: string[] = ["a"],
+): EnemyState {
+	return createEnemy(getArchetype(archetypeId), id, pos, 0, words);
+}
+
+function perkState(perks: PerkId[], enemies: EnemyState[]): GameState {
+	const s = createInitialState(42);
+	s.perks = perks;
+	s.enemies = enemies;
+	s.nextEnemyId = enemies.length + 1;
+	return s;
+}
+
+/** Fully type an enemy's current word so the next resolveCompletion acts. */
+function completeWord(s: GameState, e: EnemyState): void {
+	e.typedCount = currentWord(e).length;
+	s.targetId = e.id;
+	resolveCompletion(s, e);
+}
+
+describe("dealDamage (shared damage path)", () => {
+	it("reports absorbed / chipped / killed", () => {
+		const shielded = enemyAt("weaver-1", 1, { x: 5, y: 0 }); // shield hits 1
+		const s1 = perkState([], [shielded]);
+		expect(dealDamage(s1, shielded)).toBe("absorbed");
+		expect(shielded.alive).toBe(true);
+		expect(s1.absorbs).toBe(1);
+
+		const multi = enemyAt("husk-4", 2, { x: 5, y: 0 }, ["aa", "bb", "cc"]); // hp 3
+		const s2 = perkState([], [multi]);
+		expect(dealDamage(s2, multi)).toBe("chipped");
+		expect(multi.hp).toBe(2);
+		expect(multi.wordIndex).toBe(1);
+
+		const weak = enemyAt("husk-1", 3, { x: 5, y: 0 });
+		const s3 = perkState([], [weak]);
+		expect(dealDamage(s3, weak)).toBe("killed");
+		expect(weak.alive).toBe(false);
+		expect(s3.kills).toBe(1);
+	});
+});
+
+describe("weapon perks", () => {
+	it("splash-rounds detonates 1 damage to every enemy within 6 of the victim", () => {
+		const victim = enemyAt("husk-1", 1, { x: 5, y: 0 });
+		const near = enemyAt("husk-1", 2, { x: 8, y: 0 }); // dist 3 → in radius
+		const far = enemyAt("husk-1", 3, { x: 20, y: 0 }); // dist 15 → out
+		const s = perkState(["splash-rounds"], [victim, near, far]);
+		completeWord(s, victim);
+		expect(victim.alive).toBe(false);
+		expect(near.alive).toBe(false); // splashed to death
+		expect(far.alive).toBe(true);
+		expect(s.kills).toBe(2); // victim + splashed neighbour both count
+	});
+
+	it("splash respects a shield absorb — a plated neighbour clangs, not dies", () => {
+		const victim = enemyAt("husk-1", 1, { x: 5, y: 0 });
+		const plated = enemyAt("weaver-1", 2, { x: 8, y: 0 }); // shield hits 1
+		const s = perkState(["splash-rounds"], [victim, plated]);
+		completeWord(s, victim);
+		expect(plated.alive).toBe(true); // shield ate the splash
+		expect(plated.abilityState.shieldHits).toBe(0);
+		expect(s.absorbs).toBe(1);
+		expect(s.kills).toBe(1); // only the victim
+	});
+
+	it("piercing-bolt hits the nearest enemy BEHIND the victim, never one in front", () => {
+		const victim = enemyAt("husk-1", 1, { x: 5, y: 0 }); // outward radial = +x
+		const behind = enemyAt("husk-1", 2, { x: 9, y: 0 }); // further out → behind
+		const front = enemyAt("husk-1", 3, { x: 2, y: 0 }); // toward core → in front
+		const s = perkState(["piercing-bolt"], [victim, behind, front]);
+		completeWord(s, victim);
+		expect(behind.alive).toBe(false); // pierced
+		expect(front.alive).toBe(true); // in front of the bolt, spared
+	});
+
+	it("chain-arc only fires at combo ≥ 10", () => {
+		// combo 8 → kill makes 9 (< 10): no arc
+		const v1 = enemyAt("husk-1", 1, { x: 5, y: 0 });
+		const n1 = enemyAt("husk-1", 2, { x: 8, y: 0 });
+		const s1 = perkState(["chain-arc"], [v1, n1]);
+		s1.combo = 8;
+		completeWord(s1, v1);
+		expect(n1.alive).toBe(true);
+
+		// combo 9 → kill makes 10 (≥ 10): arcs to the neighbour
+		const v2 = enemyAt("husk-1", 1, { x: 5, y: 0 });
+		const n2 = enemyAt("husk-1", 2, { x: 8, y: 0 });
+		const s2 = perkState(["chain-arc"], [v2, n2]);
+		s2.combo = 9;
+		completeWord(s2, v2);
+		expect(n2.alive).toBe(false);
+	});
+
+	it("weapon-triggered kills do not re-trigger weapon effects (one hop)", () => {
+		// splash victim kills A; A is adjacent to B, but splash off A must NOT chain.
+		const victim = enemyAt("husk-1", 1, { x: 5, y: 0 });
+		const a = enemyAt("husk-1", 2, { x: 8, y: 0 }); // dist 3 → within 6 of victim
+		const b = enemyAt("husk-1", 3, { x: 13, y: 0 }); // dist 8 from victim (out), 5 from A
+		const s = perkState(["splash-rounds"], [victim, a, b]);
+		completeWord(s, victim);
+		expect(victim.alive).toBe(false);
+		expect(a.alive).toBe(false); // one hop from the victim
+		expect(b.alive).toBe(true); // second hop suppressed
+	});
+});
+
+describe("heavy-rounds knockback", () => {
+	it("doubles the regular chip recoil", () => {
+		const base = enemyAt("husk-4", 1, { x: 5, y: 0 }, ["aa", "bb", "cc"]);
+		const sBase = perkState([], [base]);
+		completeWord(sBase, base);
+		const baseVel = Math.hypot(base.vel.x, base.vel.y);
+
+		const heavy = enemyAt("husk-4", 1, { x: 5, y: 0 }, ["aa", "bb", "cc"]);
+		const sHeavy = perkState(["heavy-rounds"], [heavy]);
+		completeWord(sHeavy, heavy);
+		const heavyVel = Math.hypot(heavy.vel.x, heavy.vel.y);
+
+		expect(heavyVel).toBeCloseTo(baseVel * 2, 6);
+	});
+});
+
+describe("overclock", () => {
+	it("spends a primed streak for +1 damage, felling a 2-hp enemy in one completion", () => {
+		const e = enemyAt("husk-3", 1, { x: 5, y: 0 }, ["aa", "bb"]); // hp 2
+		const s = perkState(["overclock"], [e]);
+		s.overclockStreak = 20;
+		completeWord(s, e);
+		expect(e.alive).toBe(false); // chip + overclock bonus = 2 damage
+		expect(s.overclockStreak).toBe(0); // consumed
+	});
+
+	it("does nothing below the streak threshold", () => {
+		const e = enemyAt("husk-3", 1, { x: 5, y: 0 }, ["aa", "bb"]); // hp 2
+		const s = perkState(["overclock"], [e]);
+		s.overclockStreak = 19;
+		completeWord(s, e);
+		expect(e.alive).toBe(true); // only the single chip landed
+		expect(e.hp).toBe(1);
 	});
 });

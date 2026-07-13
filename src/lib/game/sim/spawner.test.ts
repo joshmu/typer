@@ -442,3 +442,39 @@ describe("boss sentence chains", () => {
 		}
 	});
 });
+
+describe("perk draft (wave director)", () => {
+	it("a cleared wave enters perk-choice and draws a 3-distinct offer", () => {
+		const s = createInitialState(42);
+		s.wavePhase = "active";
+		s.wave = 1;
+		s.spawnQueueRemaining = 0;
+		s.enemies = [];
+		s.tick = 200;
+		runWaveDirector(s);
+		expect(s.wavePhase).toBe("perk-choice");
+		expect(s.perkOffer?.length).toBe(3);
+		expect(new Set(s.perkOffer).size).toBe(3);
+	});
+
+	it("perk-choice freezes the director — no spawn, no cooldown decay, no advance", () => {
+		const s = createInitialState(42);
+		s.wavePhase = "perk-choice";
+		s.perkOffer = ["plating", "greed", "sharpshooter"];
+		s.spawnQueueRemaining = 5;
+		s.spawnCooldown = 5;
+		s.tick = 300;
+		runWaveDirector(s);
+		expect(s.enemies.length).toBe(0);
+		expect(s.spawnCooldown).toBe(5);
+		expect(s.wavePhase).toBe("perk-choice");
+	});
+
+	it("the initial wave 0→1 intermission never offers a perk", () => {
+		const s = drive(createInitialState(42), 61);
+		expect(s.wave).toBe(1);
+		expect(s.wavePhase).toBe("active");
+		expect(s.perkOffer).toBeNull();
+		expect(s.perks).toEqual([]);
+	});
+});

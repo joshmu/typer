@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getArchetype } from "../content/enemies";
 import { createEnemy } from "./enemy-factory";
-import { MAX_ALIVE, spawnFromArchetype } from "./spawner";
+import { INTERMISSION_TICKS, MAX_ALIVE, spawnFromArchetype } from "./spawner";
 import {
 	createInitialState,
 	currentWord,
@@ -330,5 +330,206 @@ describe("step", () => {
 		const b = step(s0, []);
 		expect(JSON.stringify(s0)).toBe(frozen);
 		expect(a).toEqual(b);
+	});
+});
+
+/** Craft a state that clears its wave on the next step (empty field, no queue),
+ * dropping the sim into perk-choice with a fresh 3-card offer. */
+function clearedToPerkChoice(seed: number): GameState {
+	let s = createInitialState(seed);
+	s.wavePhase = "active";
+	s.wave = 1;
+	s.spawnQueueRemaining = 0;
+	s.enemies = [];
+	s = step(s, []);
+	return s;
+}
+
+/** An active wave with a single distant, slow decoy so misses register but the
+ * wave never clears (and the decoy never reaches the core within the test). */
+function activeWithDecoy(perks: GameState["perks"] = []): GameState {
+	const s = createInitialState(1);
+	s.wavePhase = "active";
+	s.spawnQueueRemaining = 0;
+	s.perks = perks;
+	s.enemies = [
+		createEnemy(getArchetype("husk-1"), 1, { x: 30, y: 0 }, 0, ["queen"]),
+	];
+	s.nextEnemyId = 2;
+	return s;
+}
+
+describe("perk draft (step)", () => {
+	it("a wave clear drops the sim into perk-choice with a 3-card offer", () => {
+		const s = clearedToPerkChoice(42);
+		expect(s.wavePhase).toBe("perk-choice");
+		expect(s.perkOffer?.length).toBe(3);
+	});
+
+	it("picking a perk owns it and flips to a normal intermission", () => {
+		let s = clearedToPerkChoice(42);
+		const chosen = s.perkOffer?.[0];
+		s = step(s, [{ type: "perk", index: 0 }]);
+		expect(chosen).toBeDefined();
+		expect(s.perks).toContain(chosen);
+		expect(s.perkOffer).toBeNull();
+		expect(s.wavePhase).toBe("intermission");
+		expect(s.intermissionTicksLeft).toBe(INTERMISSION_TICKS);
+		expect(s.steadyHandsUsedThisWave).toBe(false);
+	});
+
+	it("ignores an out-of-range perk index (stays choosing)", () => {
+		let s = clearedToPerkChoice(42);
+		s = step(s, [{ type: "perk", index: 9 }]);
+		expect(s.wavePhase).toBe("perk-choice");
+		expect(s.perkOffer).not.toBeNull();
+		expect(s.perks).toEqual([]);
+	});
+
+	it("a perk event with no offer pending is inert", () => {
+		let s = createInitialState(1);
+		expect(s.perkOffer).toBeNull();
+		s = step(s, [{ type: "perk", index: 0 }]);
+		expect(s.perks).toEqual([]);
+	});
+
+	it("keys during perk-choice never miss and never route", () => {
+		let s = clearedToPerkChoice(42);
+		const missBefore = s.misses;
+		s = step(s, [{ type: "key", key: "z" }]);
+		expect(s.misses).toBe(missBefore);
+		expect(s.wavePhase).toBe("perk-choice");
+		expect(s.perkOffer).not.toBeNull();
+	});
+
+	it("plating raises max hp and heals on pick", () => {
+		let s = clearedToPerkChoice(42);
+		s.perkOffer = ["plating", "greed", "sharpshooter"];
+		const maxBefore = s.maxPlayerHp;
+		const hpBefore = s.playerHp;
+		s = step(s, [{ type: "perk", index: 0 }]);
+		expect(s.perks).toContain("plating");
+		expect(s.maxPlayerHp).toBe(maxBefore + 1);
+		expect(s.playerHp).toBe(hpBefore + 1);
+	});
+});
+
+describe("perk effects (step)", () => {
+	it("steady-hands spares the combo on the first miss each wave, then breaks", () => {
+		let s = activeWithDecoy(["steady-hands"]);
+		s.combo = 7;
+		s.comboTicksLeft = 100;
+		s = step(s, [{ type: "key", key: "z" }]); // 'z' matches nothing → miss
+		expect(s.misses).toBe(1);
+		expect(s.combo).toBe(7); // spared
+		expect(s.steadyHandsUsedThisWave).toBe(true);
+		s = step(s, [{ type: "key", key: "z" }]); // second miss breaks it
+		expect(s.combo).toBe(0);
+	});
+
+	it("a miss resets the overclock streak", () => {
+		let s = activeWithDecoy(["overclock"]);
+		s.overclockStreak = 12;
+		s = step(s, [{ type: "key", key: "z" }]);
+		expect(s.overclockStreak).toBe(0);
+	});
+
+	it("gravity-well slows an enemy within 8 of the core", () => {
+		function closed(perks: GameState["perks"]): number {
+			let s = createInitialState(1);
+			s.wavePhase = "active";
+			s.spawnQueueRemaining = 0;
+			s.perks = perks;
+			const e = createEnemy(getArchetype("husk-1"), 1, { x: 7, y: 0 }, 0, [
+				"queen",
+			]);
+			s.enemies = [e];
+			s.nextEnemyId = 2;
+			const before = Math.hypot(e.pos.x, e.pos.y);
+			for (let i = 0; i < 120; i++) s = step(s, []);
+			const now = s.enemies.find((x) => x.id === 1);
+			if (!now) throw new Error("enemy gone");
+			return before - Math.hypot(now.pos.x, now.pos.y);
+		}
+		expect(closed(["gravity-well"])).toBeLessThan(closed([]));
+	});
+
+	it("gravity-well does NOT slow an enemy outside 8 of the core", () => {
+		function closed(perks: GameState["perks"]): number {
+			let s = createInitialState(1);
+			s.wavePhase = "active";
+			s.spawnQueueRemaining = 0;
+			s.perks = perks;
+			// start well outside the 8-unit well and only drive a short window so it
+			// never crosses inside — the well must not touch it here
+			const e = createEnemy(getArchetype("husk-1"), 1, { x: 40, y: 0 }, 0, [
+				"queen",
+			]);
+			s.enemies = [e];
+			s.nextEnemyId = 2;
+			const before = Math.hypot(e.pos.x, e.pos.y);
+			for (let i = 0; i < 60; i++) s = step(s, []);
+			const now = s.enemies.find((x) => x.id === 1);
+			if (!now) throw new Error("enemy gone");
+			return before - Math.hypot(now.pos.x, now.pos.y);
+		}
+		expect(closed(["gravity-well"])).toBeCloseTo(closed([]), 9);
+	});
+
+	it("vampiric heals 1 hp at each 15-kill milestone, capped at max", () => {
+		let s = activeWithDecoy(["vampiric"]);
+		s.playerHp = 1;
+		s.maxPlayerHp = 3;
+		s.kills = 15;
+		s.lastVampiricMilestone = 0;
+		s = step(s, []);
+		expect(s.playerHp).toBe(2);
+		expect(s.lastVampiricMilestone).toBe(1);
+		// at full hp the heal is capped away, but the milestone still advances
+		s.playerHp = 3;
+		s.kills = 30;
+		s = step(s, []);
+		expect(s.playerHp).toBe(3);
+		expect(s.lastVampiricMilestone).toBe(2);
+	});
+
+	it("scavenger drops a powerup at 9 kills instead of 12", () => {
+		let s = createInitialState(1);
+		s.perks = ["scavenger"];
+		s.kills = 9;
+		s = step(s, []);
+		expect(s.powerups.length).toBe(1);
+	});
+
+	it("adrenaline widens the combo decay window on a kill", () => {
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		s.spawnQueueRemaining = 0;
+		s.perks = ["adrenaline"];
+		s.enemies = [
+			createEnemy(getArchetype("husk-1"), 1, { x: 8, y: 0 }, 0, ["a"]),
+		];
+		s.nextEnemyId = 2;
+		s = step(s, [{ type: "key", key: "a" }]);
+		expect(s.kills).toBe(1);
+		expect(s.comboTicksLeft).toBe(Math.floor(180 * 1.5));
+	});
+
+	it("overclock streak builds on consecutive hits and resets when consumed", () => {
+		// 20 hits on a long-worded enemy, then the completion consumes the prime
+		let s = createInitialState(1);
+		s.wavePhase = "active";
+		s.spawnQueueRemaining = 0;
+		s.perks = ["overclock"];
+		const word = "abcdefghijklmnopqrst"; // 20 chars → 20 hits to complete
+		s.enemies = [
+			createEnemy(getArchetype("husk-1"), 1, { x: 8, y: 0 }, 0, [word]),
+		];
+		s.nextEnemyId = 2;
+		for (let i = 0; i < word.length; i++) {
+			s = step(s, [{ type: "key", key: word[i] }]);
+		}
+		expect(s.kills).toBe(1); // the 20th hit completed & killed it
+		expect(s.overclockStreak).toBe(0); // prime consumed on that completion
 	});
 });

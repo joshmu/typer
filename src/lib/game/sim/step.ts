@@ -3,14 +3,17 @@ import { isCloaked, isTargetable, tickAbility } from "./abilities";
 import { resolveCompletion } from "./combat";
 import { dist } from "./math";
 import { MOVEMENTS } from "./movement";
-import { separate, steer } from "./physics";
 import {
-	applyPowerup,
-	POWERUP_SPAWN_EVERY_KILLS,
-	SLOW_FACTOR,
-	spawnPowerup,
-} from "./powerups";
-import { runWaveDirector } from "./spawner";
+	GRAVITY_WELL_FACTOR,
+	GRAVITY_WELL_RADIUS,
+	hasPerk,
+	type PerkId,
+	powerupMilestoneDivisor,
+	VAMPIRIC_EVERY,
+} from "./perks";
+import { separate, steer } from "./physics";
+import { applyPowerup, SLOW_FACTOR, spawnPowerup } from "./powerups";
+import { INTERMISSION_TICKS, runWaveDirector } from "./spawner";
 import { ARENA, currentWord, type EnemyState, type GameState } from "./state";
 
 export type GameEvent =
@@ -18,7 +21,41 @@ export type GameEvent =
 	// Backspace releases the current lock (keeping all typed progress). Never a
 	// miss — it is a deliberate "let go of this target" input, ZType/Typing-of-
 	// the-Dead style, so the player can free-flow to another enemy.
-	| { type: "backspace" };
+	| { type: "backspace" }
+	// Perk pick during "perk-choice": applies perkOffer[index] (0|1|2). Out-of-
+	// range indices and events fired outside perk-choice are ignored.
+	| { type: "perk"; index: number };
+
+/**
+ * Apply the chosen perk: own it, clear the offer, and leave perk-choice for a
+ * normal intermission (resetting the wave's free-miss charge). Instant stat
+ * perks (plating) and milestone-anchored perks (vampiric) settle here so they
+ * never retroactively fire. No-ops on a bad index or a missing offer.
+ */
+/** Boolean read of the perk-choice phase — used after runWaveDirector so TS does
+ * not carry stale control-flow narrowing of `wavePhase` past the director call. */
+function enteredPerkChoice(s: GameState): boolean {
+	return s.wavePhase === "perk-choice";
+}
+
+function applyPerkChoice(s: GameState, index: number): void {
+	const offer = s.perkOffer;
+	if (offer === null || index < 0 || index >= offer.length) return;
+	const perk: PerkId = offer[index];
+	s.perks = [...s.perks, perk];
+	s.perkOffer = null;
+	s.wavePhase = "intermission";
+	s.intermissionTicksLeft = INTERMISSION_TICKS;
+	s.steadyHandsUsedThisWave = false;
+	if (perk === "plating") {
+		s.maxPlayerHp += 1;
+		s.playerHp += 1;
+	} else if (perk === "vampiric") {
+		// anchor the heal milestone at the current kill count so picking vampiric
+		// mid-run never dumps a burst of retroactive heals for kills already banked
+		s.lastVampiricMilestone = Math.floor(s.kills / VAMPIRIC_EVERY);
+	}
+}
 
 export function step(
 	state: GameState,
@@ -38,8 +75,27 @@ export function step(
 		powerups: state.powerups.map((p) => ({ ...p, pos: { ...p.pos } })),
 	};
 
+	// FROZEN perk-choice: the field is empty and every system is paused (no
+	// spawning, movement, ability/combo/effect/powerup ticks, no key routing or
+	// misses). The ONLY input that acts is a perk event, which advances the phase.
+	// An early return keeps this a single readable branch rather than scattering
+	// `wavePhase !== "perk-choice"` guards through the whole tick body.
+	if (s.wavePhase === "perk-choice") {
+		for (const ev of events) {
+			if (ev.type === "perk") applyPerkChoice(s, ev.index);
+		}
+		return s;
+	}
+
 	// wave director: intermissions + escalating spawns
 	runWaveDirector(s);
+
+	// the last enemy may have just died → the director entered perk-choice and drew
+	// the offer THIS tick. Freeze the remainder of the tick too (no movement, no
+	// typing, no misses); the player's perk event resolves it on a later tick.
+	// (Read through a helper so TS re-widens `wavePhase` after the director mutated
+	// it — the direct early return above otherwise narrows it out of the union.)
+	if (enteredPerkChoice(s)) return s;
 
 	// abilities (spawn / heal / teleport / enrage) — O(enemies)
 	for (const e of s.enemies) {
@@ -56,9 +112,17 @@ export function step(
 	// inert (nothing accumulates, nothing scatters on unfreeze) and slow (0.5)
 	// scales it all in lockstep, rather than only throttling the final integration.
 	// 1) each behaviour emits a DESIRED velocity; steer bends actual velocity
-	// toward it within an accel budget, so enemies carry inertia (no teleporting)
+	// toward it within an accel budget, so enemies carry inertia (no teleporting).
+	// gravity-well shrinks the DESIRED velocity (not e.speed) for enemies inside
+	// its radius — a per-enemy slow layered on top of the global freeze/slow scale.
+	const gravityWell = hasPerk(s, "gravity-well");
 	for (const e of alive) {
-		steer(e, MOVEMENTS[e.movement](e, s.tick), moveScale);
+		const desired = MOVEMENTS[e.movement](e, s.tick);
+		if (gravityWell && dist(e.pos.x, e.pos.y) <= GRAVITY_WELL_RADIUS) {
+			desired.x *= GRAVITY_WELL_FACTOR;
+			desired.y *= GRAVITY_WELL_FACTOR;
+		}
+		steer(e, desired, moveScale);
 	}
 	// 2) crowd separation shoves overlapping bodies apart (adds to velocity)
 	separate(alive, moveScale);
@@ -102,13 +166,33 @@ export function step(
 			s.targetPowerupId = null;
 		}
 	}
-	// kill-milestone powerup: track the highest kills/12 milestone reached, so a
-	// double-kill tick that jumps past a multiple (e.g. 11 → 13) still spawns.
-	const milestone = Math.floor(s.kills / POWERUP_SPAWN_EVERY_KILLS);
+	// kill-milestone powerup: track the highest kills/divisor milestone reached, so
+	// a double-kill tick that jumps past a multiple (e.g. 11 → 13) still spawns.
+	// scavenger tightens the divisor 12 → 9.
+	const milestone = Math.floor(s.kills / powerupMilestoneDivisor(s));
 	if (milestone > s.lastPowerupMilestone) {
 		s.lastPowerupMilestone = milestone;
 		spawnPowerup(s);
 	}
+
+	// vampiric: heal 1 hp (capped) at each 15-kill milestone, tracked like the
+	// powerup milestone so a multi-kill tick can't skip past a threshold. The
+	// milestone was anchored at acquisition so it never heals retroactively.
+	if (hasPerk(s, "vampiric")) {
+		const vamp = Math.floor(s.kills / VAMPIRIC_EVERY);
+		if (vamp > s.lastVampiricMilestone) {
+			s.lastVampiricMilestone = vamp;
+			s.playerHp = Math.min(s.maxPlayerHp, s.playerHp + 1);
+		}
+	}
+
+	// every successful keystroke is a "hit": it feeds both the lifetime hit tally
+	// and the overclock streak (consecutive hits since the last miss), so the two
+	// stay in lockstep across all four routing paths below.
+	const registerHit = () => {
+		s.hits += 1;
+		s.overclockStreak += 1;
+	};
 
 	// typing — ZType-style free-flow routing. A keystroke first tries to CONTINUE
 	// the active lock; failing that it re-routes to the nearest other target whose
@@ -116,6 +200,9 @@ export function step(
 	// reset); only a key that matches nothing live is a miss. At most one lock is
 	// held at a time (enemy XOR powerup).
 	for (const ev of events) {
+		// perk events act only in perk-choice (handled by the early return above);
+		// here they are inert — never a hit, never a miss.
+		if (ev.type === "perk") continue;
 		if (ev.type === "backspace") {
 			// release the active lock; all typed progress on every target is kept
 			s.targetId = null;
@@ -130,7 +217,7 @@ export function step(
 			const pu = s.powerups.find((p) => p.id === s.targetPowerupId);
 			if (pu && isCharMatch(ev.key, pu.word[pu.typedCount])) {
 				pu.typedCount += 1;
-				s.hits += 1;
+				registerHit();
 				if (pu.typedCount >= pu.word.length) {
 					applyPowerup(s, pu.kind);
 					s.powerups = s.powerups.filter((p) => p.id !== pu.id);
@@ -144,7 +231,7 @@ export function step(
 			if (target) {
 				if (isCharMatch(ev.key, currentWord(target)[target.typedCount])) {
 					target.typedCount += 1;
-					s.hits += 1;
+					registerHit();
 					resolveCompletion(s, target, moveScale);
 					continue;
 				}
@@ -173,7 +260,7 @@ export function step(
 			s.targetId = picked.id;
 			s.targetPowerupId = null;
 			picked.typedCount += 1;
-			s.hits += 1;
+			registerHit();
 			resolveCompletion(s, picked, moveScale);
 			continue;
 		}
@@ -186,7 +273,7 @@ export function step(
 			s.targetPowerupId = pu.id;
 			s.targetId = null;
 			pu.typedCount += 1;
-			s.hits += 1;
+			registerHit();
 			if (pu.typedCount >= pu.word.length) {
 				applyPowerup(s, pu.kind);
 				s.powerups = s.powerups.filter((p) => p.id !== pu.id);
@@ -210,10 +297,17 @@ export function step(
 			continue;
 		}
 
-		// 5) dead key → miss + combo break
+		// 5) dead key → miss. A miss always resets the overclock streak. steady-hands
+		// spares the combo on the FIRST miss each wave (spending its charge); every
+		// other miss breaks the combo as usual.
 		s.misses += 1;
-		s.combo = 0;
-		s.comboTicksLeft = 0;
+		s.overclockStreak = 0;
+		if (hasPerk(s, "steady-hands") && !s.steadyHandsUsedThisWave) {
+			s.steadyHandsUsedThisWave = true;
+		} else {
+			s.combo = 0;
+			s.comboTicksLeft = 0;
+		}
 	}
 
 	// prune enemies killed this tick so state size tracks live enemies only

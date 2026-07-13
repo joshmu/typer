@@ -1,9 +1,14 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { type InputLog, runReplay, stateHash } from "./replay";
+import {
+	type InputLog,
+	type LoggedEvent,
+	runReplay,
+	stateHash,
+} from "./replay";
 import { createInitialState } from "./state";
-import { step } from "./step";
+import { type GameEvent, step } from "./step";
 
 const FIXTURE_DIR = join(
 	process.cwd(),
@@ -36,14 +41,30 @@ function buildFirstKillLog(seed: number): InputLog {
 /**
  * A long deterministic run: play several waves, scripting a burst of the most
  * common letters each tick so combos, multi-hp reassignment and powerup typing
- * all fire. Purely to lock the sim's byte-for-byte determinism.
+ * all fire. Since round 7 every wave clears into a FROZEN "perk-choice" phase
+ * that only a perk event leaves, the log is built by PROBING the sim: on a
+ * perk-choice tick it emits (and applies) a `perk` pick so the run keeps
+ * advancing through waves — accumulating perks whose effects then feed the hash —
+ * instead of stalling at the first upgrade screen. Still fully deterministic.
  */
 function buildDeepRunLog(seed: number): InputLog {
 	const letters = "etaoinshrdlucmfwypvbgkjqxz";
-	const events: { tick: number; key: string }[] = [];
+	const events: LoggedEvent[] = [];
+	let s = createInitialState(seed);
 	for (let tick = 1; tick <= 2400; tick++) {
-		const key = letters[tick % letters.length];
-		events.push({ tick, key });
+		let ev: GameEvent;
+		let logged: LoggedEvent;
+		if (s.wavePhase === "perk-choice") {
+			// always take the first card — a deterministic, meaningful choice
+			ev = { type: "perk", index: 0 };
+			logged = { tick, perk: 0 };
+		} else {
+			const key = letters[tick % letters.length];
+			ev = { type: "key", key };
+			logged = { tick, key };
+		}
+		events.push(logged);
+		s = step(s, [ev]);
 	}
 	return { seed, ticks: 2400, events };
 }

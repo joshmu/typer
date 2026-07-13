@@ -1,9 +1,21 @@
 import { getArchetype } from "../content/enemies";
 import { pickWordForTier } from "../content/words";
 import { absorbsCompletion } from "./abilities";
-import { cosR, sinR } from "./math";
+import { cosR, dist, sinR } from "./math";
+import {
+	CHAIN_COMBO,
+	CHAIN_RANGE,
+	comboDecayTicks,
+	hasPerk,
+	isOverclockPrimed,
+	killScoreWithPerks,
+	knockbackMult,
+	PIERCE_DOT,
+	PIERCE_RANGE,
+	SPLASH_RADIUS,
+	scoreWithPerks,
+} from "./perks";
 import { applyKnockback } from "./physics";
-import { COMBO_DECAY_TICKS, killScore } from "./score";
 import { spawnFromArchetype } from "./spawner";
 import { currentWord, type EnemyState, type GameState } from "./state";
 
@@ -57,8 +69,8 @@ export function killEnemy(s: GameState, e: EnemyState): void {
 	e.alive = false;
 	s.kills += 1;
 	s.combo += 1;
-	s.comboTicksLeft = COMBO_DECAY_TICKS;
-	s.score += killScore(currentWord(e).length, s.combo);
+	s.comboTicksLeft = comboDecayTicks(s);
+	s.score += killScoreWithPerks(s, currentWord(e).length, s.combo);
 	if (s.targetId === e.id) s.targetId = null;
 	if (e.ability?.kind === "split") {
 		const { n, minion } = e.ability;
@@ -72,6 +84,112 @@ export function killEnemy(s: GameState, e: EnemyState): void {
 	}
 }
 
+export type DamageResult = "absorbed" | "chipped" | "killed";
+
+/**
+ * Deal ONE point of damage to an enemy — the single code path shared by typed
+ * completions and weapon-perk extra damage, so shields / armored-front absorb
+ * both identically. Returns what happened; awards NO score (callers own scoring:
+ * typed completions add chip/clang score, weapon hits add none, and killEnemy
+ * awards the kill score internally). `moveScale` gates the chip recoil like the
+ * rest of the tick's velocity work (a hit landed mid-freeze imparts none).
+ */
+export function dealDamage(
+	s: GameState,
+	e: EnemyState,
+	moveScale = 1,
+): DamageResult {
+	if (absorbsCompletion(e)) {
+		// shield / armored-front: the hit CLANGS off the plating — no damage, and
+		// crucially NO new word. The SAME word's progress is reset to 0 so the player
+		// retypes it; the chain (and `words.length === hp`) is untouched.
+		// `shieldHits` was already decremented inside `absorbsCompletion`.
+		e.typedCount = 0;
+		s.absorbs += 1;
+		return "absorbed";
+	}
+	e.hp -= 1;
+	if (e.hp <= 0) {
+		killEnemy(s, e);
+		return "killed";
+	}
+	// multi-hp / boss chain: damaged but alive → recoil out toward the edge, next
+	// word. Bosses (imposing) take a softened recoil so they keep forward pressure;
+	// heavy-rounds lifts both regular and boss recoil.
+	const isBoss = getArchetype(e.archetypeId).role === "boss";
+	applyKnockback(e, { x: 0, y: 0 }, knockbackMult(s, isBoss), moveScale);
+	advanceWord(s, e);
+	return "chipped";
+}
+
+/**
+ * Weapon-epic detonation off a TYPED kill. Each owned weapon perk deals 1 extra
+ * damage (via `dealDamage`, so absorbs apply) to nearby enemies. ONE HOP: these
+ * extra hits never re-trigger weapon effects, because only `resolveCompletion`
+ * calls this and it never recurses. Candidate scans use `s.enemies` array order
+ * and nearest-wins-ties-by-array-order for cross-engine determinism.
+ */
+function applyWeaponEffects(
+	s: GameState,
+	victim: EnemyState,
+	moveScale: number,
+): void {
+	const vx = victim.pos.x;
+	const vy = victim.pos.y;
+
+	// splash: 1 damage to every OTHER enemy within SPLASH_RADIUS of the victim.
+	// Snapshot the candidates first so freshly-spawned split minions are not hit.
+	if (hasPerk(s, "splash-rounds")) {
+		const targets = s.enemies.filter(
+			(o) =>
+				o.alive &&
+				o.id !== victim.id &&
+				dist(o.pos.x - vx, o.pos.y - vy) <= SPLASH_RADIUS,
+		);
+		for (const o of targets) dealDamage(s, o, moveScale);
+	}
+
+	// pierce: 1 damage to the nearest enemy within PIERCE_RANGE roughly BEHIND the
+	// victim — further out along the victim's outward radial (cone dot ≥ 0.5).
+	if (hasPerk(s, "piercing-bolt")) {
+		const vd = dist(vx, vy) || 1;
+		const outx = vx / vd;
+		const outy = vy / vd;
+		let best: EnemyState | undefined;
+		let bestDist = Number.POSITIVE_INFINITY;
+		for (const o of s.enemies) {
+			if (!o.alive || o.id === victim.id) continue;
+			const dx = o.pos.x - vx;
+			const dy = o.pos.y - vy;
+			const d = dist(dx, dy);
+			if (d === 0 || d > PIERCE_RANGE) continue;
+			if ((dx / d) * outx + (dy / d) * outy < PIERCE_DOT) continue;
+			if (d < bestDist) {
+				bestDist = d;
+				best = o;
+			}
+		}
+		if (best) dealDamage(s, best, moveScale);
+	}
+
+	// chain-arc: at combo ≥ CHAIN_COMBO, arc 1 damage to the nearest other enemy
+	// within CHAIN_RANGE. `s.combo` already reflects this kill's increment.
+	if (hasPerk(s, "chain-arc") && s.combo >= CHAIN_COMBO) {
+		let best: EnemyState | undefined;
+		let bestDist = Number.POSITIVE_INFINITY;
+		for (const o of s.enemies) {
+			if (!o.alive || o.id === victim.id) continue;
+			const d = dist(o.pos.x - vx, o.pos.y - vy);
+			if (d > CHAIN_RANGE) continue;
+			if (d < bestDist) {
+				bestDist = d;
+				best = o;
+			}
+		}
+		if (best) dealDamage(s, best, moveScale);
+	}
+}
+
 export function resolveCompletion(
 	s: GameState,
 	e: EnemyState,
@@ -80,28 +198,19 @@ export function resolveCompletion(
 	// Called after every keystroke on the target; act only when the word is done.
 	const word = currentWord(e);
 	if (e.typedCount < word.length) return;
-	if (absorbsCompletion(e)) {
-		// shield / armored-front: the hit CLANGS off the plating — no damage, and
-		// crucially NO new word. The SAME word's progress is reset to 0 so the player
-		// simply retypes it; the chain (and `words.length === hp`) is untouched, so a
-		// completed word never pops a fresh word into the stack. Flat score for the
-		// effort. `shieldHits` was already decremented inside `absorbsCompletion`.
-		s.score += 10 * word.length;
-		e.typedCount = 0;
-		s.absorbs += 1;
-		return;
+	const result = dealDamage(s, e, moveScale);
+	// score: greed applies to every gain; sharpshooter (kill only) is inside
+	// killEnemy. Absorb and chip both pay the flat per-word score for the effort.
+	if (result === "absorbed" || result === "chipped") {
+		s.score += scoreWithPerks(s, 10 * word.length);
 	}
-	e.hp -= 1;
-	if (e.hp <= 0) {
-		killEnemy(s, e);
-		return;
+	// overclock: a primed streak spends here for +1 damage on this DAMAGING
+	// completion, then resets (fires whether or not the enemy is still alive).
+	if (result !== "absorbed" && isOverclockPrimed(s)) {
+		s.overclockStreak = 0;
+		if (e.alive) dealDamage(s, e, moveScale);
 	}
-	// multi-hp / boss chain: damaged but alive → chip score, recoil, next word.
-	// The hit shoves the enemy back out toward the arena edge; bosses (imposing)
-	// take a softened recoil so they keep their menacing forward pressure.
-	// `moveScale` gates the recoil so a hit landed during a freeze imparts none.
-	const mult = getArchetype(e.archetypeId).role === "boss" ? 0.4 : 1;
-	applyKnockback(e, { x: 0, y: 0 }, mult, moveScale);
-	s.score += 10 * word.length;
-	advanceWord(s, e);
+	// weapon epics detonate off a typed KILL (one hop — their extra damage never
+	// re-triggers weapon effects). Fire once, after all of this hit's damage lands.
+	if (!e.alive) applyWeaponEffects(s, e, moveScale);
 }

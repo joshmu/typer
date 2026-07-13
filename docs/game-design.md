@@ -166,6 +166,50 @@ the core (`ARENA.killRadius`) costs 1 hp and gameover fires at 0.
   (`boss-bar`): the boss's display name plus a segmented meter (`hp`/`maxHp`, one
   amber segment per remaining word) derived from the first alive boss in the state.
 
+## Perk draft (roguelite)
+
+Source: `src/lib/game/sim/perks.ts` (data + pure helpers) with effects wired where
+they act (`combat.ts`, `powerups.ts`, `step.ts`, `spawner.ts`). Perks are
+**run-only** — `GameState.perks` resets with the run, no meta-progression.
+
+**Flow.** When a wave's last enemy dies the director enters a new **frozen**
+`wavePhase: "perk-choice"` (in place of going straight to intermission) and draws
+`GameState.perkOffer`: three distinct, rarity-weighted ids. During perk-choice
+`step()` early-returns — no spawning, movement, ability/combo/effect/powerup ticks,
+and no key routing or misses; the **only** input that acts is a
+`{ type: "perk"; index: 0|1|2 }` event. Applying it owns the perk, clears the
+offer, and flips to a normal `intermission` (resetting the wave's free-miss
+charge). The initial wave 0→1 intermission never offers a perk. In the shell,
+keys **1/2/3** (or a card click) map to the event, and `window.__game.sendPerk(i)`
+drives it in tests; a DOM overlay (`perk-overlay`, cards `perk-card-0/1/2`) shows
+the three rarity-accented cards, and a bottom-left `perk-strip` lists owned perks.
+
+**Pool (14 perks).** Rarity weights **common 6 / rare 3 / epic 1**, drawn without
+replacement so the three cards are distinct; owned non-repeatable perks are
+excluded (`plating`/`greed` are repeatable and always eligible; a starved pool is
+padded from them).
+
+| rarity | perks |
+|--------|-------|
+| epic (weapons) | `splash-rounds` (kill → 1 dmg within 6), `piercing-bolt` (kill → 1 dmg to nearest enemy behind the victim, cone dot ≥ 0.5, range 12), `chain-arc` (kill at combo ≥ 10 → 1 dmg to nearest within 10), `heavy-rounds` (knockback ×2; boss recoil 0.4→0.6) |
+| rare | `steady-hands` (first miss/wave keeps combo), `sharpshooter` (kill score ×1.5), `overclock` (20-hit streak primes +1 dmg on the next kill), `gravity-well` (enemies within 8 move at 75%), `vampiric` (heal 1 every 15 kills, capped) |
+| common | `plating` (+1 max hp & heal 1, **repeatable**), `cryo-mastery` (freeze/slow ×1.5), `adrenaline` (combo decay ×1.5), `scavenger` (powerup every 9 kills), `greed` (+10% score, **repeatable/stacking**) |
+
+**Shared damage path.** `resolveCompletion` and every weapon-perk hit funnel
+through `dealDamage(s, e, moveScale)` (absorb → chip+knockback+`advanceWord` →
+kill), so shields/armored-front absorb weapon splash exactly like a typed word.
+Weapon hits award no score themselves; weapon **kills** run through `killEnemy`
+(kills/combo/score as normal). Weapon effects fire **breadth-first from the typed
+kill only** — one hop, never re-triggering off a weapon kill — and scan
+`s.enemies` in array order (nearest wins ties by array order) for determinism.
+
+**Determinism.** The offer draw threads `s.rngState`; all counters
+(`overclockStreak`, `steadyHandsUsedThisWave`, `lastVampiricMilestone`) and the
+offer serialize into the state hash. The perk event round-trips the replay fixture
+format as `{ tick, perk }` alongside `{ tick, key }`; `buildDeepRunLog` probes the
+sim and injects a pick on each perk-choice tick so replays keep advancing waves. A
+sim change that shifts the hash requires a fixture re-record (`RECORD_FIXTURE=1`).
+
 ## Motion physics
 
 Source: `src/lib/game/sim/physics.ts` (pure, `dist`/`sqrt` only). Each enemy

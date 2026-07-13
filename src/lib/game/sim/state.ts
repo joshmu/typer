@@ -1,4 +1,5 @@
 import type { Ability, MovementId } from "../content/enemies";
+import type { PerkId } from "./perks";
 import { createRngState } from "./rng";
 
 export type Vec2 = { x: number; y: number };
@@ -60,7 +61,10 @@ export type GameState = {
 	nextEnemyId: number;
 	enemies: EnemyState[];
 	wave: number;
-	wavePhase: "intermission" | "active";
+	// "perk-choice" is a FROZEN phase entered the instant a wave's last enemy dies
+	// (in place of going straight to intermission): no spawning, movement, timer
+	// decay, or key routing — only a `perk` event advances it. See step.ts.
+	wavePhase: "intermission" | "active" | "perk-choice";
 	// classification of the ACTIVE wave, decided the instant the wave increments
 	// (see runWaveDirector). "boss" every 5th wave; "swarm" a seeded frenzy of
 	// single-letter tier-1 smalls; "normal" otherwise. Serialized in the hash.
@@ -83,6 +87,17 @@ export type GameState = {
 	// monotonic count of powerups actually applied — the render layer pulses its
 	// activation ring only when this increments, so an expiring pickup can't fake it
 	powerupsUsed: number;
+	// roguelite perk draft (run-only, no meta-progression). `perks` are the owned
+	// perks; `perkOffer` is the 3-card draw shown during "perk-choice" (null when
+	// no choice is pending). Effect bookkeeping counters live alongside so the sim
+	// stays a pure fold: `overclockStreak` = hits since the last miss;
+	// `steadyHandsUsedThisWave` = whether this wave's free-miss charge is spent;
+	// `lastVampiricMilestone` = highest 15-kill heal milestone reached.
+	perks: PerkId[];
+	perkOffer: PerkId[] | null;
+	overclockStreak: number;
+	steadyHandsUsedThisWave: boolean;
+	lastVampiricMilestone: number;
 };
 // spawnRadius 51 (playtest 2026-07-12: arena grown 1.5× from 34 — softer wave
 // pacing via the longer approach, and a larger lit field under the vignette)
@@ -124,5 +139,10 @@ export function createInitialState(seed: number): GameState {
 		nextPowerupId: 1,
 		lastPowerupMilestone: 0,
 		powerupsUsed: 0,
+		perks: [],
+		perkOffer: null,
+		overclockStreak: 0,
+		steadyHandsUsedThisWave: false,
+		lastVampiricMilestone: 0,
 	};
 }
