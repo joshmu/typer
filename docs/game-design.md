@@ -44,15 +44,24 @@ word-completions before taking damage), `cloak` (periodically untargetable),
 `enrage-at-half` (speeds up below half hp), `teleport` (periodic jump), and
 `armored-front` (only exposed within a radius of the core). All eight abilities
 and all eight movements are represented across the roster; bosses are tier-4
-word-chain enemies whose whole chain is assigned upfront (see Word bands).
+enemies that type a whole public-domain **sentence** as their chain — `hp` equals
+the passage word count, not their nominal archetype hp (see Word bands & chains).
 
 ## Word bands & chains
 
 `pickWordForTier(tier, rng, excludeInitials)` draws length-banded words from
 `english-1k` (tiers 1–2) and `english-5k` (tiers 3–4). Each enemy is assigned a
-**word chain** at spawn (`pickWordChain`, `EnemyState.words`): `words.length ===
-archetype.hp`, so completing one word deals one damage and `wordIndex` walks the
-chain to death. The **first** word obeys the field-uniqueness rule at spawn
+**word chain** at spawn (`pickWordChain`, `EnemyState.words`), and `createEnemy`
+derives `hp`/`maxHp` from the chain itself: **`words.length === hp === maxHp` is a
+universal invariant**, so completing one word deals one damage and `wordIndex`
+walks the chain to death. Regulars get an `archetype.hp`-long banded chain (so
+their `hp` is unchanged); **bosses** instead type a whole public-domain
+**sentence** — a seeded pick from `BOSS_TEXTS` (`content/boss-texts.ts`, ~20
+pre-normalized 15–25 word proverbs/pre-1900 passages) via `pickBossText`, whose
+length overrides the archetype's nominal hp. The boss passage is picked from the
+subset whose first word's initial avoids the field's live initials (fallback: any
+passage). Frenzy swarm smalls take a single-letter chain (length 1). The **first**
+word obeys the field-uniqueness rule at spawn
 (initials of every live enemy **and** active powerup are excluded so the
 acquiring keystroke is never ambiguous); later words are drawn at spawn too but
 may be redrawn later (see below). `currentWord(e)` is the sole accessor. A
@@ -64,8 +73,10 @@ only caller is a *damaging* multi-hp/boss completion) KEEPS the pre-assigned
 next chain word — the one the player has already been previewing in the label
 stack — so the preview is truthful. It redraws that slot in place ONLY when the
 word's initial collides with the field's live initials, the sole legitimate
-reason to break the preview; either way the array is never grown. `typedCount`
-is progress within the current word.
+reason to break the preview; either way the array is never grown. **Bosses skip
+the redraw entirely** — a boss types a fixed sentence, so word order is sacred and
+the initial-uniqueness nicety yields to the passage. `typedCount` is progress
+within the current word.
 
 ## Targeting model (free-flow routing)
 
@@ -149,6 +160,11 @@ the core (`ARENA.killRadius`) costs 1 hp and gameover fires at 0.
   `husk-1`/`darter-1` (seeded 50/50, bosses can never appear), and every chain a
   single a–z letter drawn to avoid live field initials (`pickLetter`). The HUD
   wave chip flips to a red/amber **FRENZY** banner while `waveKind === "swarm"`.
+- **Boss waves:** every 5th wave's first spawn fields exactly one boss, which types
+  a whole public-domain sentence (`hp` = passage word count; see Word bands &
+  chains). While a boss is alive the HUD shows a top-center DOM life bar
+  (`boss-bar`): the boss's display name plus a segmented meter (`hp`/`maxHp`, one
+  amber segment per remaining word) derived from the first alive boss in the state.
 
 ## Motion physics
 
@@ -255,11 +271,14 @@ sampled NEAREST so pixels stay crisp. Key pieces:
   slow pulse), cloak = alpha flutter. Sprites are untinted so each family shows its
   own authored art. Six creature families + boss + hero, drawn as 16-bit pixel-art
   creatures (`scripts/gen-sprites.mjs`).
-- **Label plates** (`label.ts`): each enemy shows its whole remaining word chain —
-  current word on the bottom plate at full brightness, up to two queued words
-  stacked above at 55% scale / 40% alpha, and any remainder collapsed into a "+n"
-  chip — all baked into one fixed tall texture (four rows) with no per-completion
-  reallocation. Plate fill alpha 0.92 and a 3px dark `strokeText` outline behind
+- **Label plates** (`label.ts`): each enemy shows its remaining word chain —
+  current word on the bottom plate at full brightness, up to `MAX_STACK` (5) queued
+  words stacked above at 70% scale / 75% alpha, and any remainder collapsed into a
+  "+n" chip — all baked into one fixed tall texture (four rows) with no
+  per-completion reallocation. A long boss **sentence** (15–25 words) reads as the
+  current word plus four queued plus a "+n" overflow chip that shrinks as the boss
+  is chipped down. The boss's overall progress also shows as a top-center DOM life
+  bar (`boss-bar`, one segment per word, amber fill; see HUD). Plate fill alpha 0.92 and a 3px dark `strokeText` outline behind
   every glyph keep the text legible even over a bright bloomed enemy. The active
   target gets a brighter border plate and a chevron; partial enemies get a thin
   amber progress underline. Powerups share the upgraded single-plate path.

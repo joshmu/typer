@@ -138,6 +138,34 @@ describe("combat", () => {
 		expect(currentWord(a)[0]).not.toBe("x"); // avoids B's live initial
 	});
 
+	it("chipping a boss NEVER redraws the next word, even when its initial collides with a live enemy", () => {
+		// sentence order is sacred for bosses: advanceWord must keep the pre-assigned
+		// next word verbatim regardless of the field's live initials. Craft a boss
+		// whose next word shares its initial with a live regular enemy — a regular
+		// would redraw here; the boss must not.
+		const s = createInitialState(42);
+		const bossArch = getArchetype("boss-maw");
+		// a 3-word "sentence": every word starts with 'x' so the collision guard WOULD
+		// fire on a non-boss; the boss must ignore it and keep the pre-assigned word.
+		const bossWords = ["xxxxx", "xxxxx", "xxxxx"];
+		const boss = createEnemy(bossArch, 1, { x: 5, y: 0 }, 0, bossWords);
+		// a live regular whose current word also starts with 'x'
+		const decoy = createEnemy(getArchetype("husk-1"), 2, { x: 9, y: 0 }, 0, [
+			"xenon",
+		]);
+		s.enemies = [boss, decoy];
+		s.nextEnemyId = 3;
+		s.targetId = boss.id;
+		const preAssignedNext = boss.words[1];
+		boss.typedCount = currentWord(boss).length;
+		resolveCompletion(s, boss);
+		expect(boss.alive).toBe(true);
+		expect(boss.wordIndex).toBe(1);
+		// sacred: kept verbatim despite colliding with the decoy's 'x' initial
+		expect(currentWord(boss)).toBe(preAssignedNext);
+		expect(currentWord(boss)[0]).toBe("x");
+	});
+
 	it("a shield absorb CLANGS — resets progress on the SAME word, no damage, no new word", () => {
 		const { s } = stateWithEnemy("weaver-1"); // hp 1, shield hits 1
 		const e = s.enemies[0];

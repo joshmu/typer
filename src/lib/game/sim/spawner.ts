@@ -1,3 +1,4 @@
+import { pickBossText } from "../content/boss-texts";
 import { ENEMIES, getArchetype } from "../content/enemies";
 import { pickLetter, pickWordChain } from "../content/words";
 import { createEnemy } from "./enemy-factory";
@@ -102,15 +103,19 @@ export function spawnFromArchetype(
 	const initials = new Set(alive.map((e) => currentWord(e)[0]));
 	for (const p of s.powerups) initials.add(p.word[0]);
 	// one word per hp: completing a word deals one damage, so the chain length is
-	// the archetype hp. Frenzy smalls (husk-1/darter-1, hp 1) take a single-letter
-	// chain instead — length 1 still satisfies words.length === hp. Only the first
-	// word obeys the field-uniqueness reservation.
+	// the chain's word count (createEnemy derives hp from it). Frenzy smalls
+	// (husk-1/darter-1, hp 1) take a single-letter chain; bosses take a whole
+	// public-domain sentence (hp = passage length, overriding arch.hp); everyone
+	// else a length-banded chain of arch.hp words. Only the first word obeys the
+	// field-uniqueness reservation.
 	let words: string[];
 	let next: number;
 	if (singleLetter) {
 		const [letter, n] = pickLetter(s.rngState, initials);
 		words = [letter];
 		next = n;
+	} else if (arch.role === "boss") {
+		[words, next] = pickBossText(s.rngState, initials);
 	} else {
 		[words, next] = pickWordChain(arch.tier, arch.hp, s.rngState, initials);
 	}

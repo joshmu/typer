@@ -6,10 +6,11 @@ import {
 	onMount,
 	Show,
 } from "solid-js";
+import { getArchetype } from "@/lib/game/content/enemies";
 import type { GameLoop } from "@/lib/game/render/loop";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
 import { COMBO_DECAY_TICKS, comboMultiplier } from "@/lib/game/sim/score";
-import type { GameState } from "@/lib/game/sim/state";
+import type { EnemyState, GameState } from "@/lib/game/sim/state";
 import { vignetteGradient } from "@/lib/game/view";
 import { getBestRun, saveGameRun, useBestRun } from "@/lib/game-runs";
 import DeathScreen from "./DeathScreen";
@@ -25,6 +26,13 @@ declare global {
 			renderReady(): boolean;
 		};
 	}
+}
+
+/** The first alive boss on the field (drives the top-center life bar), if any. */
+function firstAliveBoss(state: GameState): EnemyState | undefined {
+	return state.enemies.find(
+		(e) => e.alive && getArchetype(e.archetypeId).role === "boss",
+	);
 }
 
 export default function GameShell() {
@@ -233,6 +241,39 @@ export default function GameShell() {
 							</span>
 							<span data-testid="game-kills">kills {state().kills}</span>
 						</div>
+
+						{/* top-center (below score): boss life bar — one segment per
+						    remaining word, visible while any boss is alive */}
+						<Show when={firstAliveBoss(state())}>
+							{(boss) => (
+								<div
+									data-testid="boss-bar"
+									class="pointer-events-none absolute top-11 left-1/2 flex w-96 max-w-[80vw] -translate-x-1/2 flex-col gap-1 font-mono text-xs"
+								>
+									<div class="flex items-baseline justify-between">
+										<span class="font-bold tracking-wider text-amber-300">
+											{getArchetype(boss().archetypeId).name}
+										</span>
+										<span class="opacity-70">
+											{boss().hp}/{boss().maxHp}
+										</span>
+									</div>
+									<div class="flex gap-0.5">
+										<For each={Array.from({ length: boss().maxHp })}>
+											{(_, i) => (
+												<div
+													class="h-2 flex-1 rounded-sm"
+													classList={{
+														"bg-amber-400": i() < boss().hp,
+														"bg-white/10": i() >= boss().hp,
+													}}
+												/>
+											)}
+										</For>
+									</div>
+								</div>
+							)}
+						</Show>
 
 						{/* top-left: active wave chip + combo meter */}
 						<div class="pointer-events-none absolute top-3 left-3 flex flex-col gap-2 font-mono text-xs">

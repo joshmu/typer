@@ -40,6 +40,10 @@ export function liveInitials(s: GameState, exceptId: number): Set<string> {
 export function advanceWord(s: GameState, e: EnemyState): void {
 	e.wordIndex += 1;
 	e.typedCount = 0;
+	// bosses type a fixed public-domain sentence: word ORDER is sacred, so they
+	// NEVER redraw a mid-sentence word — the initial-uniqueness nicety yields to
+	// the passage. (Collisions are cosmetic here; the boss is the only long chain.)
+	if (getArchetype(e.archetypeId).role === "boss") return;
 	const initials = liveInitials(s, e.id);
 	const preAssigned = e.words[e.wordIndex];
 	if (initials.has(preAssigned[0])) {

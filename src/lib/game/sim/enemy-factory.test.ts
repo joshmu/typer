@@ -24,12 +24,19 @@ describe("enemy-factory", () => {
 	it("initialises empty ability state for no ability", () => {
 		expect(initAbilityState(null)).toEqual({ shieldHits: 0, enraged: false });
 	});
-	it("denormalises archetype fields onto the enemy", () => {
-		const e = createEnemy(shielded, 7, { x: 1, y: 2 }, 100, ["alpha", "bravo"]);
+	it("denormalises archetype fields onto the enemy (hp derives from the chain)", () => {
+		// hp/maxHp come from the CHAIN length, not arch.hp — `words.length === hp`
+		// is the universal invariant (bosses field a whole sentence that overrides
+		// their nominal archetype hp).
+		const e = createEnemy(shielded, 7, { x: 1, y: 2 }, 100, [
+			"alpha",
+			"bravo",
+			"delta",
+		]);
 		expect(e.id).toBe(7);
 		expect(e.hp).toBe(3);
 		expect(e.maxHp).toBe(3);
-		expect(e.words).toEqual(["alpha", "bravo"]);
+		expect(e.words).toEqual(["alpha", "bravo", "delta"]);
 		expect(e.wordIndex).toBe(0);
 		expect(e.typedCount).toBe(0);
 		expect(e.speed).toBe(0.03);

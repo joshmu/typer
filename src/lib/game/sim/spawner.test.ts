@@ -378,3 +378,67 @@ describe("frenzy swarm waves", () => {
 		expect(getArchetype("darter-1").hp).toBe(1);
 	});
 });
+
+describe("boss sentence chains", () => {
+	it("spawns a boss with a sentence chain where words.length === hp === maxHp", async () => {
+		const { BOSS_TEXTS } = await import("../content/boss-texts");
+		const s = createInitialState(7);
+		spawnFromArchetype(s, "boss-maw", { x: 20, y: 0 });
+		const boss = s.enemies[0];
+		// chain is a full passage — far longer than the archetype's nominal hp (5)
+		expect(boss.words.length).toBeGreaterThanOrEqual(15);
+		expect(boss.hp).toBe(boss.words.length);
+		expect(boss.maxHp).toBe(boss.words.length);
+		// and it is verbatim one of the authored passages, in order
+		expect(BOSS_TEXTS).toContainEqual(boss.words);
+	});
+
+	it("overrides the archetype hp — chain length wins over enemies.ts hp", async () => {
+		const { getArchetype } = await import("../content/enemies");
+		const nominal = getArchetype("boss-iron").hp; // 5
+		const s = createInitialState(11);
+		spawnFromArchetype(s, "boss-iron", { x: 20, y: 0 });
+		const boss = s.enemies[0];
+		expect(boss.hp).not.toBe(nominal);
+		expect(boss.hp).toBe(boss.words.length);
+	});
+
+	it("picks a passage whose first initial avoids a crafted live initial", async () => {
+		const { BOSS_TEXTS } = await import("../content/boss-texts");
+		// craft a live enemy on the field whose initial matches SOME passage's first
+		// letter; the boss chain drawn next must not start with that letter (a
+		// survivor exists, so the filter must dodge it).
+		const collidingInitial = BOSS_TEXTS[0][0][0];
+		for (let seed = 0; seed < 30; seed++) {
+			const s = createInitialState(seed);
+			// a regular already alive whose current word starts with the boss's would-be initial
+			spawnFromArchetype(s, "husk-1", { x: 20, y: 0 });
+			const decoy = s.enemies[0];
+			decoy.words = [`${collidingInitial}decoyword`];
+			spawnFromArchetype(s, "boss-hive", { x: -20, y: 0 });
+			const boss = s.enemies[1];
+			expect(boss.words[0][0]).not.toBe(collidingInitial);
+		}
+	});
+
+	it("wave 5 fields a boss whose chain equals its hp", async () => {
+		const { getArchetype } = await import("../content/enemies");
+		const s = createInitialState(42);
+		s.wavePhase = "active";
+		s.waveKind = "boss";
+		s.wave = 5;
+		s.spawnQueueRemaining = waveEnemyCount(5);
+		s.spawnCooldown = 0;
+		s.enemies = [];
+		s.tick = 100;
+		runWaveDirector(s);
+		const boss = s.enemies.find(
+			(e) => getArchetype(e.archetypeId).role === "boss",
+		);
+		expect(boss).toBeDefined();
+		if (boss) {
+			expect(boss.words.length).toBeGreaterThanOrEqual(15);
+			expect(boss.hp).toBe(boss.words.length);
+		}
+	});
+});
