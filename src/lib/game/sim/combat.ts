@@ -25,25 +25,28 @@ export function liveInitials(s: GameState, exceptId: number): Set<string> {
 
 /**
  * Advance to the next word in the pre-assigned chain (resetting per-word
- * progress) and DRAW that word fresh, excluding the field's live initials so a
- * chain advance can never make a keystroke ambiguous with another on-screen
- * enemy. The fresh word replaces the slot in place, so `words.length` is
- * invariant (`=== archetype.hp`) for the enemy's whole life — a damaging
- * completion is the ONLY caller, and one is only possible while `hp > 0`, i.e.
- * while an unwalked slot remains, so the chain is never exhausted here and never
- * grows. Reassigns the array (never mutates the shared prior-state array) to keep
- * `step` pure.
+ * progress). KEEPS the pre-assigned `words[wordIndex]` — the word the player has
+ * already been previewing in the label stack — so the preview is truthful.
+ * Redraws that slot ONLY when its initial collides with the field's live
+ * initials (`liveInitials`), the sole legitimate reason to break the preview:
+ * an unresolved collision would make a keystroke ambiguous with another
+ * on-screen enemy. `words.length` is invariant (`=== archetype.hp`) for the
+ * enemy's whole life either way — a damaging completion is the ONLY caller, and
+ * one is only possible while `hp > 0`, i.e. while an unwalked slot remains, so
+ * the chain is never exhausted here and never grows. When redrawing, reassigns
+ * the array (never mutates the shared prior-state array) to keep `step` pure;
+ * when keeping the word, no array reassignment happens at all.
  */
 export function advanceWord(s: GameState, e: EnemyState): void {
 	e.wordIndex += 1;
 	e.typedCount = 0;
-	const [word, next] = pickWordForTier(
-		e.tier,
-		s.rngState,
-		liveInitials(s, e.id),
-	);
-	s.rngState = next;
-	e.words = e.words.map((w, i) => (i === e.wordIndex ? word : w));
+	const initials = liveInitials(s, e.id);
+	const preAssigned = e.words[e.wordIndex];
+	if (initials.has(preAssigned[0])) {
+		const [word, next] = pickWordForTier(e.tier, s.rngState, initials);
+		s.rngState = next;
+		e.words = e.words.map((w, i) => (i === e.wordIndex ? word : w));
+	}
 }
 
 export function killEnemy(s: GameState, e: EnemyState): void {

@@ -104,6 +104,40 @@ describe("combat", () => {
 		}
 	});
 
+	it("advanceWord keeps the pre-assigned word when it does not collide with any live initial", () => {
+		// single enemy on the field (no other enemies/powerups) → no collision is
+		// possible, so the queued preview word (words[wordIndex] as spawned) must
+		// survive the chip untouched — the bug redrew it unconditionally.
+		const { s } = stateWithEnemy("husk-4"); // hp 3 → 3-word chain
+		const e = s.enemies[0];
+		const preAssignedNext = e.words[1];
+		e.typedCount = currentWord(e).length;
+		resolveCompletion(s, e);
+		expect(e.alive).toBe(true);
+		expect(e.wordIndex).toBe(1);
+		expect(currentWord(e)).toBe(preAssignedNext);
+	});
+
+	it("advanceWord redraws only when the pre-assigned next word collides with a live initial", () => {
+		// two multi-hp enemies: B's current word is crafted to share its initial
+		// with A's pre-assigned words[1], forcing the collision guard to fire.
+		const arch = getArchetype("husk-4"); // hp 3 → 3-word chain
+		const s = createInitialState(42);
+		const aWords = chain(9, arch.hp); // all "xxxxxxxxx" — words[1] starts with 'x'
+		const a = createEnemy(arch, 1, { x: 5, y: 0 }, 0, aWords);
+		const bWords = chain(9, arch.hp); // B's current word also starts with 'x'
+		const b = createEnemy(arch, 2, { x: 9, y: 0 }, 0, bWords);
+		s.enemies = [a, b];
+		s.nextEnemyId = 3;
+		const preAssignedNext = a.words[1];
+		a.typedCount = currentWord(a).length;
+		resolveCompletion(s, a);
+		expect(a.alive).toBe(true);
+		expect(a.wordIndex).toBe(1);
+		expect(currentWord(a)).not.toBe(preAssignedNext); // redrawn away from the collision
+		expect(currentWord(a)[0]).not.toBe("x"); // avoids B's live initial
+	});
+
 	it("a shield absorb CLANGS — resets progress on the SAME word, no damage, no new word", () => {
 		const { s } = stateWithEnemy("weaver-1"); // hp 1, shield hits 1
 		const e = s.enemies[0];

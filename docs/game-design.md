@@ -46,16 +46,20 @@ word-chain enemies whose whole chain is assigned upfront (see Word bands).
 `english-1k` (tiers 1–2) and `english-5k` (tiers 3–4). Each enemy is assigned a
 **word chain** at spawn (`pickWordChain`, `EnemyState.words`): `words.length ===
 archetype.hp`, so completing one word deals one damage and `wordIndex` walks the
-chain to death. Only the **first** word obeys the field-uniqueness rule (initials
-of every live enemy **and** active powerup are excluded so the acquiring keystroke
-is never ambiguous); later words in the chain are unconstrained. `currentWord(e)`
-is the sole accessor. A shield/armored-front **absorb** deals no damage and does
-**not** change the word — it resets `typedCount` to 0 on the SAME word (a clang),
-so `words.length === archetype.hp` is invariant for the enemy's whole life and
-completing a word never pops a fresh word into the stack. `advanceWord` (the only
-caller is a *damaging* multi-hp/boss completion) redraws the next chain word in
-place without ever growing the array. `typedCount` is progress within the current
-word.
+chain to death. The **first** word obeys the field-uniqueness rule at spawn
+(initials of every live enemy **and** active powerup are excluded so the
+acquiring keystroke is never ambiguous); later words are drawn at spawn too but
+may be redrawn later (see below). `currentWord(e)` is the sole accessor. A
+shield/armored-front **absorb** deals no damage and does **not** change the
+word — it resets `typedCount` to 0 on the SAME word (a clang), so
+`words.length === archetype.hp` is invariant for the enemy's whole life and
+completing a word never pops a fresh word into the stack. `advanceWord` (the
+only caller is a *damaging* multi-hp/boss completion) KEEPS the pre-assigned
+next chain word — the one the player has already been previewing in the label
+stack — so the preview is truthful. It redraws that slot in place ONLY when the
+word's initial collides with the field's live initials, the sole legitimate
+reason to break the preview; either way the array is never grown. `typedCount`
+is progress within the current word.
 
 ## Targeting model (free-flow routing)
 
