@@ -50,6 +50,19 @@ export const FAMILY_VISUALS: FamilyVisual[] = [
 		color: [0.95, 0.35, 0.7],
 		emissive: [0.35, 0.08, 0.22],
 	},
+	// corkscrew (spiral-fast) + lunger (feint): new archetype families that reuse
+	// darter/charger SPRITE art but carry their own death-splat colour so the
+	// per-family recipe table stays complete and each hue reads distinctly.
+	{
+		family: "corkscrew",
+		color: [0.55, 0.75, 0.95],
+		emissive: [0.14, 0.3, 0.42],
+	},
+	{
+		family: "lunger",
+		color: [0.7, 0.55, 0.95],
+		emissive: [0.26, 0.14, 0.42],
+	},
 	{
 		family: "boss",
 		color: [1, 0.85, 0.2],

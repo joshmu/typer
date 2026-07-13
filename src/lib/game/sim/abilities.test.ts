@@ -38,6 +38,8 @@ function enemyWith(
 			shieldHits: ability?.kind === "shield" ? ability.hits : 0,
 			enraged: false,
 		},
+		movePhase: 0,
+		phaseTick: 0,
 		...over,
 	};
 }

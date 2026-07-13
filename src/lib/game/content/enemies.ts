@@ -4,7 +4,9 @@ export type MovementId =
 	| "orbit-then-dive"
 	| "dash-pause"
 	| "flank"
-	| "spiral";
+	| "spiral"
+	| "spiral-fast"
+	| "feint";
 
 export type Ability =
 	| { kind: "split"; n: number; minion: string }
@@ -297,6 +299,30 @@ export const ENEMIES: EnemyArchetype[] = [
 		tier: 4,
 		movement: "spiral",
 		ability: { kind: "spawn", minion: "brood-1", rate: 120 },
+		role: "regular",
+	},
+	// Corkscrew — spiral-fast (reuses darter sprite art via the family prefix)
+	{
+		id: "corkscrew-1",
+		name: "Corkscrew",
+		hp: 1,
+		speed: 0.036,
+		size: 0.8,
+		tier: 2,
+		movement: "spiral-fast",
+		ability: null,
+		role: "regular",
+	},
+	// Lunger — feint / jump-scare (reuses charger sprite art via the family prefix)
+	{
+		id: "lunger-1",
+		name: "Lunger",
+		hp: 2,
+		speed: 0.024,
+		size: 1.1,
+		tier: 3,
+		movement: "feint",
+		ability: null,
 		role: "regular",
 	},
 	// Bosses — role "boss", hp = word-chain length (4-5)

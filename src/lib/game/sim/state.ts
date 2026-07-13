@@ -26,6 +26,12 @@ export type EnemyState = {
 	movement: MovementId;
 	ability: Ability | null;
 	abilityState: AbilityState;
+	// stateful-movement scratch: `movePhase` is a one-way phase counter (advances,
+	// never resets — knockback can't rewind it) and `phaseTick` counts ticks within
+	// the current phase. Both are 0 for stateless movements (chase/spiral/…) and
+	// serialize into the replay hash like every other field.
+	movePhase: number;
+	phaseTick: number;
 };
 export type PowerupKind = "freeze" | "bomb" | "heal" | "slow";
 export type PowerupPickup = {

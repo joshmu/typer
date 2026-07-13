@@ -88,6 +88,65 @@ const spiral: MovementFn = (e, _tick) => {
 	};
 };
 
+// spiral-fast: a tight, fast corkscrew. Tangential factor is 3× `spiral`'s (so
+// the angular velocity reads ~3× at the same radius) while a steady inward pull
+// keeps the radius shrinking every tick. Stateless — never touches movePhase.
+const spiralFast: MovementFn = (e, _tick) => {
+	const d = dist(e.pos.x, e.pos.y) || 1;
+	const inx = -e.pos.x / d;
+	const iny = -e.pos.y / d;
+	const dir = noise2(e.id, 2) < 0.5 ? -1 : 1;
+	const t = Math.min(1, d / 20); // 1 far, 0 near
+	const tang = 2.7 * t * dir; // 3× the base spiral's 0.9
+	const inward = 0.7 - 0.2 * t; // 0.5 far → 0.7 near: steady, always-closing pull
+	return {
+		x: (inx * inward - iny * tang) * e.speed,
+		y: (iny * inward + inx * tang) * e.speed,
+	};
+};
+
+// feint — the jump scare. A stateful, one-way three-phase approach driven by the
+// enemy's own movePhase/phaseTick (mutated here, on step's cloned draft):
+//   phase 0: sprint straight at the core at ×3 base speed
+//   phase 1: on crossing dist ≤ 10, recoil OUTWARD at ×0.5 base for ~90 ticks
+//   phase 2: creep back inward at ×0.4 base, forever
+// Phases only ever advance — knockback shoving the enemy back out past dist 10
+// cannot rewind it to a fresh sprint (the phase-0 branch is skipped once left).
+const FEINT_SPRINT = 3;
+const FEINT_RETREAT = 0.5;
+const FEINT_CREEP = 0.4;
+const FEINT_TRIGGER_DIST = 10;
+const FEINT_RETREAT_TICKS = 90;
+const feint: MovementFn = (e) => {
+	const d = dist(e.pos.x, e.pos.y) || 1;
+	const inx = -e.pos.x / d;
+	const iny = -e.pos.y / d;
+	if (e.movePhase === 0) {
+		if (d > FEINT_TRIGGER_DIST) {
+			return {
+				x: inx * e.speed * FEINT_SPRINT,
+				y: iny * e.speed * FEINT_SPRINT,
+			};
+		}
+		// crossed the trigger — commit to the recoil (one-way)
+		e.movePhase = 1;
+		e.phaseTick = 0;
+	}
+	if (e.movePhase === 1) {
+		if (e.phaseTick < FEINT_RETREAT_TICKS) {
+			e.phaseTick += 1;
+			// outward = negated inward direction
+			return {
+				x: -inx * e.speed * FEINT_RETREAT,
+				y: -iny * e.speed * FEINT_RETREAT,
+			};
+		}
+		e.movePhase = 2;
+	}
+	// phase 2: slow inward creep
+	return { x: inx * e.speed * FEINT_CREEP, y: iny * e.speed * FEINT_CREEP };
+};
+
 export const MOVEMENTS: Record<MovementId, MovementFn> = {
 	chase,
 	zigzag,
@@ -95,4 +154,6 @@ export const MOVEMENTS: Record<MovementId, MovementFn> = {
 	"dash-pause": dashPause,
 	flank,
 	spiral,
+	"spiral-fast": spiralFast,
+	feint,
 };

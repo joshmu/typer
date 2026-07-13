@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { createEnemy } from "../sim/enemy-factory";
+import { dist } from "../sim/math";
 import { MOVEMENTS as MOVEMENT_FNS } from "../sim/movement";
+import { steer } from "../sim/physics";
 import { ARENA } from "../sim/state";
 import { ENEMIES, getArchetype, type MovementId } from "./enemies";
 
@@ -10,6 +13,8 @@ const MOVEMENTS: MovementId[] = [
 	"dash-pause",
 	"flank",
 	"spiral",
+	"spiral-fast",
+	"feint",
 ];
 const ABILITY_KINDS = [
 	"split",
@@ -23,8 +28,8 @@ const ABILITY_KINDS = [
 ];
 
 describe("enemy roster", () => {
-	it("has at least 30 archetypes", () => {
-		expect(ENEMIES.length).toBeGreaterThanOrEqual(30);
+	it("has at least 32 archetypes", () => {
+		expect(ENEMIES.length).toBeGreaterThanOrEqual(32);
 	});
 
 	it("has unique ids", () => {
@@ -32,8 +37,8 @@ describe("enemy roster", () => {
 		expect(new Set(ids).size).toBe(ids.length);
 	});
 
-	it("has 24 regulars and 6 bosses", () => {
-		expect(ENEMIES.filter((e) => e.role === "regular").length).toBe(24);
+	it("has 26 regulars and 6 bosses", () => {
+		expect(ENEMIES.filter((e) => e.role === "regular").length).toBe(26);
 		expect(ENEMIES.filter((e) => e.role === "boss").length).toBe(6);
 	});
 
@@ -96,6 +101,32 @@ describe("enemy roster", () => {
 				expect(seconds).toBeLessThanOrEqual(70);
 			}
 		}
+	});
+
+	it("lunger's feint journey (sprint → retreat → creep) lands in ~18-70s", () => {
+		// the straight-line band assumes a constant speed; the feint sprints (×3),
+		// recoils (~90 ticks outward at ×0.5), then creeps in (×0.4), so its
+		// effective arrival needs a phase-aware simulation. Integrate exactly as
+		// step() does (steer toward the desired velocity, then advance position)
+		// from the spawn edge and assert the whole journey stays survivable.
+		const TPS = 60;
+		const arch = getArchetype("lunger-1");
+		const e = createEnemy(arch, 1, { x: ARENA.spawnRadius, y: 0 }, 0, [
+			"x",
+			"y",
+		]);
+		let ticks = 0;
+		const MAX = 80 * TPS;
+		while (dist(e.pos.x, e.pos.y) > ARENA.killRadius && ticks < MAX) {
+			steer(e, MOVEMENT_FNS.feint(e, ticks), 1);
+			e.pos.x += e.vel.x;
+			e.pos.y += e.vel.y;
+			ticks += 1;
+		}
+		expect(dist(e.pos.x, e.pos.y)).toBeLessThanOrEqual(ARENA.killRadius);
+		const seconds = ticks / TPS;
+		expect(seconds).toBeGreaterThanOrEqual(18);
+		expect(seconds).toBeLessThanOrEqual(70);
 	});
 
 	it("looks up by id and throws on unknown", () => {

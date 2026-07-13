@@ -32,5 +32,7 @@ export function createEnemy(
 		movement: arch.movement,
 		ability: arch.ability,
 		abilityState: initAbilityState(arch.ability),
+		movePhase: 0,
+		phaseTick: 0,
 	};
 }

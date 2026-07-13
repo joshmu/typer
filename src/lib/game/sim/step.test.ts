@@ -28,6 +28,8 @@ function cloaker(over: Partial<EnemyState> = {}): EnemyState {
 		movement: "chase",
 		ability: { kind: "cloak", interval: 30 },
 		abilityState: { shieldHits: 0, enraged: false },
+		movePhase: 0,
+		phaseTick: 0,
 		...over,
 	};
 }

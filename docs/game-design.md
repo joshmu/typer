@@ -16,28 +16,34 @@ from the mode selector and header nav (`/game`).
 
 ## Enemy families
 
-Source of truth: `src/lib/game/content/enemies.ts` (30 archetypes). The roster is
-6 regular families × 4 tiers (24) + 6 word-chain bosses. Each family owns one
-movement; tiers escalate hp/size and layer on abilities.
+Source of truth: `src/lib/game/content/enemies.ts` (32 archetypes). The roster is
+6 regular families × 4 tiers (24) + 2 single-tier locomotion specialists
+(`corkscrew-1`, `lunger-1`) + 6 word-chain bosses. Each family owns one movement;
+tiers escalate hp/size and layer on abilities.
 
-| Family   | Movement          | Character                                  |
-|----------|-------------------|--------------------------------------------|
-| Husk     | `chase`           | straight-line pressure; enrage/heal at high tiers |
-| Darter   | `zigzag`          | erratic lateral weaving                    |
-| Wraith   | `orbit-then-dive` | circles the core, then commits inward      |
-| Charger  | `dash-pause`      | bursts of speed punctuated by pauses       |
-| Weaver   | `flank`           | approaches off-axis to flank the core      |
-| Brood    | `spiral`          | inward spiral; the `split`/`spawn` minion source (`brood-1`) |
+| Family    | Movement          | Character                                  |
+|-----------|-------------------|--------------------------------------------|
+| Husk      | `chase`           | straight-line pressure; enrage/heal at high tiers |
+| Darter    | `zigzag`          | erratic lateral weaving                    |
+| Wraith    | `orbit-then-dive` | circles the core, then commits inward      |
+| Charger   | `dash-pause`      | bursts of speed punctuated by pauses       |
+| Weaver    | `flank`           | approaches off-axis to flank the core      |
+| Brood     | `spiral`          | inward spiral; the `split`/`spawn` minion source (`brood-1`) |
+| Corkscrew | `spiral-fast`     | tight fast corkscrew (tier 2, reuses Darter sprite art) |
+| Lunger    | `feint`           | sprints in, recoils, then creeps — a jump scare (tier 3, reuses Charger sprite art) |
 
 **Movements** (`MovementId`): `chase`, `zigzag`, `orbit-then-dive`, `dash-pause`,
-`flank`, `spiral`.
+`flank`, `spiral`, `spiral-fast` (3× angular velocity of `spiral`, steadily
+shrinking radius), `feint` (one-way phases via `EnemyState.movePhase`/`phaseTick`:
+sprint ×3 → outward recoil ~90 ticks → inward creep ×0.4; knockback can't rewind
+a phase).
 
 **Abilities** (`Ability`): `split` (burst minions on death), `shield` (absorbs N
 word-completions before taking damage), `cloak` (periodically untargetable),
 `spawn` (periodically fields minions), `heal-aura` (heals nearby enemies),
 `enrage-at-half` (speeds up below half hp), `teleport` (periodic jump), and
 `armored-front` (only exposed within a radius of the core). All eight abilities
-and all six movements are represented across the roster; bosses are tier-4
+and all eight movements are represented across the roster; bosses are tier-4
 word-chain enemies whose whole chain is assigned upfront (see Word bands).
 
 ## Word bands & chains

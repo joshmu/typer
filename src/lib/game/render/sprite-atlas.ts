@@ -31,7 +31,10 @@ export const CELLS = {
 	crystal: 17,
 } as const;
 
-/** The two walk-cycle cells for an enemy family (falls back to husk). */
+/** The two walk-cycle cells for an enemy family (falls back to husk). The id
+ * prefix is the family key; `corkscrew`/`lunger` are new archetypes that reuse
+ * existing family art (no new sprite cells) — darter for the corkscrew, charger
+ * for the lunger. */
 const WALK: Record<string, readonly [number, number]> = {
 	husk: CELLS.husk,
 	darter: CELLS.darter,
@@ -40,6 +43,8 @@ const WALK: Record<string, readonly [number, number]> = {
 	weaver: CELLS.weaver,
 	brood: CELLS.brood,
 	boss: CELLS.boss,
+	corkscrew: CELLS.darter,
+	lunger: CELLS.charger,
 };
 export function walkCells(family: string): readonly [number, number] {
 	return WALK[family] ?? CELLS.husk;
