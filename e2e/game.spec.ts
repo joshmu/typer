@@ -7,6 +7,7 @@ declare global {
 			getState(): GameState;
 			sendKeys(keys: string): void;
 			sendBackspace(): void;
+			sendPerk(index: number): void;
 			stepTicks(n: number): void;
 			renderReady(): boolean;
 		};
@@ -97,11 +98,18 @@ test.describe("horde game mode", () => {
 		// larger arena + survivable pacing (Task 1) means the horde takes far more
 		// ticks to overrun the core, so drive a bigger chunk per poll to keep the
 		// whole drive comfortably inside the wall-clock timeout
+		//
+		// Nothing is ever typed here, but a wave can still "clear" when every
+		// spawned enemy breaches the core untyped (alive count hits 0 same as a
+		// typed clear) — the roguelite perk draft freezes the sim in that phase
+		// until a perk event arrives, so auto-pick card 0 whenever we land there
+		// or the drive would stall forever short of gameover.
 		await page.waitForFunction(
 			() => {
 				const g = window.__game;
 				if (!g) return false;
 				if (g.getState().status === "gameover") return true;
+				if (g.getState().wavePhase === "perk-choice") g.sendPerk(0);
 				g.stepTicks(400);
 				return g.getState().status === "gameover";
 			},
@@ -259,6 +267,152 @@ test.describe("horde game mode", () => {
 		expect(r.targetAfter).toBeNull(); // lock released
 		expect(r.typedAfter).toBe(1); // progress kept
 		expect(r.missAfter).toBe(r.missBefore); // release is never a miss
+	});
+
+	test("perk draft: clearing wave 1 offers 3 perks; picking one applies it and resumes", async ({
+		page,
+	}) => {
+		await page.goto("/game?seed=42&testMode=1");
+		await page.waitForFunction(() => window.__game !== undefined);
+
+		// drive the whole wave-1 clear (5 enemies, staggered spawns) in-page via
+		// free-flow typing, looping until the sim enters the frozen "perk-choice"
+		// phase — mirrors the free-flow/backspace tests' in-page drive pattern.
+		const r = await page.evaluate(() => {
+			const g = window.__game;
+			if (!g) return { error: "no game" };
+			const cw = (e: { words: string[]; wordIndex: number }) =>
+				e.words[e.wordIndex];
+			let guard = 0;
+			while (g.getState().wavePhase !== "perk-choice" && guard++ < 2000) {
+				const s = g.getState();
+				const alive = s.enemies.filter((e) => e.alive);
+				if (alive.length === 0) {
+					g.stepTicks(20);
+					continue;
+				}
+				const target = alive.find((e) => e.id === s.targetId) ?? alive[0];
+				const word = cw(target);
+				g.sendKeys(word[target.typedCount] ?? word[0]);
+			}
+			const st = g.getState();
+			return { wavePhase: st.wavePhase, offer: st.perkOffer, wave: st.wave };
+		});
+
+		expect(r.error).toBeUndefined();
+		expect(r.wavePhase).toBe("perk-choice");
+		expect(r.offer).toHaveLength(3);
+		expect(r.wave).toBe(1);
+
+		await expect(page.getByTestId("perk-overlay")).toBeVisible();
+		await expect(page.getByTestId("perk-card-0")).toBeVisible();
+		await expect(page.getByTestId("perk-card-1")).toBeVisible();
+		await expect(page.getByTestId("perk-card-2")).toBeVisible();
+
+		await page.evaluate(() => window.__game?.sendPerk(0));
+
+		await expect(page.getByTestId("perk-overlay")).toBeHidden();
+		const after = await page.evaluate(() => window.__game?.getState());
+		expect(after?.perks.length).toBe(1);
+		expect(after?.wavePhase).toBe("intermission");
+	});
+
+	test("boss bar: wave 5 boss shows a life bar with one segment per max hp", async ({
+		page,
+	}) => {
+		await page.goto("/game?seed=42&testMode=1");
+		await page.waitForFunction(() => window.__game !== undefined);
+
+		// drive waves 1-4 clear (auto-picking perk card 0 between waves) until the
+		// wave-5 boss spawns — seed-hunted (see PR description) so this lands well
+		// under the wall-clock budget (~190 keystrokes, no full boss-sentence typing
+		// required since we only need the boss ALIVE, not defeated).
+		const r = await page.evaluate(() => {
+			const g = window.__game;
+			if (!g) return { error: "no game" };
+			const cw = (e: { words: string[]; wordIndex: number }) =>
+				e.words[e.wordIndex];
+			const hasBoss = (s: ReturnType<typeof g.getState>) =>
+				s.wave >= 5 &&
+				s.enemies.some((e) => e.alive && e.archetypeId.startsWith("boss-"));
+			let guard = 0;
+			while (!hasBoss(g.getState()) && guard++ < 4000) {
+				const s = g.getState();
+				if (s.wavePhase === "perk-choice") {
+					g.sendPerk(0);
+					continue;
+				}
+				const alive = s.enemies.filter((e) => e.alive);
+				if (alive.length === 0) {
+					g.stepTicks(20);
+					continue;
+				}
+				const target = alive.find((e) => e.id === s.targetId) ?? alive[0];
+				const word = cw(target);
+				g.sendKeys(word[target.typedCount] ?? word[0]);
+			}
+			const s = g.getState();
+			const boss = s.enemies.find(
+				(e) => e.alive && e.archetypeId.startsWith("boss-"),
+			);
+			return { wave: s.wave, bossMaxHp: boss?.maxHp, bossHp: boss?.hp };
+		});
+
+		expect(r.error).toBeUndefined();
+		expect(r.wave).toBe(5);
+		expect(r.bossMaxHp).toBeGreaterThan(0);
+
+		const bossBar = page.getByTestId("boss-bar");
+		await expect(bossBar).toBeVisible();
+		// segments live in the bar's second child row (first is the name/hp text)
+		const segments = bossBar.locator("> div").nth(1).locator("> div");
+		await expect(segments).toHaveCount(r.bossMaxHp as number);
+	});
+
+	test("frenzy wave: wave 4 swarm shows the FRENZY HUD chip", async ({
+		page,
+	}) => {
+		// seed=1 seed-hunted to roll a wave-4 swarm (see round-7 design doc §2) —
+		// only waves 1-3 (21 enemies) need clearing since the chip appears the
+		// instant wave 4 goes active, before any swarm enemy is typed.
+		await page.goto("/game?seed=1&testMode=1");
+		await page.waitForFunction(() => window.__game !== undefined);
+
+		const r = await page.evaluate(() => {
+			const g = window.__game;
+			if (!g) return { error: "no game" };
+			const cw = (e: { words: string[]; wordIndex: number }) =>
+				e.words[e.wordIndex];
+			let guard = 0;
+			while (
+				!(g.getState().wave >= 4 && g.getState().wavePhase === "active") &&
+				guard++ < 4000
+			) {
+				const s = g.getState();
+				if (s.wavePhase === "perk-choice") {
+					g.sendPerk(0);
+					continue;
+				}
+				const alive = s.enemies.filter((e) => e.alive);
+				if (alive.length === 0) {
+					g.stepTicks(20);
+					continue;
+				}
+				const target = alive.find((e) => e.id === s.targetId) ?? alive[0];
+				const word = cw(target);
+				g.sendKeys(word[target.typedCount] ?? word[0]);
+			}
+			const s = g.getState();
+			return { wave: s.wave, waveKind: s.waveKind, wavePhase: s.wavePhase };
+		});
+
+		expect(r.error).toBeUndefined();
+		expect(r.wave).toBe(4);
+		expect(r.waveKind).toBe("swarm");
+		expect(r.wavePhase).toBe("active");
+
+		await expect(page.getByTestId("wave-frenzy")).toBeVisible();
+		await expect(page.getByTestId("game-wave")).toBeHidden();
 	});
 
 	test("visual: deterministic arena frame", async ({ page }) => {
