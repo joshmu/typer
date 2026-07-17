@@ -24,7 +24,7 @@
 		"@tailwindcss/vite": "^4.3.2",
 		"dexie": "^4.4.4",
 		"motion": "^12.42.2",
-		"solid-js": "^1.9.13",
+		"solid-js": "^1.9.14",
 		"tailwindcss": "^4.3.2"
 	},
 	"devDependencies": {
