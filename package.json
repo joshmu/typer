@@ -18,7 +18,7 @@
 		"prepare": "husky"
 	},
 	"dependencies": {
-		"@babylonjs/core": "9.16.1",
+		"@babylonjs/core": "9.17.0",
 		"@solid-primitives/storage": "^4.4.0",
 		"@solidjs/router": "^0.16.1",
 		"@tailwindcss/vite": "^4.3.2",
