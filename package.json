@@ -31,7 +31,7 @@
 		"@biomejs/biome": "^2.5.0",
 		"@commitlint/cli": "^21.0.2",
 		"@commitlint/config-conventional": "^21.0.2",
-		"@playwright/test": "^1.61.0",
+		"@playwright/test": "^1.61.1",
 		"@solidjs/testing-library": "^0.8.10",
 		"@testing-library/jest-dom": "^6.9.1",
 		"@types/node": "^26.1.1",
