@@ -21,7 +21,7 @@
 		"@babylonjs/core": "9.18.0",
 		"@solid-primitives/storage": "^4.4.0",
 		"@solidjs/router": "^0.16.1",
-		"@tailwindcss/vite": "^4.3.2",
+		"@tailwindcss/vite": "^4.3.3",
 		"dexie": "^4.4.4",
 		"motion": "^12.42.2",
 		"solid-js": "^1.9.14",
