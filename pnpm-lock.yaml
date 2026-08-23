@@ -21,8 +21,8 @@ importers:
         specifier: ^4.3.3
         version: 4.3.3(vite@8.1.4(@types/node@26.1.1)(esbuild@0.27.3)(jiti@2.7.0)(yaml@2.9.0))
       dexie:
-        specifier: ^4.4.4
-        version: 4.4.4
+        specifier: ^4.4.5
+        version: 4.4.5
       motion:
         specifier: ^12.42.2
         version: 12.42.2
@@ -1192,8 +1192,8 @@ packages:
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
-  dexie@4.4.4:
-    resolution: {integrity: sha512-jIwsYI8Os2hgnqc6O49YwFDKGc5v5QjGx0wPVp543ip1F53VFAKMLthV2pQosQcVTv3eAskTWYspOx195PM0FQ==}
+  dexie@4.4.5:
+    resolution: {integrity: sha512-wWCHdihT3dmlUSuNhn5mMZDWSpG0suxjAni7YjjiZdzabZcKmy3uNZGZ7AeYYXBoLbpSXX35fikPLkPC44Osiw==}
 
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
@@ -3055,7 +3055,7 @@ snapshots:
     dependencies:
       dequal: 2.0.3
 
-  dexie@4.4.4: {}
+  dexie@4.4.5: {}
 
   dom-accessibility-api@0.5.16: {}
 
