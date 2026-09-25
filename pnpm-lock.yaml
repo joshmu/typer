@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@babylonjs/core':
-        specifier: 9.18.0
-        version: 9.18.0
+        specifier: 9.25.0
+        version: 9.25.0
       '@solid-primitives/storage':
         specifier: ^4.4.0
         version: 4.4.0(solid-js@1.9.15)
@@ -191,8 +191,8 @@ packages:
     resolution: {integrity: sha512-4zBIxpPzowiZpusoFkyGVwakdRJUyuH5PxQ/PrqghfdFWWasvnCdPfQXHrenDai+gyLARulZjZowCOj6fjT4pA==}
     engines: {node: '>=6.9.0'}
 
-  '@babylonjs/core@9.18.0':
-    resolution: {integrity: sha512-Ypj9i29mOT8QGqdGaOCX2uQ9y7EhZ6RCBZLSDr84b6BzCltfp3yud75KQfCsOG8SjaZ77CsA40mX1J96kSUaaw==}
+  '@babylonjs/core@9.25.0':
+    resolution: {integrity: sha512-PflCKhM0ZRQ1o/7fRsYic4r1ogBpE/ZxA/8wJ2K2C9wg7rc0rIkXMVTUAcAypAFeVtE0ix6sp3Bd4zbz/rfHBQ==}
 
   '@biomejs/biome@2.5.0':
     resolution: {integrity: sha512-4kURkd9hAPrdDM3C9n82ycYgx8hvQcW6MjKTEejruj8rK0N8P3OPpdy8BvI8kt3KWY4ycF5XtDOrktetEfhfuw==}
@@ -2309,7 +2309,7 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@babylonjs/core@9.18.0': {}
+  '@babylonjs/core@9.25.0': {}
 
   '@biomejs/biome@2.5.0':
     optionalDependencies:
