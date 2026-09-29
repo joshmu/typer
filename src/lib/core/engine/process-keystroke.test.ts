@@ -352,3 +352,39 @@ describe("processKeystroke purity", () => {
 		expect(state).toEqual(before);
 	});
 });
+
+describe("applyKeystroke outcome", () => {
+	it("reports a correct and an incorrect key", () => {
+		const state = createTypingState("ab");
+		expect(applyKeystroke(state, "a", 1000)).toBe("correct");
+		expect(applyKeystroke(state, "x", 1001)).toBe("incorrect");
+	});
+
+	it("reports the word-completing key as correct when stop on error word resets the word", () => {
+		const state = createTypingState("ab cd");
+		state.config.stopOnError = "word";
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "b", 1001);
+		expect(applyKeystroke(state, " ", 1002)).toBe("correct");
+		expect(state.currentCharIndex).toBe(0);
+	});
+
+	it("reports a backspace that changes the state", () => {
+		const state = createTypingState("ab");
+		applyKeystroke(state, "a", 1000);
+		expect(applyKeystroke(state, "Backspace", 1001)).toBe("backspace");
+	});
+
+	it("reports nothing for a backspace at the very start", () => {
+		const state = createTypingState("ab");
+		expect(applyKeystroke(state, "Backspace", 1000)).toBeNull();
+	});
+
+	it("reports nothing for an ignored key or a finished test", () => {
+		const state = createTypingState("a");
+		expect(applyKeystroke(state, "Shift", 1000)).toBeNull();
+		applyKeystroke(state, "a", 1001);
+		expect(state.endTime).not.toBeNull();
+		expect(applyKeystroke(state, "a", 1002)).toBeNull();
+	});
+});

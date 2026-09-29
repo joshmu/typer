@@ -1,5 +1,5 @@
 import { isCharMatch } from "../text/char-match";
-import type { CharacterState, TypingState } from "../types";
+import type { CharacterState, KeyOutcome, TypingState } from "../types";
 
 const IGNORED_KEYS = new Set([
 	"Shift",
@@ -61,18 +61,15 @@ export function applyKeystroke(
 	state: TypingState,
 	key: string,
 	timestamp: number,
-): void {
-	if (isIgnoredKey(key)) return;
-	if (state.endTime !== null) return;
+): KeyOutcome {
+	if (isIgnoredKey(key)) return null;
+	if (state.endTime !== null) return null;
 
-	if (key === "Backspace") {
-		handleBackspace(state);
-		return;
-	}
+	if (key === "Backspace") return handleBackspace(state) ? "backspace" : null;
 
 	const char =
 		state.words[state.currentWordIndex]?.characters[state.currentCharIndex];
-	if (!char) return;
+	if (!char) return null;
 
 	const isCorrect = isCharMatch(key, char.expected);
 	char.typed = key;
@@ -87,10 +84,11 @@ export function applyKeystroke(
 		!isCorrect &&
 		char.mistakeCount < AUTO_ADVANCE_MISTAKE_THRESHOLD
 	) {
-		return;
+		return "incorrect";
 	}
 
 	advanceCursor(state, timestamp);
+	return isCorrect ? "correct" : "incorrect";
 }
 
 function advanceCursor(state: TypingState, timestamp: number): void {
@@ -142,7 +140,8 @@ function resetWord(state: TypingState, wordIndex: number): void {
 	state.currentCharIndex = 0;
 }
 
-function handleBackspace(state: TypingState): void {
+/** Returns false when there was nothing to delete. */
+function handleBackspace(state: TypingState): boolean {
 	const { currentWordIndex, currentCharIndex, words } = state;
 
 	// In stop-on-error letter mode, the current char may be marked
@@ -150,17 +149,17 @@ function handleBackspace(state: TypingState): void {
 	const currentChar = words[currentWordIndex]?.characters[currentCharIndex];
 	if (currentChar?.status === "incorrect" && currentChar.typed !== null) {
 		resetChar(currentChar);
-		return;
+		return true;
 	}
 
 	// Can't backspace at the very start
-	if (currentWordIndex === 0 && currentCharIndex === 0) return;
+	if (currentWordIndex === 0 && currentCharIndex === 0) return false;
 
 	if (currentCharIndex > 0) {
 		// Backspace within current word
 		resetChar(words[currentWordIndex].characters[currentCharIndex - 1]);
 		state.currentCharIndex = currentCharIndex - 1;
-		return;
+		return true;
 	}
 
 	// At start of word — go back to the last char of the previous word
@@ -173,4 +172,5 @@ function handleBackspace(state: TypingState): void {
 	prevWord.isActive = true;
 	state.currentWordIndex = prevWordIndex;
 	state.currentCharIndex = prevCharIndex;
+	return true;
 }

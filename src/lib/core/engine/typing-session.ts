@@ -1,5 +1,11 @@
 import { normalizeText, textToWords } from "../text/normalizer";
-import type { Feed, StopOnError, TestMode, TypingState } from "../types";
+import type {
+	Feed,
+	KeyOutcome,
+	StopOnError,
+	TestMode,
+	TypingState,
+} from "../types";
 import { applyKeystroke } from "./process-keystroke";
 import { appendWords, needsMoreWords } from "./zen";
 
@@ -18,8 +24,8 @@ export interface TypingSessionOptions {
 }
 
 export interface TypingSession {
-	/** Handle a key pressed at time `now`. */
-	key(key: string, now: number): void;
+	/** Handle a key pressed at time `now`; null when it changed nothing. */
+	key(key: string, now: number): KeyOutcome;
 	/** Advance the clock to `now`; a time test ends at its limit. */
 	tick(now: number): void;
 	/** When the time limit ends the test, once it has started. */
@@ -88,18 +94,19 @@ export function createTypingSession(
 		if (limit !== null && now >= limit) end(limit);
 	}
 
-	function key(key: string, now: number) {
-		if (complete) return;
+	function key(key: string, now: number): KeyOutcome {
+		if (complete) return null;
 		tick(now);
-		if (complete) return;
+		if (complete) return null;
 
 		if (key === "Escape") {
 			if (isContinuous(state.mode) && state.startTime !== null) end(now);
-			return;
+			return null;
 		}
 
+		let outcome: KeyOutcome = null;
 		write((s) => {
-			applyKeystroke(s, key, now);
+			outcome = applyKeystroke(s, key, now);
 			if (feed && s.endTime === null && needsMoreWords(s)) {
 				const more = feed.next(REFILL_WORD_COUNT);
 				if (more) appendWords(s, more);
@@ -107,6 +114,7 @@ export function createTypingSession(
 		});
 
 		if (state.endTime !== null) end(state.endTime);
+		return outcome;
 	}
 
 	return {
