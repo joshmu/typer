@@ -9,12 +9,10 @@ export type EnemyState = {
 	archetypeId: string;
 	pos: Vec2;
 	vel: Vec2;
-	// full word chain assigned at spawn: `words.length === archetype.hp` so one
-	// completion = one damage, and the length is invariant for the enemy's whole
-	// life (every word visible in the stack from spawn). `wordIndex` is the current
-	// word; `typedCount` is the progress within it. A shield/armored absorb neither
-	// advances `wordIndex` nor appends — it just resets `typedCount` to 0 (clang),
-	// so completing a word never pops a fresh word into the stack.
+	// word chain (see wordchain.ts): one completion = one damage, so every alive
+	// enemy has `words.length - wordIndex === hp`. Only a heal-aura pulse grows
+	// the chain. `wordIndex` is the current word; `typedCount` is the progress
+	// within it. A shield/armored absorb just resets `typedCount` to 0 (clang).
 	words: string[];
 	wordIndex: number;
 	typedCount: number;
