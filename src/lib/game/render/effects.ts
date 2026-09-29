@@ -27,7 +27,7 @@ const TRACER_LIFE = 4; // frames a keystroke tracer is visible
 const TRACER_LIFE_HEAVY = 7; // a completion bolt lingers a touch longer
 const FLASH_LIFE = 3;
 const SPARK_LIFE = 5;
-const SPARK_Y = 1.8; // over the ~1.2-high enemy sprites, under the word labels
+const SPARK_Y = 1.8; // above SPRITE_Y 1.2, under the word labels
 
 function lerp(a: number, b: number, t: number): number {
 	return a + (b - a) * t;

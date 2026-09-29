@@ -5,7 +5,12 @@ import type { SimEvent } from "./events";
 import type { PerkId } from "./perks";
 import { POWERUP_LIFETIME_TICKS } from "./powerups";
 import { stateHash } from "./replay";
-import { ARENA, createInitialState, type GameState } from "./state";
+import {
+	ARENA,
+	createInitialState,
+	type GameState,
+	type PowerupKind,
+} from "./state";
 import { step } from "./step";
 
 function enemy(archetypeId: string, id: number, x: number, words: string[]) {
@@ -117,6 +122,24 @@ describe("sim events", () => {
 			expect.objectContaining({ type: "kill", id: 1, cause: "bomb" }),
 		);
 	});
+
+	it.each<PowerupKind>(["freeze", "bomb", "heal", "slow"])(
+		"a completed %s pickup reports a powerup event",
+		(kind) => {
+			const s = field([], [enemy("husk-1", 1, 20, ["the"])]);
+			s.powerups = [
+				{
+					id: 1,
+					kind,
+					word: "z",
+					typedCount: 0,
+					pos: { x: 10, y: 0 },
+					expiresTick: POWERUP_LIFETIME_TICKS,
+				},
+			];
+			expect(press(s, "z")).toContainEqual({ type: "powerup", kind });
+		},
+	);
 
 	it("collecting events leaves the state hash unchanged", () => {
 		const s = field(
