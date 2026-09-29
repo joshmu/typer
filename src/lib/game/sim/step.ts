@@ -2,6 +2,7 @@ import { isCharMatch } from "@/lib/core/text/char-match";
 import { isCloaked, isTargetable, tickAbility } from "./abilities";
 import { resolveCompletion } from "./combat";
 import { breakCombo, decayCombo } from "./combo";
+import type { SimEvent } from "./events";
 import { dist } from "./math";
 import { MOVEMENTS } from "./movement";
 import {
@@ -58,9 +59,11 @@ function applyPerkChoice(s: GameState, index: number): void {
 	}
 }
 
+/** `out`, when given, receives the tick's SimEvents; it never affects state. */
 export function step(
 	state: GameState,
 	events: readonly GameEvent[],
+	out?: SimEvent[],
 ): GameState {
 	if (state.status === "gameover") return state;
 
@@ -135,6 +138,7 @@ export function step(
 		if (dist(e.pos.x, e.pos.y) <= ARENA.killRadius) {
 			e.alive = false;
 			s.playerHp -= 1;
+			out?.push({ type: "breach", id: e.id, x: e.pos.x, y: e.pos.y });
 			if (s.targetId === e.id) s.targetId = null;
 			if (s.playerHp <= 0) {
 				s.playerHp = 0;
@@ -216,7 +220,7 @@ export function step(
 				pu.typedCount += 1;
 				registerHit();
 				if (pu.typedCount >= pu.word.length) {
-					applyPowerup(s, pu.kind);
+					applyPowerup(s, pu.kind, out);
 					s.powerups = s.powerups.filter((p) => p.id !== pu.id);
 					s.targetPowerupId = null;
 				}
@@ -229,7 +233,7 @@ export function step(
 				if (isCharMatch(ev.key, currentWord(target)[target.typedCount])) {
 					target.typedCount += 1;
 					registerHit();
-					resolveCompletion(s, target, moveScale);
+					resolveCompletion(s, target, moveScale, out);
 					continue;
 				}
 				// alive but this key doesn't continue it → fall through to re-route
@@ -258,7 +262,7 @@ export function step(
 			s.targetPowerupId = null;
 			picked.typedCount += 1;
 			registerHit();
-			resolveCompletion(s, picked, moveScale);
+			resolveCompletion(s, picked, moveScale, out);
 			continue;
 		}
 
@@ -272,7 +276,7 @@ export function step(
 			pu.typedCount += 1;
 			registerHit();
 			if (pu.typedCount >= pu.word.length) {
-				applyPowerup(s, pu.kind);
+				applyPowerup(s, pu.kind, out);
 				s.powerups = s.powerups.filter((p) => p.id !== pu.id);
 				s.targetPowerupId = null;
 			}

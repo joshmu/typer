@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { SimEvent } from "./events";
 import {
 	type InputLog,
 	type LoggedEvent,
@@ -109,6 +110,17 @@ describe("replay", () => {
 	it("deep run is deterministic across replays", () => {
 		const log = buildDeepRunLog(42);
 		expect(stateHash(runReplay(log))).toBe(stateHash(runReplay(log)));
+	});
+
+	it("two replays of the same log report identical sim events", () => {
+		const log = buildDeepRunLog(42);
+		const a: SimEvent[] = [];
+		const b: SimEvent[] = [];
+		const withEvents = runReplay(log, a);
+		runReplay(log, b);
+		expect(a.length).toBeGreaterThan(0);
+		expect(a).toEqual(b);
+		expect(stateHash(withEvents)).toBe(stateHash(runReplay(log)));
 	});
 
 	it("matches the deep-run golden fixture", async () => {

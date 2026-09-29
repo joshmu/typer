@@ -1,0 +1,96 @@
+import { describe, expect, it } from "vitest";
+import type { SimEvent } from "../sim/events";
+import { dispatchEffects, type EffectCommands } from "./frame-effects";
+
+function recorder(): { calls: string[]; fx: EffectCommands } {
+	const calls: string[] = [];
+	return {
+		calls,
+		fx: {
+			shot: (x, y, kind) => calls.push(`shot ${x},${y} ${kind}`),
+			kill: (x, y, id, archetypeId) =>
+				calls.push(`kill ${id} ${x},${y} ${archetypeId}`),
+			breach: (x, y, id) => calls.push(`breach ${id} ${x},${y}`),
+			coreHit: () => calls.push("coreHit"),
+			powerupPulse: () => calls.push("powerupPulse"),
+		},
+	};
+}
+
+function run(events: SimEvent[]): string[] {
+	const { calls, fx } = recorder();
+	dispatchEffects(events, fx);
+	return calls;
+}
+
+describe("dispatchEffects", () => {
+	it("a typed keystroke fires a light shot; a typed chip a heavy one", () => {
+		expect(
+			run([
+				{ type: "hit", id: 1, x: 1, y: 2, typed: true, damaged: false },
+				{ type: "hit", id: 1, x: 1, y: 2, typed: true, damaged: true },
+			]),
+		).toEqual(["shot 1,2 light", "shot 1,2 heavy"]);
+	});
+
+	it("never fires a shot for non-typed damage", () => {
+		expect(
+			run([
+				{ type: "hit", id: 2, x: 3, y: 4, typed: false, damaged: true },
+				{ type: "absorb", id: 3, x: 5, y: 6, typed: false },
+				{
+					type: "kill",
+					id: 4,
+					x: 7,
+					y: 8,
+					archetypeId: "husk-1",
+					cause: "weapon",
+				},
+				{
+					type: "kill",
+					id: 5,
+					x: 9,
+					y: 0,
+					archetypeId: "husk-1",
+					cause: "bomb",
+				},
+			]),
+		).toEqual(["kill 4 7,8 husk-1", "kill 5 9,0 husk-1"]);
+	});
+
+	it("a typed kill fires a heavy shot at the victim before the kill", () => {
+		expect(
+			run([
+				{
+					type: "kill",
+					id: 1,
+					x: 1,
+					y: 1,
+					archetypeId: "husk-1",
+					cause: "typed",
+				},
+			]),
+		).toEqual(["shot 1,1 heavy", "kill 1 1,1 husk-1"]);
+	});
+
+	it("a typed absorb clangs at the absorbing enemy", () => {
+		expect(run([{ type: "absorb", id: 7, x: 3, y: 3, typed: true }])).toEqual([
+			"shot 3,3 clang",
+		]);
+	});
+
+	it("breaches scar the ground and shake the core once per frame", () => {
+		expect(
+			run([
+				{ type: "breach", id: 1, x: 0.5, y: 0 },
+				{ type: "breach", id: 2, x: 0, y: 0.5 },
+			]),
+		).toEqual(["breach 1 0.5,0", "breach 2 0,0.5", "coreHit"]);
+	});
+
+	it("an applied powerup pulses the ring", () => {
+		expect(run([{ type: "powerup", kind: "freeze" }])).toEqual([
+			"powerupPulse",
+		]);
+	});
+});
