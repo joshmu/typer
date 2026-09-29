@@ -173,4 +173,26 @@ test("the mode selector hides once typing starts", async ({ page }) => {
 	await page.keyboard.type("x");
 	await expect(selector).toHaveClass(/opacity-0/);
 	await expect(selector).toHaveClass(/pointer-events-none/);
+	await expect(selector).toHaveAttribute("inert");
+});
+
+test("the hidden mode selector is out of the tab order while typing", async ({
+	page,
+}) => {
+	await page.goto("/");
+	await page.getByRole("button", { name: "words" }).click();
+	const typingTest = page.getByTestId("typing-test");
+	await expect(typingTest).toBeFocused();
+	await page.keyboard.type("x");
+
+	await page.keyboard.press("Shift+Tab");
+	await expect(
+		page.locator('[data-testid="mode-selector"] button:focus'),
+	).toHaveCount(0);
+	// the typed character is still marked, so the test was not replaced
+	await expect(
+		page
+			.getByTestId("text-display")
+			.locator('[class*="text-correct"], [class*="text-error"]'),
+	).toHaveCount(1);
 });

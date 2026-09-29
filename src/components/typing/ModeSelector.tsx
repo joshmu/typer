@@ -56,6 +56,7 @@ export default function ModeSelector(props: ModeSelectorProps) {
 			data-testid="mode-selector"
 			class="flex flex-col items-center gap-3 mb-8 transition-opacity duration-500"
 			classList={{ "opacity-0 pointer-events-none": isTypingActive() }}
+			inert={isTypingActive()}
 		>
 			{/* Mode type tabs */}
 			<div
