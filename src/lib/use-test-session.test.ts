@@ -171,6 +171,52 @@ describe("useTestSession", () => {
 				dispose();
 			});
 		});
+
+		it("does not clear a finished test's result", async () => {
+			const { load, pending } = deferredLists();
+			await createRoot(async (dispose) => {
+				const session = useTestSession({
+					wordListSize: () => "200",
+					deps: {
+						loadWordList: load,
+						recordCompletion: vi.fn().mockResolvedValue(undefined),
+					},
+				});
+				session.setCustomText("the quick");
+				const loading = session.startWithMode({ type: "words", count: 10 });
+				session.complete(completedState("the quick"));
+				pending[0](["a1", "a2"]);
+				await loading;
+				expect(session.result()).not.toBeNull();
+				dispose();
+			});
+		});
+
+		it("ignores a book fetch superseded by a newer mode choice", async () => {
+			const book = makeBook([makeChapter(0, ["a", "b", "c"])]);
+			let resolveFetch: (b: CachedBook) => void = () => {};
+			const fetchAndCacheBook = vi.fn(
+				() =>
+					new Promise<CachedBook>((resolve) => {
+						resolveFetch = resolve;
+					}),
+			);
+			await createRoot(async (dispose) => {
+				const session = useTestSession({
+					wordListSize: () => "200",
+					deps: { fetchAndCacheBook },
+				});
+				const selecting = session.selectBook("author/book");
+				expect(session.bookLoading()).toBe(true);
+				await session.startWithMode({ type: "quote", length: "short" });
+				resolveFetch(book);
+				await selecting;
+				expect(session.mode().type).toBe("quote");
+				expect(session.activeBook()).toBeNull();
+				expect(session.bookLoading()).toBe(false);
+				dispose();
+			});
+		});
 	});
 
 	it("setCustomText puts text on the session and clears prior result", () =>

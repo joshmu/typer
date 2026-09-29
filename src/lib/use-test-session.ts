@@ -87,7 +87,10 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 
 	const bookProgressPercent = createMemo(() => bookReader()?.percent ?? 0);
 
+	// Bumped by anything that replaces the current test, so pending loads go stale.
 	let latestStart = 0;
+	const isStale = (request: number) =>
+		request !== latestStart || isTypingActive();
 
 	async function startWithMode(newMode: TestMode): Promise<void> {
 		const request = ++latestStart;
@@ -116,22 +119,27 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 				// Text remains null; UI shows modal/browser respectively.
 				break;
 		}
-		// A newer choice, or a test the user has started typing, wins over this load.
-		if (request !== latestStart || isTypingActive()) return;
+		if (isStale(request)) return;
 		setSession(next);
 	}
 
 	function setCustomText(value: string): void {
+		latestStart++;
 		setSession((s) => applyText(s, value));
 	}
+
+	let latestBookFetch = 0;
 
 	async function selectBook(
 		bookId: string,
 		prevProgress?: BookProgress,
 	): Promise<void> {
+		const request = ++latestStart;
+		latestBookFetch = request;
 		setBookLoading(true);
 		try {
 			const cached = await fetchBook(bookId);
+			if (isStale(request)) return;
 			setSession((s) =>
 				applyBookSelection(s, cached, prevProgress ?? null, BOOK_WORD_COUNT),
 			);
@@ -142,7 +150,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 				console.error("Failed to load book:", err);
 			}
 		} finally {
-			setBookLoading(false);
+			if (request === latestBookFetch) setBookLoading(false);
 		}
 	}
 
@@ -162,6 +170,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			});
 		}
 
+		latestStart++;
 		setSaveFailed(false);
 		setSession((s) => applyResult(s, testResult, draft));
 
