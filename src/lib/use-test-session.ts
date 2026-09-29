@@ -66,12 +66,12 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const record = options.deps?.recordCompletion ?? defaultRecordCompletion;
 	const loadWordList = options.deps?.loadWordList ?? defaultLoadWordList;
 
-	const [state, setState] = createSignal<SessionState>(
+	const [session, setSession] = createSignal<SessionState>(
 		createInitialSession(INITIAL_MODE),
 	);
 	// One memo per field, so a change to one field leaves readers of the others alone.
 	const field = <K extends keyof SessionState>(key: K) =>
-		createMemo(() => state()[key]);
+		createMemo(() => session()[key]);
 	const mode = field("mode");
 	const text = field("text");
 	const result = field("result");
@@ -115,11 +115,11 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		}
 		// A newer choice, or a test the user has started typing, wins over this load.
 		if (request !== latestStart || isTypingActive()) return;
-		setState(next);
+		setSession(next);
 	}
 
 	function setCustomText(value: string): void {
-		setState((s) => applyText(s, value));
+		setSession((s) => applyText(s, value));
 	}
 
 	async function selectBook(
@@ -129,7 +129,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		setBookLoading(true);
 		try {
 			const cached = await fetchBook(bookId);
-			setState((s) =>
+			setSession((s) =>
 				applyBookSelection(s, cached, prevProgress ?? null, BOOK_WORD_COUNT),
 			);
 		} catch (err) {
@@ -159,7 +159,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			});
 		}
 
-		setState((s) => applyResult(s, testResult, draft));
+		setSession((s) => applyResult(s, testResult, draft));
 
 		void record(
 			toTypingResult(state, completed, activeBook()?.meta.title, now),
@@ -170,8 +170,8 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	}
 
 	function redo(): void {
-		const outcome = decideRedo(state(), BOOK_WORD_COUNT);
-		setState(outcome.state);
+		const outcome = decideRedo(session(), BOOK_WORD_COUNT);
+		setSession(outcome.state);
 		if (outcome.kind === "restart-mode") {
 			void startWithMode(outcome.mode);
 		}
