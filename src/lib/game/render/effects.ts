@@ -22,9 +22,12 @@ const SHAKE_MAG = 0.6;
 const BURST_COUNT = 36;
 const TRACER_POOL = 16;
 const FLASH_POOL = 4;
+const SPARK_POOL = 8;
 const TRACER_LIFE = 4; // frames a keystroke tracer is visible
 const TRACER_LIFE_HEAVY = 7; // a completion bolt lingers a touch longer
 const FLASH_LIFE = 3;
+const SPARK_LIFE = 5;
+const SPARK_Y = 1.8; // over the ~1.2-high enemy sprites, under the word labels
 
 function lerp(a: number, b: number, t: number): number {
 	return a + (b - a) * t;
@@ -47,6 +50,8 @@ export type Effects = {
 	fireTracer(from: Vector3, to: Vector3, heavy: boolean): void;
 	/** A brief muzzle burst at a world point (word completion / kill). */
 	muzzleFlash(at: Vector3, heavy: boolean): void;
+	/** A small spark at a ground point where non-typed damage clanged off. */
+	spark(x: number, y: number): void;
 	update(state: GameState): void;
 	dispose(): void;
 };
@@ -123,6 +128,23 @@ export function createEffects(scene: Scene): Effects {
 		flashes.push({ mesh, life: 0, maxLife: FLASH_LIFE });
 	}
 
+	const sparkMat = new StandardMaterial("fx-spark-mat", scene);
+	sparkMat.emissiveColor = new Color3(1, 0.6, 0.2);
+	sparkMat.diffuseColor = new Color3(0, 0, 0);
+	sparkMat.disableLighting = true;
+	const sparks: Pooled[] = [];
+	for (let i = 0; i < SPARK_POOL; i++) {
+		const mesh = CreateSphere(
+			`fx-spark-${i}`,
+			{ diameter: 1, segments: 4 },
+			scene,
+		);
+		mesh.material = sparkMat;
+		mesh.isPickable = false;
+		mesh.setEnabled(false);
+		sparks.push({ mesh, life: 0, maxLife: SPARK_LIFE });
+	}
+
 	function acquire(pool: Pooled[]): Pooled {
 		let pick = pool[0];
 		for (const p of pool) {
@@ -174,6 +196,14 @@ export function createEffects(scene: Scene): Effects {
 			f.mesh.visibility = 1;
 			f.mesh.setEnabled(true);
 		},
+		spark(x, y) {
+			const p = acquire(sparks);
+			p.mesh.position.set(x, SPARK_Y, y);
+			p.mesh.scaling.setAll(0.3);
+			p.life = SPARK_LIFE;
+			p.mesh.visibility = 1;
+			p.mesh.setEnabled(true);
+		},
 		update(state) {
 			// fade + retire pooled tracers and flashes
 			for (const t of tracers) {
@@ -192,6 +222,12 @@ export function createEffects(scene: Scene): Effects {
 				f.mesh.scaling.setAll((f.mesh.scaling.x || 1) * 0.8 + 0.001);
 				f.mesh.visibility = k;
 				if (f.life <= 0) f.mesh.setEnabled(false);
+			}
+			for (const p of sparks) {
+				if (p.life <= 0) continue;
+				p.life -= 1;
+				p.mesh.visibility = p.life / SPARK_LIFE;
+				if (p.life <= 0) p.mesh.setEnabled(false);
 			}
 
 			// status color grade: freeze wins over slow, both lerp toward a tint
@@ -233,8 +269,10 @@ export function createEffects(scene: Scene): Effects {
 			gib.dispose();
 			for (const t of tracers) t.mesh.dispose(false, true);
 			for (const f of flashes) f.mesh.dispose(false, true);
+			for (const p of sparks) p.mesh.dispose(false, true);
 			tracerMat.dispose();
 			heavyMat.dispose();
+			sparkMat.dispose();
 		},
 	};
 }

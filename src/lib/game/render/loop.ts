@@ -77,6 +77,7 @@ export function startGameLoop(opts: GameLoopOptions): GameLoop {
 			effects.fireTracer(muzzle, shotTo, kind !== "light");
 			if (kind !== "light") effects.muzzleFlash(muzzle, kind === "heavy");
 		},
+		spark: (x, y) => effects.spark(x, y),
 		kill(x, y, id, archetypeId) {
 			const { color } = visualFor(archetypeId);
 			burstAt.x = x;
