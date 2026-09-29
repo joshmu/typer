@@ -15,7 +15,7 @@ import {
 	type SessionState,
 } from "@/lib/core/engine/session-manager";
 import { getRandomQuote } from "@/lib/core/text/quotes";
-import { loadWordList } from "@/lib/core/text/word-list-loader";
+import { loadWordList as defaultLoadWordList } from "@/lib/core/text/word-list-loader";
 import { createWordFeed, generateWords } from "@/lib/core/text/words";
 import type { Feed, TestMode, TypingState } from "@/lib/core/types";
 import type { BookProgress, CachedBook } from "@/lib/core/types/book";
@@ -25,6 +25,7 @@ import {
 	toTypingResult,
 } from "@/lib/history";
 import type { UserPreferences } from "@/lib/preferences";
+import { isTypingActive } from "@/lib/typing-focus";
 
 /** Words fed per typing window in book/zen mode. */
 export const BOOK_WORD_COUNT = 30;
@@ -36,6 +37,7 @@ export interface UseTestSessionOptions {
 	/** Test-only IO overrides. */
 	deps?: Partial<{
 		fetchAndCacheBook: typeof defaultFetchAndCacheBook;
+		loadWordList: typeof defaultLoadWordList;
 		recordCompletion: typeof defaultRecordCompletion;
 	}>;
 }
@@ -62,6 +64,7 @@ const INITIAL_MODE: TestMode = { type: "book", bookId: "", chapterIndex: 0 };
 export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const fetchBook = options.deps?.fetchAndCacheBook ?? defaultFetchAndCacheBook;
 	const record = options.deps?.recordCompletion ?? defaultRecordCompletion;
+	const loadWordList = options.deps?.loadWordList ?? defaultLoadWordList;
 
 	const [state, setState] = createSignal<SessionState>(
 		createInitialSession(INITIAL_MODE),
@@ -81,7 +84,10 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 
 	const bookProgressPercent = createMemo(() => bookReader()?.percent ?? 0);
 
+	let latestStart = 0;
+
 	async function startWithMode(newMode: TestMode): Promise<void> {
+		const request = ++latestStart;
 		let next = createInitialSession(newMode);
 		switch (newMode.type) {
 			case "time":
@@ -107,6 +113,8 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 				// Text remains null; UI shows modal/browser respectively.
 				break;
 		}
+		// A newer choice, or a test the user has started typing, wins over this load.
+		if (request !== latestStart || isTypingActive()) return;
 		setState(next);
 	}
 

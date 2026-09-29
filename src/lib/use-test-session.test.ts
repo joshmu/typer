@@ -6,6 +6,7 @@ import type { TestMode, TypingState } from "@/lib/core/types";
 import type { BookChapter, CachedBook } from "@/lib/core/types/book";
 import { createTypingState } from "@/lib/core/types/test-fixtures";
 import { db } from "@/lib/db";
+import { setTypingActive } from "@/lib/typing-focus";
 import { useTestSession } from "./use-test-session";
 
 function makeChapter(index: number, words: string[]): BookChapter {
@@ -118,6 +119,59 @@ describe("useTestSession", () => {
 			for (const word of words ?? []) expect(list).toContain(word);
 		},
 	);
+
+	describe("word-list loads that resolve late", () => {
+		function deferredLists() {
+			const pending: Array<(list: string[]) => void> = [];
+			const load = vi.fn(
+				() => new Promise<string[]>((resolve) => pending.push(resolve)),
+			);
+			return { load, pending };
+		}
+
+		afterEach(() => setTypingActive(false));
+
+		it("ignores a load superseded by a newer mode choice", async () => {
+			const { load, pending } = deferredLists();
+			await createRoot(async (dispose) => {
+				const session = useTestSession({
+					wordListSize: () => "200",
+					deps: { loadWordList: load },
+				});
+				const slow = session.startWithMode({ type: "time", seconds: 30 });
+				const fast = session.startWithMode({ type: "words", count: 10 });
+				pending[1](["b1", "b2"]);
+				await fast;
+				pending[0](["a1", "a2"]);
+				await slow;
+				expect(session.mode()).toEqual({ type: "words", count: 10 });
+				expect(session.text()).toMatch(/^b\d( b\d)+$/);
+				dispose();
+			});
+		});
+
+		it("does not replace a test the user started typing meanwhile", async () => {
+			const { load, pending } = deferredLists();
+			await createRoot(async (dispose) => {
+				const session = useTestSession({
+					wordListSize: () => "200",
+					deps: { loadWordList: load },
+				});
+				session.setCustomText("hello world");
+				const loading = session.startWithMode({ type: "zen" });
+				setTypingActive(true);
+				pending[0](["a1", "a2"]);
+				await loading;
+				expect(session.mode()).toEqual({
+					type: "book",
+					bookId: "",
+					chapterIndex: 0,
+				});
+				expect(session.text()).toBe("hello world");
+				dispose();
+			});
+		});
+	});
 
 	it("setCustomText puts text on the session and clears prior result", () =>
 		createRoot((dispose) => {
