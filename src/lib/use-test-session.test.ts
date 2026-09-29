@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { createRoot } from "solid-js";
+import { createComputed, createRoot } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadWordList } from "@/lib/core/text/word-list-loader";
 import type { TestMode, TypingState } from "@/lib/core/types";
@@ -395,6 +395,26 @@ describe("useTestSession", () => {
 			}),
 		);
 	});
+
+	it("completing a test leaves the loaded test's accessors untouched", () =>
+		createRoot((dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { recordCompletion: vi.fn().mockResolvedValue(undefined) },
+			});
+			session.setCustomText("the quick");
+			let runs = 0;
+			createComputed(() => {
+				session.text();
+				session.mode();
+				session.feed();
+				runs++;
+			});
+			session.complete(completedState("the quick"));
+			expect(session.result()).not.toBeNull();
+			expect(runs).toBe(1);
+			dispose();
+		}));
 
 	it("redo in custom mode clears text", () =>
 		createRoot((dispose) => {

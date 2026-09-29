@@ -59,8 +59,6 @@ describe("createInitialSession", () => {
 		expect(s.activeBook).toBeNull();
 		expect(s.bookReader).toBeNull();
 		expect(s.feed).toBeNull();
-		expect(s.currentBookProgress).toBeNull();
-		expect(s.bookLoading).toBe(false);
 	});
 
 	it("preserves the requested mode", () => {
@@ -112,8 +110,6 @@ describe("applyBookSelection", () => {
 			bookId: "author/book",
 			chapterIndex: 0,
 		});
-		expect(session.bookLoading).toBe(false);
-		expect(session.currentBookProgress).toBeNull();
 	});
 
 	it("opens the reader at saved chapter and offset", () => {
@@ -146,7 +142,10 @@ describe("applyBookSelection", () => {
 			bookId: "author/book",
 			chapterIndex: 1,
 		});
-		expect(session.currentBookProgress).toBe(prev);
+		expect(session.bookReader?.position).toEqual({
+			chapterIndex: 1,
+			wordOffset: 1,
+		});
 	});
 });
 
@@ -172,38 +171,6 @@ describe("applyResult", () => {
 		expect(next.result).toBe(result);
 	});
 
-	it("optionally updates the current book progress", () => {
-		const session = createInitialSession({
-			type: "book",
-			bookId: "x",
-			chapterIndex: 0,
-		});
-		const progress = {
-			bookId: "x",
-			chapterIndex: 0,
-			wordOffset: 5,
-			completedChapters: [],
-			totalCharsTyped: 0,
-			totalTimeMs: 0,
-			averageWpm: 0,
-			sessionCount: 1,
-			lastAccessedAt: 0,
-			startedAt: 0,
-			bookMeta: session.activeBook?.meta as never,
-		} as BookProgress;
-		const result = {
-			wpm: 1,
-			rawWpm: 1,
-			accuracy: 100,
-			consistency: 100,
-			breakdown: { correct: 0, incorrect: 0, missed: 0, extra: 0, total: 0 },
-			elapsed: 0,
-			wpmPerSecond: [],
-		};
-		const next = applyResult(session, result, progress);
-		expect(next.currentBookProgress).toBe(progress);
-	});
-
 	it("reopens the reader at the committed progress", () => {
 		const book = makeBook([makeChapter(0, ["a", "b", "c", "d", "e"])]);
 		const session = applyBookSelection(
@@ -217,7 +184,7 @@ describe("applyResult", () => {
 			elapsedMs: 0,
 			wpm: 0,
 			now: 0,
-		}) as BookProgress;
+		});
 		const next = applyResult(session, RESULT, progress);
 		expect(next.bookReader?.position).toEqual({
 			chapterIndex: 0,
@@ -263,7 +230,7 @@ describe("decideRedo", () => {
 			elapsedMs: 0,
 			wpm: 0,
 			now: 0,
-		}) as BookProgress;
+		});
 		const session = applyResult(selected, RESULT, progress);
 		const outcome = decideRedo(session, 2);
 		expect(outcome.kind).toBe("book-continue");
@@ -298,7 +265,7 @@ describe("decideRedo", () => {
 			elapsedMs: 0,
 			wpm: 0,
 			now: 0,
-		}) as BookProgress;
+		});
 		const outcome = decideRedo(applyResult(selected, RESULT, progress), 5);
 		expect(outcome.kind).toBe("book-finished");
 		expect(outcome.state.activeBook).toBeNull();

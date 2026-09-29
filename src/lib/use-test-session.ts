@@ -1,4 +1,4 @@
-import { type Accessor, batch, createMemo, createSignal } from "solid-js";
+import { type Accessor, createMemo, createSignal } from "solid-js";
 import { useAllBookProgress } from "@/lib/book-progress";
 import { fetchAndCacheBook as defaultFetchAndCacheBook } from "@/lib/book-service";
 import {
@@ -47,7 +47,6 @@ export interface TestSession {
 	activeBook: Accessor<CachedBook | null>;
 	bookReader: Accessor<BookReader | null>;
 	feed: Accessor<Feed | null>;
-	currentBookProgress: Accessor<BookProgress | null>;
 	bookLoading: Accessor<boolean>;
 	bookProgressPercent: Accessor<number>;
 	allBookProgress: Accessor<BookProgress[]>;
@@ -64,50 +63,23 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const fetchBook = options.deps?.fetchAndCacheBook ?? defaultFetchAndCacheBook;
 	const record = options.deps?.recordCompletion ?? defaultRecordCompletion;
 
-	const initial = createInitialSession(INITIAL_MODE);
-	const [mode, setMode] = createSignal<TestMode>(initial.mode);
-	const [text, setText] = createSignal<string | null>(initial.text);
-	const [result, setResult] = createSignal<TestResult | null>(initial.result);
-	const [activeBook, setActiveBook] = createSignal<CachedBook | null>(
-		initial.activeBook,
+	const [state, setState] = createSignal<SessionState>(
+		createInitialSession(INITIAL_MODE),
 	);
-	const [bookReader, setBookReader] = createSignal<BookReader | null>(
-		initial.bookReader,
-	);
-	const [feed, setFeed] = createSignal<Feed | null>(initial.feed);
-	const [currentBookProgress, setCurrentBookProgress] =
-		createSignal<BookProgress | null>(initial.currentBookProgress);
-	const [bookLoading, setBookLoading] = createSignal(initial.bookLoading);
+	// One memo per field, so a change to one field leaves readers of the others alone.
+	const field = <K extends keyof SessionState>(key: K) =>
+		createMemo(() => state()[key]);
+	const mode = field("mode");
+	const text = field("text");
+	const result = field("result");
+	const activeBook = field("activeBook");
+	const bookReader = field("bookReader");
+	const feed = field("feed");
+	const [bookLoading, setBookLoading] = createSignal(false);
 
 	const allBookProgress = useAllBookProgress();
 
 	const bookProgressPercent = createMemo(() => bookReader()?.percent ?? 0);
-
-	function snapshot(): SessionState {
-		return {
-			mode: mode(),
-			text: text(),
-			result: result(),
-			activeBook: activeBook(),
-			bookReader: bookReader(),
-			feed: feed(),
-			currentBookProgress: currentBookProgress(),
-			bookLoading: bookLoading(),
-		};
-	}
-
-	function apply(next: SessionState) {
-		batch(() => {
-			setMode(() => next.mode);
-			setText(next.text);
-			setResult(() => next.result);
-			setActiveBook(() => next.activeBook);
-			setBookReader(() => next.bookReader);
-			setFeed(() => next.feed);
-			setCurrentBookProgress(() => next.currentBookProgress);
-			setBookLoading(next.bookLoading);
-		});
-	}
 
 	async function startWithMode(newMode: TestMode): Promise<void> {
 		let next = createInitialSession(newMode);
@@ -135,11 +107,11 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 				// Text remains null; UI shows modal/browser respectively.
 				break;
 		}
-		apply(next);
+		setState(next);
 	}
 
 	function setCustomText(value: string): void {
-		apply(applyText(snapshot(), value));
+		setState((s) => applyText(s, value));
 	}
 
 	async function selectBook(
@@ -149,13 +121,8 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		setBookLoading(true);
 		try {
 			const cached = await fetchBook(bookId);
-			apply(
-				applyBookSelection(
-					snapshot(),
-					cached,
-					prevProgress ?? null,
-					BOOK_WORD_COUNT,
-				),
+			setState((s) =>
+				applyBookSelection(s, cached, prevProgress ?? null, BOOK_WORD_COUNT),
 			);
 		} catch (err) {
 			if (isAppError(err)) {
@@ -184,7 +151,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			});
 		}
 
-		apply(applyResult(snapshot(), testResult, draft as BookProgress));
+		setState((s) => applyResult(s, testResult, draft));
 
 		void record(
 			toTypingResult(state, completed, activeBook()?.meta.title, now),
@@ -195,8 +162,8 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	}
 
 	function redo(): void {
-		const outcome = decideRedo(snapshot(), BOOK_WORD_COUNT);
-		apply(outcome.state);
+		const outcome = decideRedo(state(), BOOK_WORD_COUNT);
+		setState(outcome.state);
 		if (outcome.kind === "restart-mode") {
 			void startWithMode(outcome.mode);
 		}
@@ -209,7 +176,6 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		activeBook,
 		bookReader,
 		feed,
-		currentBookProgress,
 		bookLoading,
 		bookProgressPercent,
 		allBookProgress,
