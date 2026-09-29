@@ -1,4 +1,5 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { useBookPercents } from "@/lib/book-progress";
 import { browseCatalog, searchBooks } from "@/lib/book-service";
 import type { BookMeta, BookProgress } from "@/lib/core/types/book";
 import BookCard from "./BookCard";
@@ -20,6 +21,7 @@ export default function BookBrowser(props: BookBrowserProps) {
 	const [fetching, setFetching] = createSignal(false);
 	const [hasMore, setHasMore] = createSignal(true);
 	const [selectedBook, setSelectedBook] = createSignal<BookMeta | null>(null);
+	const bookPercents = useBookPercents();
 
 	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -64,6 +66,10 @@ export default function BookBrowser(props: BookBrowserProps) {
 
 	function getProgress(bookId: string): BookProgress | undefined {
 		return props.allProgress.find((p) => p.bookId === bookId);
+	}
+
+	function getPercent(bookId: string): number {
+		return bookPercents()[bookId] ?? 0;
 	}
 
 	function handleBookClick(book: BookMeta) {
@@ -111,6 +117,7 @@ export default function BookBrowser(props: BookBrowserProps) {
 								<BookCard
 									book={book}
 									progress={getProgress(book.id)}
+									percent={getPercent(book.id)}
 									onClick={handleBookClick}
 								/>
 							)}
@@ -143,6 +150,7 @@ export default function BookBrowser(props: BookBrowserProps) {
 								<BookCard
 									book={book}
 									progress={getProgress(book.id)}
+									percent={getPercent(book.id)}
 									onClick={handleBookClick}
 								/>
 							)}
@@ -177,6 +185,7 @@ export default function BookBrowser(props: BookBrowserProps) {
 					<BookDetail
 						book={book()}
 						progress={getProgress(book().id)}
+						percent={getPercent(book().id)}
 						loading={props.loading}
 						onStart={handleStart}
 						onClose={() => setSelectedBook(null)}

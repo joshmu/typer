@@ -4,17 +4,15 @@ import type { BookMeta, BookProgress } from "@/lib/core/types/book";
 interface BookDetailProps {
 	book: BookMeta;
 	progress?: BookProgress;
+	/** Book percent from the book reader */
+	percent: number;
 	loading?: boolean;
 	onStart: () => void;
 	onClose: () => void;
 }
 
 export default function BookDetail(props: BookDetailProps) {
-	const progressPercent = () => {
-		const p = props.progress;
-		if (!p || !props.book.wordCount) return 0;
-		return Math.round((p.totalCharsTyped / (props.book.wordCount * 5)) * 100);
-	};
+	const progressPercent = () => props.percent;
 
 	return (
 		<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg/80 backdrop-blur-sm">

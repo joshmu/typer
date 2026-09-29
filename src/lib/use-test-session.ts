@@ -4,12 +4,11 @@ import {
 	useAllBookProgress,
 } from "@/lib/book-progress";
 import { fetchAndCacheBook as defaultFetchAndCacheBook } from "@/lib/book-service";
-import type { BookFeeder } from "@/lib/core/engine/book-feeder";
 import {
-	completeTest,
-	computeNextBookProgress,
-	type TestResult,
-} from "@/lib/core/engine/complete-test";
+	type BookReader,
+	countCompletedWords,
+} from "@/lib/core/engine/book-reader";
+import { completeTest, type TestResult } from "@/lib/core/engine/complete-test";
 import {
 	applyBookSelection,
 	applyResult,
@@ -22,7 +21,7 @@ import { simpleHash } from "@/lib/core/text/hash";
 import { getRandomQuote } from "@/lib/core/text/quotes";
 import { loadWordList } from "@/lib/core/text/word-list-loader";
 import { generateWords } from "@/lib/core/text/words";
-import type { TestMode, TypingState } from "@/lib/core/types";
+import type { Feed, TestMode, TypingState } from "@/lib/core/types";
 import type { BookProgress, CachedBook } from "@/lib/core/types/book";
 import { isAppError } from "@/lib/core/types/errors";
 import { db, type TypingResult } from "@/lib/db";
@@ -48,7 +47,8 @@ export interface TestSession {
 	text: Accessor<string | null>;
 	result: Accessor<TestResult | null>;
 	activeBook: Accessor<CachedBook | null>;
-	bookFeeder: Accessor<BookFeeder | null>;
+	bookReader: Accessor<BookReader | null>;
+	bookFeed: Accessor<Feed | null>;
 	currentBookProgress: Accessor<BookProgress | null>;
 	bookLoading: Accessor<boolean>;
 	bookProgressPercent: Accessor<number>;
@@ -77,23 +77,17 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const [activeBook, setActiveBook] = createSignal<CachedBook | null>(
 		initial.activeBook,
 	);
-	const [bookFeeder, setBookFeeder] = createSignal<BookFeeder | null>(
-		initial.bookFeeder,
+	const [bookReader, setBookReader] = createSignal<BookReader | null>(
+		initial.bookReader,
 	);
+	const [bookFeed, setBookFeed] = createSignal<Feed | null>(initial.bookFeed);
 	const [currentBookProgress, setCurrentBookProgress] =
 		createSignal<BookProgress | null>(initial.currentBookProgress);
 	const [bookLoading, setBookLoading] = createSignal(initial.bookLoading);
 
 	const allBookProgress = useAllBookProgress();
 
-	const bookProgressPercent = createMemo(() => {
-		const book = activeBook();
-		const feeder = bookFeeder();
-		if (!book || !feeder) return 0;
-		const totalWords = book.chapters.reduce((sum, c) => sum + c.wordCount, 0);
-		if (totalWords === 0) return 0;
-		return Math.round((feeder.totalWordOffset / totalWords) * 100);
-	});
+	const bookProgressPercent = createMemo(() => bookReader()?.percent ?? 0);
 
 	function snapshot(): SessionState {
 		return {
@@ -101,7 +95,8 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			text: text(),
 			result: result(),
 			activeBook: activeBook(),
-			bookFeeder: bookFeeder(),
+			bookReader: bookReader(),
+			bookFeed: bookFeed(),
 			currentBookProgress: currentBookProgress(),
 			bookLoading: bookLoading(),
 		};
@@ -113,7 +108,8 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			setText(next.text);
 			setResult(() => next.result);
 			setActiveBook(() => next.activeBook);
-			setBookFeeder(() => next.bookFeeder);
+			setBookReader(() => next.bookReader);
+			setBookFeed(() => next.bookFeed);
 			setCurrentBookProgress(() => next.currentBookProgress);
 			setBookLoading(next.bookLoading);
 		});
@@ -185,13 +181,12 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 
 		let nextProgress: BookProgress | null | undefined;
 		const book = activeBook();
-		if (state.mode.type === "book" && book) {
-			const draft = computeNextBookProgress({
-				book,
-				state,
-				prev: currentBookProgress(),
-				result: testResult,
+		const reader = bookReader();
+		if (state.mode.type === "book" && reader) {
+			const draft = reader.commit(countCompletedWords(state), {
 				charCount,
+				elapsedMs: testResult.elapsed,
+				wpm: testResult.wpm,
 				now: Date.now(),
 			});
 			nextProgress = draft as BookProgress;
@@ -232,7 +227,8 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		text,
 		result,
 		activeBook,
-		bookFeeder,
+		bookReader,
+		bookFeed,
 		currentBookProgress,
 		bookLoading,
 		bookProgressPercent,

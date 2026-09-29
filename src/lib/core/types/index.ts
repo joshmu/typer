@@ -45,3 +45,10 @@ export interface TypingState {
 	mode: TestMode;
 	config: TestConfig;
 }
+
+/** Source a continuous mode refills its text from. */
+export interface Feed {
+	/** The next `count` words as a space-separated string, "" once exhausted. */
+	next(count: number): string;
+	readonly exhausted: boolean;
+}

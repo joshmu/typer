@@ -150,9 +150,9 @@ isCharMatch("z", "Ž")  // false — case mismatch
 
 This is critical for book mode where Standard Ebooks texts contain diacritics that users can't type on standard keyboards.
 
-### Book Resume — Exact Word Position
+### Book Reader — Committed Position
 
-Book mode saves progress using `computeBookResumePosition()` (src/lib/core/engine/book-resume.ts) which computes the resume offset from actual typed words, not the feeder's pre-fetched position. The book feeder pre-loads words ahead of the user's typing cursor; the resume function creates a temporary feeder and advances it by exactly the number of completed words to find the correct chapter/offset for next session.
+`openBookReader(book, progress)` (src/lib/core/engine/book-reader.ts) owns the reader's place in a book. `cursor()` returns a throwaway feed starting at the committed position; the session reads ahead from it and reading ahead never moves the position. `commit(wordsTyped, stats)` advances from the committed position by the words actually typed and returns the next `BookProgress` to persist. `percent` is committed word offset over the book's total words, and is the only book percent shown in the UI. Stored offsets past a chapter's end are clamped on open.
 
 ## Reactive UI Layer
 
