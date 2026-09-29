@@ -23,10 +23,8 @@ export function createEnemy(
 		words,
 		wordIndex: 0,
 		typedCount: 0,
-		// hp derives from the chain length, NOT arch.hp — one word = one damage, so
-		// `words.length === hp === maxHp` holds universally. Regulars are unchanged
-		// (their chain is already arch.hp long); bosses field a whole sentence whose
-		// length overrides the archetype's nominal hp.
+		// one word = one damage, so hp is the chain length (see wordchain.ts); a
+		// boss sentence's length overrides the archetype's nominal hp.
 		hp: words.length,
 		maxHp: words.length,
 		alive: true,

@@ -192,9 +192,8 @@ export function drawLabel(
 	v.texture.update();
 }
 
-// words shown before collapsing the rest into a "+n" chip. 5 covers every
-// authored chain (boss hp max 5) — only heal-aura growth ever overflows
-// (playtest: hiding queued words behind a "+n" made multi-word enemies opaque)
+// words shown before collapsing the rest into a "+n" chip. Regular chains fit;
+// boss sentences overflow into it.
 const MAX_STACK = 5;
 
 /**
