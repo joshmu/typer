@@ -9,6 +9,7 @@ from the mode selector and header nav (`/game`).
 ## Layers
 
 - `src/lib/game/sim` — pure fixed-timestep simulation (60Hz ticks, seeded rng, `step()` sole mutator; no DOM/framework)
+  - `step(state, inputs, out?)` pushes the tick's sim events (`kill`, `breach`, `absorb`, `hit`, `powerup`) into `out`. They are not part of `GameState` and never hashed. The loop collects a frame's events and `render/frame-effects.ts` maps them to effects.
 - `src/lib/game/content` — data-driven enemy archetypes + word banding
 - `src/lib/game/render` — Babylon adapter + loop (lazy-loaded with the `/game` route)
 - `src/components/game` — Solid shell: HUD, start/death overlays, keyboard capture

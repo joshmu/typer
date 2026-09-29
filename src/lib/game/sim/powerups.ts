@@ -1,4 +1,5 @@
 import { pickWord } from "../content/words";
+import type { SimEvent } from "./events";
 import { cosR, sinR } from "./math";
 import { cryoDurationMult } from "./perks";
 import { nextFloat, nextInt } from "./rng";
@@ -56,10 +57,13 @@ export function spawnPowerup(s: GameState): void {
 	s.nextPowerupId += 1;
 }
 
-export function applyPowerup(s: GameState, kind: PowerupKind): void {
-	// count the activation so the render layer can pulse its ring on the rise of
-	// this counter alone — never on a pickup merely expiring while locked
+export function applyPowerup(
+	s: GameState,
+	kind: PowerupKind,
+	out?: SimEvent[],
+): void {
 	s.powerupsUsed += 1;
+	out?.push({ type: "powerup", kind });
 	// cryo-mastery stretches the crowd-control windows at APPLICATION time (floored
 	// so tick counts stay integers and the state hash stays cross-engine stable).
 	const cryo = cryoDurationMult(s);
@@ -75,7 +79,16 @@ export function applyPowerup(s: GameState, kind: PowerupKind): void {
 			return;
 		case "bomb":
 			for (const e of s.enemies) {
-				if (e.alive) e.alive = false;
+				if (!e.alive) continue;
+				e.alive = false;
+				out?.push({
+					type: "kill",
+					id: e.id,
+					x: e.pos.x,
+					y: e.pos.y,
+					archetypeId: e.archetypeId,
+					cause: "bomb",
+				});
 			}
 			return;
 	}
