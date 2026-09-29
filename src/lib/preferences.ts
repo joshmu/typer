@@ -10,6 +10,7 @@ export interface UserPreferences {
 	showLiveWpm: boolean;
 	stopOnError: StopOnError;
 	wordListSize: "200" | "1k" | "5k";
+	keySound: boolean;
 }
 
 export const defaultPreferences: UserPreferences = {
@@ -20,6 +21,7 @@ export const defaultPreferences: UserPreferences = {
 	showLiveWpm: true,
 	stopOnError: "letter",
 	wordListSize: "200",
+	keySound: false,
 };
 
 /** Typing text size in px for a stored font size (16 renders at 24px). */
