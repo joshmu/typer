@@ -3,5 +3,9 @@
 	"compilerOptions": {
 		"types": ["node"]
 	},
-	"include": ["e2e", "playwright.config.ts"]
+	"include": [
+		"e2e",
+		"playwright.config.ts",
+		"src/components/game/GameShell.tsx"
+	]
 }
