@@ -79,8 +79,8 @@ test("font size resizes the text and the caret stays on the next character", asy
 			const n = await next.boundingBox();
 			if (!c || !n) return null;
 			return {
-				left: Math.round(c.x - n.x),
-				top: Math.round(c.y - n.y),
+				left: Math.abs(Math.round(c.x - n.x)),
+				top: Math.abs(Math.round(c.y - n.y)),
 			};
 		})
 		.toEqual({ left: 0, top: 0 });
