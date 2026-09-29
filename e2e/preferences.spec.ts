@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { keySoundRecord, watchKeySound } from "./fixtures/key-sound";
 
 const TEXT = "the quick brown fox";
 
@@ -86,8 +87,19 @@ test("font size resizes the text and the caret stays on the next character", asy
 		.toEqual({ left: 0, top: 0 });
 });
 
-test("settings has no sound toggle", async ({ page }) => {
+test("key sound is off by default and the toggle turns it on", async ({
+	page,
+}) => {
+	await watchKeySound(page, false);
 	await page.goto("/settings");
-	await expect(page.getByRole("button", { name: "Live WPM" })).toBeVisible();
-	await expect(page.getByText("Sound on keypress")).toHaveCount(0);
+	const toggle = page.getByRole("button", { name: "Key sound" });
+	await expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+	await toggle.click();
+	await page.reload();
+	await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+	await startCustomTest(page);
+	await page.keyboard.type("the");
+	expect((await keySoundRecord(page)).clicks).toHaveLength(3);
 });
