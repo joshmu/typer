@@ -1,9 +1,9 @@
 import { createRoot } from "solid-js";
 import { describe, expect, it } from "vitest";
 import {
-	type UserPreferences,
 	createPreferences,
 	defaultPreferences,
+	type UserPreferences,
 } from "./preferences";
 
 function createMockStorage(): Storage {
@@ -34,7 +34,6 @@ describe("preferences", () => {
 
 			expect(prefs.theme).toBe("serika-dark");
 			expect(prefs.fontSize).toBe(16);
-			expect(prefs.soundEnabled).toBe(false);
 			expect(prefs.smoothCaret).toBe(true);
 			expect(prefs.caretStyle).toBe("line");
 			expect(prefs.showLiveWpm).toBe(true);
@@ -72,14 +71,19 @@ describe("preferences", () => {
 			dispose();
 		}));
 
+	it("has no sound or font family preference", () => {
+		expect(defaultPreferences).not.toHaveProperty("soundEnabled");
+		expect(defaultPreferences).not.toHaveProperty("fontFamily");
+	});
+
 	it("toggles boolean preferences", () =>
 		createRoot((dispose) => {
 			const storage = createMockStorage();
 			const [prefs, setPrefs] = createPreferences(storage);
 
-			expect(prefs.soundEnabled).toBe(false);
-			setPrefs("soundEnabled", true);
-			expect(prefs.soundEnabled).toBe(true);
+			expect(prefs.smoothCaret).toBe(true);
+			setPrefs("smoothCaret", false);
+			expect(prefs.smoothCaret).toBe(false);
 
 			dispose();
 		}));
