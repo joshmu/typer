@@ -42,3 +42,8 @@ export function runReplay(log: InputLog, out?: SimEvent[]): GameState {
 export function stateHash(state: GameState): string {
 	return fnv1a(JSON.stringify(state));
 }
+
+/** FNV-1a over the JSON of a replay's sim events, in emission order. */
+export function eventsHash(events: SimEvent[]): string {
+	return fnv1a(JSON.stringify(events));
+}

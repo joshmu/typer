@@ -51,33 +51,39 @@ the passage word count, not their nominal archetype hp (see Word bands & chains)
 ## Word bands & chains
 
 `pickWordForTier(tier, rng, excludeInitials)` draws length-banded words from
-`english-1k` (tiers 1–2) and `english-5k` (tiers 3–4). Each enemy is assigned a
-**word chain** at spawn (`pickWordChain`, `EnemyState.words`), and `createEnemy`
-derives `hp`/`maxHp` from the chain itself: **`words.length === hp === maxHp` is a
-universal invariant**, so completing one word deals one damage and `wordIndex`
-walks the chain to death. Regulars get an `archetype.hp`-long banded chain (so
-their `hp` is unchanged); **bosses** instead type a whole public-domain
-**sentence** — a seeded pick from `BOSS_TEXTS` (`content/boss-texts.ts`, ~20
-pre-normalized 15–25 word proverbs/pre-1900 passages) via `pickBossText`, whose
-length overrides the archetype's nominal hp. The boss passage is picked from the
-subset whose first word's initial avoids the field's live initials (fallback: any
-passage). Frenzy swarm smalls take a single-letter chain (length 1). The **first**
-word obeys the field-uniqueness rule at spawn
-(initials of every live enemy **and** active powerup are excluded so the
-acquiring keystroke is never ambiguous); later words are drawn at spawn too but
-may be redrawn later (see below). `currentWord(e)` is the sole accessor. A
-shield/armored-front **absorb** deals no damage and does **not** change the
-word — it resets `typedCount` to 0 on the SAME word (a clang), so
-`words.length === archetype.hp` is invariant for the enemy's whole life and
-completing a word never pops a fresh word into the stack. `advanceWord` (the
-only caller is a *damaging* multi-hp/boss completion) KEEPS the pre-assigned
-next chain word — the one the player has already been previewing in the label
-stack — so the preview is truthful. It redraws that slot in place ONLY when the
-word's initial collides with the field's live initials, the sole legitimate
-reason to break the preview; either way the array is never grown. **Bosses skip
-the redraw entirely** — a boss types a fixed sentence, so word order is sacred and
-the initial-uniqueness nicety yields to the passage. `typedCount` is progress
-within the current word.
+`english-1k` (tiers 1–2) and `english-5k` (tiers 3–4). Everything about an
+enemy's **word chain** (`EnemyState.words`, walked by `wordIndex`) lives in
+`src/lib/game/sim/wordchain.ts`:
+
+- **`reservedInitials(s, exceptId?)`**: the initials a keystroke could already
+  target, i.e. every alive enemy's current word plus every active powerup word.
+  Spawns, chain advances, chain growth and powerup words all draw against this
+  one set, so no keystroke is ambiguous between two on-screen targets.
+- **`assignChain(s, arch, singleLetter)`**: the chain at spawn. Regulars get an
+  `archetype.hp`-long banded chain (`pickWordChain`, every word avoiding the
+  reserved initials). **Bosses** type a whole public-domain **sentence**, a
+  seeded pick from `BOSS_TEXTS` (`content/boss-texts.ts`, ~20 pre-normalized
+  15–25 word proverbs/pre-1900 passages) via `pickBossText`, preferring passages
+  whose first initial is not reserved. Frenzy swarm smalls take a single letter
+  (`pickLetter`). `createEnemy` derives `hp`/`maxHp` from the chain length, so a
+  new enemy has `words.length === hp === maxHp`.
+- **`advanceWord(s, e)`**: after a damaging, non-fatal completion, step onto the
+  next word. It KEEPS the pre-assigned word the player has been previewing in the
+  label stack, and redraws that slot in place only when its initial is reserved.
+  **Bosses never redraw**: sentence order is fixed, and the initial-uniqueness
+  nicety yields to the passage.
+- **`growChain(s, e)`**: after a **heal-aura** pulse restores hp, append fresh
+  words (avoiding reserved initials) until the unwalked words cover hp again.
+  This is the only way a chain gets longer, so a healed enemy's chain can exceed
+  `maxHp`.
+
+**Chain invariant:** one completed word is one damage, so every alive enemy has
+exactly `hp` unwalked words (`words.length - wordIndex === hp`). Spawn sets it,
+`advanceWord` keeps it (hp and remaining words both drop by one), `growChain`
+restores it after a heal. A shield/armored-front **absorb** deals no damage and
+does **not** change the word: it resets `typedCount` to 0 on the SAME word (a
+clang). `currentWord(e)` is the sole accessor and `typedCount` is progress within
+the current word. Chain arrays are replaced, never mutated, to keep `step` pure.
 
 ## Targeting model (free-flow routing)
 

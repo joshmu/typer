@@ -1,5 +1,4 @@
 import { isBoss } from "../content/enemies";
-import { pickWordForTier } from "../content/words";
 import { absorbsCompletion } from "./abilities";
 import { gainCombo } from "./combo";
 import type { KillCause, SimEvent } from "./events";
@@ -19,52 +18,7 @@ import {
 import { applyKnockback } from "./physics";
 import { spawnFromArchetype } from "./spawner";
 import { currentWord, type EnemyState, type GameState } from "./state";
-
-/**
- * The initials currently live on the field, excluding one enemy: every other
- * alive enemy's current-word initial plus every active powerup's initial. This
- * is the same reservation `spawn` uses, so a freshly drawn word can never make a
- * keystroke ambiguous between two on-screen targets.
- */
-export function liveInitials(s: GameState, exceptId: number): Set<string> {
-	const initials = new Set<string>();
-	for (const other of s.enemies) {
-		if (other.alive && other.id !== exceptId)
-			initials.add(currentWord(other)[0]);
-	}
-	for (const p of s.powerups) initials.add(p.word[0]);
-	return initials;
-}
-
-/**
- * Advance to the next word in the pre-assigned chain (resetting per-word
- * progress). KEEPS the pre-assigned `words[wordIndex]` — the word the player has
- * already been previewing in the label stack — so the preview is truthful.
- * Redraws that slot ONLY when its initial collides with the field's live
- * initials (`liveInitials`), the sole legitimate reason to break the preview:
- * an unresolved collision would make a keystroke ambiguous with another
- * on-screen enemy. `words.length` is invariant (`=== archetype.hp`) for the
- * enemy's whole life either way — a damaging completion is the ONLY caller, and
- * one is only possible while `hp > 0`, i.e. while an unwalked slot remains, so
- * the chain is never exhausted here and never grows. When redrawing, reassigns
- * the array (never mutates the shared prior-state array) to keep `step` pure;
- * when keeping the word, no array reassignment happens at all.
- */
-export function advanceWord(s: GameState, e: EnemyState): void {
-	e.wordIndex += 1;
-	e.typedCount = 0;
-	// bosses type a fixed public-domain sentence: word ORDER is sacred, so they
-	// NEVER redraw a mid-sentence word — the initial-uniqueness nicety yields to
-	// the passage. (Collisions are cosmetic here; the boss is the only long chain.)
-	if (isBoss(e)) return;
-	const initials = liveInitials(s, e.id);
-	const preAssigned = e.words[e.wordIndex];
-	if (initials.has(preAssigned[0])) {
-		const [word, next] = pickWordForTier(e.tier, s.rngState, initials);
-		s.rngState = next;
-		e.words = e.words.map((w, i) => (i === e.wordIndex ? word : w));
-	}
-}
+import { advanceWord } from "./wordchain";
 
 export function killEnemy(
 	s: GameState,
@@ -119,7 +73,7 @@ export function dealDamage(
 	if (absorbsCompletion(e)) {
 		// shield / armored-front: the hit CLANGS off the plating — no damage, and
 		// crucially NO new word. The SAME word's progress is reset to 0 so the player
-		// retypes it; the chain (and `words.length === hp`) is untouched.
+		// retypes it; the chain is untouched.
 		// `shieldHits` was already decremented inside `absorbsCompletion`.
 		e.typedCount = 0;
 		s.absorbs += 1;

@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getArchetype } from "../content/enemies";
-import {
-	advanceWord,
-	dealDamage,
-	killEnemy,
-	resolveCompletion,
-} from "./combat";
+import { dealDamage, killEnemy, resolveCompletion } from "./combat";
 import { createEnemy } from "./enemy-factory";
 import type { PerkId } from "./perks";
 import {
@@ -37,32 +32,6 @@ function stateWithEnemy(archetypeId: string): {
 }
 
 describe("combat", () => {
-	it("advanceWord steps to the next pre-assigned word without appending", () => {
-		const { s, enemyId } = stateWithEnemy("husk-4"); // hp 3 → 3-word chain
-		const e = s.enemies[0];
-		e.typedCount = 4;
-		const beforeLen = e.words.length;
-		advanceWord(s, e);
-		expect(e.wordIndex).toBe(1);
-		expect(e.typedCount).toBe(0);
-		expect(e.words.length).toBe(beforeLen); // still within the pre-assigned chain
-		expect(s.targetId).toBe(enemyId);
-	});
-
-	it("advanceWord never grows the chain — length stays == hp for the enemy's whole life", () => {
-		const { s } = stateWithEnemy("husk-4"); // hp 3 → 3-word chain
-		const e = s.enemies[0];
-		const hp = getArchetype("husk-4").hp;
-		// walk every legitimate advance (one per non-final completion): length is
-		// invariant, the chain is never appended to
-		for (let i = 1; i < hp; i++) {
-			advanceWord(s, e);
-			expect(e.wordIndex).toBe(i);
-			expect(e.words.length).toBe(hp);
-			expect(currentWord(e).length).toBeGreaterThan(0);
-		}
-	});
-
 	it("killEnemy awards combo-scaled score and clears the lock", () => {
 		const { s } = stateWithEnemy("husk-1");
 		const e = s.enemies[0];

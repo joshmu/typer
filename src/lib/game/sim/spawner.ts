@@ -1,11 +1,10 @@
-import { pickBossText } from "../content/boss-texts";
 import { ENEMIES, getArchetype } from "../content/enemies";
-import { pickLetter, pickWordChain } from "../content/words";
 import { createEnemy } from "./enemy-factory";
 import { randomPointOnCircle } from "./math";
 import { drawPerkOffer } from "./perks";
 import { nextFloat, nextInt } from "./rng";
-import { ARENA, currentWord, type GameState, type Vec2 } from "./state";
+import { ARENA, type GameState, type Vec2 } from "./state";
+import { assignChain } from "./wordchain";
 
 export const MAX_ALIVE = 8;
 /**
@@ -99,28 +98,7 @@ export function spawnFromArchetype(
 	const alive = s.enemies.filter((e) => e.alive);
 	if (alive.length >= ALIVE_HARD_CAP) return false;
 	const arch = getArchetype(archetypeId);
-	// reserve both live enemy AND active powerup initials so a keystroke is never
-	// ambiguous between a new enemy and a pending powerup pickup
-	const initials = new Set(alive.map((e) => currentWord(e)[0]));
-	for (const p of s.powerups) initials.add(p.word[0]);
-	// one word per hp: completing a word deals one damage, so the chain length is
-	// the chain's word count (createEnemy derives hp from it). Frenzy smalls
-	// (husk-1/darter-1, hp 1) take a single-letter chain; bosses take a whole
-	// public-domain sentence (hp = passage length, overriding arch.hp); everyone
-	// else a length-banded chain of arch.hp words. Only the first word obeys the
-	// field-uniqueness reservation.
-	let words: string[];
-	let next: number;
-	if (singleLetter) {
-		const [letter, n] = pickLetter(s.rngState, initials);
-		words = [letter];
-		next = n;
-	} else if (arch.role === "boss") {
-		[words, next] = pickBossText(s.rngState, initials);
-	} else {
-		[words, next] = pickWordChain(arch.tier, arch.hp, s.rngState, initials);
-	}
-	s.rngState = next;
+	const words = assignChain(s, arch, singleLetter);
 	const enemy = createEnemy(arch, s.nextEnemyId, pos, s.tick, words);
 	s.nextEnemyId += 1;
 	s.enemies = [...s.enemies, enemy];
