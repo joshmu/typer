@@ -88,7 +88,7 @@ export default function BookBrowser(props: BookBrowserProps) {
 
 	const inProgressBooks = () =>
 		props.allProgress
-			.sort((a, b) => b.lastAccessedAt - a.lastAccessedAt)
+			.toSorted((a, b) => b.lastAccessedAt - a.lastAccessedAt)
 			.map((p) => p.bookMeta)
 			.filter(Boolean);
 

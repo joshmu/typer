@@ -174,30 +174,3 @@ export async function getCachedBook(
 		return null;
 	}
 }
-
-/**
- * Check if a book is cached in IndexedDB.
- */
-export async function isBookCached(bookId: string): Promise<boolean> {
-	try {
-		const count = await db.cachedBooks.where("bookId").equals(bookId).count();
-		return count > 0;
-	} catch {
-		return false;
-	}
-}
-
-/**
- * Delete a cached book from IndexedDB.
- */
-export async function deleteCachedBook(bookId: string): Promise<void> {
-	try {
-		await db.cachedBooks.where("bookId").equals(bookId).delete();
-	} catch (err) {
-		console.error(
-			new BookCacheError(`Failed to delete cached book ${bookId}`, {
-				cause: err,
-			}),
-		);
-	}
-}

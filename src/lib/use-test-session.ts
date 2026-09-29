@@ -1,8 +1,5 @@
 import { type Accessor, batch, createMemo, createSignal } from "solid-js";
-import {
-	saveBookProgress as defaultSaveBookProgress,
-	useAllBookProgress,
-} from "@/lib/book-progress";
+import { useAllBookProgress } from "@/lib/book-progress";
 import { fetchAndCacheBook as defaultFetchAndCacheBook } from "@/lib/book-service";
 import {
 	type BookReader,
@@ -17,14 +14,16 @@ import {
 	decideRedo,
 	type SessionState,
 } from "@/lib/core/engine/session-manager";
-import { simpleHash } from "@/lib/core/text/hash";
 import { getRandomQuote } from "@/lib/core/text/quotes";
 import { loadWordList } from "@/lib/core/text/word-list-loader";
 import { createWordFeed, generateWords } from "@/lib/core/text/words";
 import type { Feed, TestMode, TypingState } from "@/lib/core/types";
 import type { BookProgress, CachedBook } from "@/lib/core/types/book";
 import { isAppError } from "@/lib/core/types/errors";
-import { db, type TypingResult } from "@/lib/db";
+import {
+	recordCompletion as defaultRecordCompletion,
+	toTypingResult,
+} from "@/lib/history";
 import type { UserPreferences } from "@/lib/preferences";
 
 /** Words fed per typing window in book/zen mode. */
@@ -37,8 +36,7 @@ export interface UseTestSessionOptions {
 	/** Test-only IO overrides. */
 	deps?: Partial<{
 		fetchAndCacheBook: typeof defaultFetchAndCacheBook;
-		saveBookProgress: typeof defaultSaveBookProgress;
-		saveTypingResult: (r: TypingResult) => Promise<unknown>;
+		recordCompletion: typeof defaultRecordCompletion;
 	}>;
 }
 
@@ -64,11 +62,7 @@ const INITIAL_MODE: TestMode = { type: "book", bookId: "", chapterIndex: 0 };
 
 export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const fetchBook = options.deps?.fetchAndCacheBook ?? defaultFetchAndCacheBook;
-	const saveProgress =
-		options.deps?.saveBookProgress ?? defaultSaveBookProgress;
-	const saveResult =
-		options.deps?.saveTypingResult ??
-		((r: TypingResult) => db.results.add(r as TypingResult));
+	const record = options.deps?.recordCompletion ?? defaultRecordCompletion;
 
 	const initial = createInitialSession(INITIAL_MODE);
 	const [mode, setMode] = createSignal<TestMode>(initial.mode);
@@ -175,40 +169,28 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	}
 
 	function complete(state: TypingState): void {
-		const { result: testResult, charCount, errorCount } = completeTest(state);
+		const completed = completeTest(state);
+		const { result: testResult, charCount } = completed;
+		const now = Date.now();
 
-		let nextProgress: BookProgress | null | undefined;
-		const book = activeBook();
+		let draft: Omit<BookProgress, "id"> | undefined;
 		const reader = bookReader();
 		if (state.mode.type === "book" && reader) {
-			const draft = reader.commit(countCompletedWords(state), {
+			draft = reader.commit(countCompletedWords(state), {
 				charCount,
 				elapsedMs: testResult.elapsed,
 				wpm: testResult.wpm,
-				now: Date.now(),
+				now,
 			});
-			nextProgress = draft as BookProgress;
-			void saveProgress(draft).catch((err: unknown) =>
-				console.error("Failed to save book progress:", err),
-			);
 		}
 
-		apply(applyResult(snapshot(), testResult, nextProgress));
+		apply(applyResult(snapshot(), testResult, draft as BookProgress));
 
-		void saveResult({
-			mode: state.mode.type,
-			wpm: testResult.wpm,
-			rawWpm: testResult.rawWpm,
-			accuracy: testResult.accuracy,
-			consistency: testResult.consistency,
-			duration: Math.floor(testResult.elapsed / 1000),
-			charCount,
-			errorCount,
-			timestamp: Date.now(),
-			textHash: simpleHash(state.text),
-			bookTitle: state.mode.type === "book" ? book?.meta.title : undefined,
-		}).catch((err: unknown) =>
-			console.error("Failed to save typing result:", err),
+		void record(
+			toTypingResult(state, completed, activeBook()?.meta.title, now),
+			draft,
+		).catch((err: unknown) =>
+			console.error("Failed to record the completed test:", err),
 		);
 	}
 

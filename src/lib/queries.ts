@@ -21,7 +21,3 @@ export function usePersonalBest(mode?: string) {
 		return db.results.orderBy("wpm").reverse().first();
 	}, undefined);
 }
-
-export function useResultCount() {
-	return safeFrom<number>(() => db.results.count(), 0);
-}
