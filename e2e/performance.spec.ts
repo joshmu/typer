@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import type { GameState } from "../src/lib/game/sim/state";
+import { keySoundRecord, SOUND_TAG, watchKeySound } from "./fixtures/key-sound";
 
 declare global {
 	interface Window {
@@ -17,9 +18,7 @@ const KEYSTROKE_BUDGET_MS = 16;
 const KEYSTROKES = 200;
 const GAME_KEYS = 40;
 
-test("keydown handler stays within the 16ms frame budget at p95", async ({
-	page,
-}) => {
+async function expectKeystrokesWithinBudget(page: Page, label: string) {
 	await page.goto("/");
 
 	// Pick custom mode and seed with a long text so we exercise the same hot
@@ -75,13 +74,30 @@ test("keydown handler stays within the 16ms frame budget at p95", async ({
 	const max = sorted[sorted.length - 1];
 
 	console.log(
-		`keystroke latency — p95: ${p95.toFixed(2)}ms, p99: ${p99.toFixed(2)}ms, max: ${max.toFixed(2)}ms`,
+		`${label} keystroke latency — p95: ${p95.toFixed(2)}ms, p99: ${p99.toFixed(2)}ms, max: ${max.toFixed(2)}ms`,
 	);
 
 	expect(
 		p95,
 		`p95 keystroke handler time should be under ${KEYSTROKE_BUDGET_MS}ms`,
 	).toBeLessThan(KEYSTROKE_BUDGET_MS);
+}
+
+test("keydown handler stays within the 16ms frame budget at p95", async ({
+	page,
+}) => {
+	await expectKeystrokesWithinBudget(page, "sound off");
+});
+
+test("keydown handler with key sound on stays within the 16ms frame budget at p95", {
+	tag: SOUND_TAG,
+}, async ({ page }) => {
+	await watchKeySound(page, true);
+	await expectKeystrokesWithinBudget(page, "sound on");
+
+	const { states, clicks } = await keySoundRecord(page);
+	expect(states).toEqual(["running"]);
+	expect(clicks).toHaveLength(KEYSTROKES);
 });
 
 test("game keystroke round-trip stays within the 16ms frame budget at p95", async ({
