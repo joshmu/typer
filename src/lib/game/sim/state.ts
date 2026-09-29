@@ -9,12 +9,10 @@ export type EnemyState = {
 	archetypeId: string;
 	pos: Vec2;
 	vel: Vec2;
-	// full word chain assigned at spawn: `words.length === archetype.hp` so one
-	// completion = one damage, and the length is invariant for the enemy's whole
-	// life (every word visible in the stack from spawn). `wordIndex` is the current
-	// word; `typedCount` is the progress within it. A shield/armored absorb neither
-	// advances `wordIndex` nor appends — it just resets `typedCount` to 0 (clang),
-	// so completing a word never pops a fresh word into the stack.
+	// word chain (see wordchain.ts): one completion = one damage, so every alive
+	// enemy has `words.length - wordIndex === hp`. Only a heal-aura pulse grows
+	// the chain. `wordIndex` is the current word; `typedCount` is the progress
+	// within it. A shield/armored absorb just resets `typedCount` to 0 (clang).
 	words: string[];
 	wordIndex: number;
 	typedCount: number;
@@ -52,9 +50,6 @@ export type GameState = {
 	kills: number;
 	misses: number;
 	hits: number;
-	// monotonic count of hits that clanged off plating (shield / armored-front).
-	// Render reads SimEvents instead; the field stays because it is hashed.
-	absorbs: number;
 	playerHp: number;
 	targetId: number | null;
 	nextEnemyId: number;
@@ -83,9 +78,6 @@ export type GameState = {
 	powerups: PowerupPickup[];
 	nextPowerupId: number;
 	lastPowerupMilestone: number;
-	// monotonic count of powerups applied. Render reads SimEvents instead; the
-	// field stays because it is hashed.
-	powerupsUsed: number;
 	// roguelite perk draft (run-only, no meta-progression). `perks` are the owned
 	// perks; `perkOffer` is the 3-card draw shown during "perk-choice" (null when
 	// no choice is pending). Effect bookkeeping counters live alongside so the sim
@@ -116,7 +108,6 @@ export function createInitialState(seed: number): GameState {
 		kills: 0,
 		misses: 0,
 		hits: 0,
-		absorbs: 0,
 		playerHp: 3,
 		targetId: null,
 		nextEnemyId: 1,
@@ -137,7 +128,6 @@ export function createInitialState(seed: number): GameState {
 		powerups: [],
 		nextPowerupId: 1,
 		lastPowerupMilestone: 0,
-		powerupsUsed: 0,
 		perks: [],
 		perkOffer: null,
 		overclockStreak: 0,
