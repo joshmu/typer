@@ -117,12 +117,14 @@ if the initial collides with a live enemy) and expire after
 
 ## Scoring & combo
 
-Source: `src/lib/game/sim/score.ts` + `combat.ts`.
+Source: `src/lib/game/sim/combo.ts` + `score.ts` + `combat.ts`. The HUD reads
+combo, boss and wave from the pure `hudView` projection (`src/lib/game/hud-view.ts`).
 
 - **Kill score:** `10 × wordLength × comboMultiplier(combo)`.
 - **Combo multiplier:** `1 + min(4, floor(combo / 5))` → ranges 1×–5×.
 - **Combo** increments on each kill and decays to 0 after
-  `COMBO_DECAY_TICKS = 180` ticks without a kill; any miss also breaks it.
+  `COMBO_DECAY_TICKS = 180` ticks without a kill (270 with adrenaline); any miss
+  also breaks it. The HUD bar is measured against that same window.
 - **Partial completions** award a flat `10 × wordLength` (no combo multiplier). A
   shield/armored absorb resets the SAME word (clang, no new word); a multi-hp/boss
   chip advances to the next pre-assigned chain word.
