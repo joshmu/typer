@@ -1,6 +1,6 @@
-import type { TestMode } from "../types";
+import type { Feed, TestMode } from "../types";
 import type { BookProgress, CachedBook } from "../types/book";
-import { type BookFeeder, createBookFeeder } from "./book-feeder";
+import { type BookReader, openBookReader } from "./book-reader";
 import type { TestResult } from "./complete-test";
 
 export interface SessionState {
@@ -8,7 +8,9 @@ export interface SessionState {
 	text: string | null;
 	result: TestResult | null;
 	activeBook: CachedBook | null;
-	bookFeeder: BookFeeder | null;
+	bookReader: BookReader | null;
+	/** Cursor the current book test reads ahead from. */
+	bookFeed: Feed | null;
 	currentBookProgress: BookProgress | null;
 	bookLoading: boolean;
 }
@@ -19,7 +21,8 @@ export function createInitialSession(mode: TestMode): SessionState {
 		text: null,
 		result: null,
 		activeBook: null,
-		bookFeeder: null,
+		bookReader: null,
+		bookFeed: null,
 		currentBookProgress: null,
 		bookLoading: false,
 	};
@@ -38,21 +41,21 @@ export function applyBookSelection(
 	progress: BookProgress | null,
 	wordCount: number,
 ): SessionState {
-	const startChapter = progress?.chapterIndex ?? 0;
-	const startWordOffset = progress?.wordOffset ?? 0;
-	const feeder = createBookFeeder(book.chapters, startChapter, startWordOffset);
-	const text = feeder.getNextWords(wordCount) || null;
+	const reader = openBookReader(book, progress);
+	const feed = reader.cursor();
+	const text = feed.next(wordCount) || null;
 	return {
 		...session,
 		mode: {
 			type: "book",
 			bookId: book.bookId,
-			chapterIndex: startChapter,
+			chapterIndex: reader.position.chapterIndex,
 		},
 		text,
 		result: null,
 		activeBook: book,
-		bookFeeder: feeder,
+		bookReader: reader,
+		bookFeed: feed,
 		currentBookProgress: progress,
 		bookLoading: false,
 	};
@@ -63,12 +66,14 @@ export function applyResult(
 	result: TestResult,
 	bookProgress?: BookProgress | null,
 ): SessionState {
-	return {
-		...session,
-		result,
-		currentBookProgress:
-			bookProgress !== undefined ? bookProgress : session.currentBookProgress,
-	};
+	const next = { ...session, result };
+	if (bookProgress === undefined) return next;
+	next.currentBookProgress = bookProgress;
+	if (session.activeBook) {
+		next.bookReader = openBookReader(session.activeBook, bookProgress);
+		next.bookFeed = null;
+	}
+	return next;
 }
 
 export type RedoOutcome =
@@ -88,14 +93,14 @@ export function decideRedo(
 	const cleared: SessionState = { ...session, result: null };
 
 	if (session.mode.type === "book") {
-		const book = session.activeBook;
-		const feeder = session.bookFeeder;
-		if (book && feeder && !feeder.isComplete) {
-			const nextText = feeder.getNextWords(bookWordCount);
+		const reader = session.bookReader;
+		if (session.activeBook && reader && !reader.finished) {
+			const feed = reader.cursor();
+			const nextText = feed.next(bookWordCount);
 			if (nextText) {
 				return {
 					kind: "book-continue",
-					state: { ...cleared, text: nextText },
+					state: { ...cleared, text: nextText, bookFeed: feed },
 				};
 			}
 		}
@@ -105,7 +110,8 @@ export function decideRedo(
 				...cleared,
 				text: null,
 				activeBook: null,
-				bookFeeder: null,
+				bookReader: null,
+				bookFeed: null,
 			},
 		};
 	}

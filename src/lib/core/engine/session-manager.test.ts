@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BookChapter, BookProgress, CachedBook } from "../types/book";
+import type { TestResult } from "./complete-test";
 import {
 	applyBookSelection,
 	applyResult,
@@ -39,6 +40,16 @@ function makeBook(chapters: BookChapter[]): CachedBook {
 	};
 }
 
+const RESULT: TestResult = {
+	wpm: 1,
+	rawWpm: 1,
+	accuracy: 100,
+	consistency: 100,
+	breakdown: { correct: 0, incorrect: 0, missed: 0, extra: 0, total: 0 },
+	elapsed: 0,
+	wpmPerSecond: [],
+};
+
 describe("createInitialSession", () => {
 	it("returns null text/result and book defaults for any mode", () => {
 		const s = createInitialSession({ type: "custom" });
@@ -46,7 +57,8 @@ describe("createInitialSession", () => {
 		expect(s.text).toBeNull();
 		expect(s.result).toBeNull();
 		expect(s.activeBook).toBeNull();
-		expect(s.bookFeeder).toBeNull();
+		expect(s.bookReader).toBeNull();
+		expect(s.bookFeed).toBeNull();
 		expect(s.currentBookProgress).toBeNull();
 		expect(s.bookLoading).toBe(false);
 	});
@@ -80,7 +92,7 @@ describe("applyText", () => {
 });
 
 describe("applyBookSelection", () => {
-	it("seeds feeder at chapter 0 word 0 with no prior progress", () => {
+	it("opens a reader at chapter 0 word 0 with no prior progress", () => {
 		const book = makeBook([makeChapter(0, ["a", "b", "c", "d", "e"])]);
 		const session = applyBookSelection(
 			createInitialSession({ type: "book", bookId: "", chapterIndex: 0 }),
@@ -89,7 +101,11 @@ describe("applyBookSelection", () => {
 			3,
 		);
 		expect(session.activeBook).toBe(book);
-		expect(session.bookFeeder).not.toBeNull();
+		expect(session.bookReader?.position).toEqual({
+			chapterIndex: 0,
+			wordOffset: 0,
+		});
+		expect(session.bookFeed?.next(1)).toBe("d");
 		expect(session.text).toBe("a b c");
 		expect(session.mode).toEqual({
 			type: "book",
@@ -100,7 +116,7 @@ describe("applyBookSelection", () => {
 		expect(session.currentBookProgress).toBeNull();
 	});
 
-	it("resumes feeder at saved chapter and offset", () => {
+	it("opens the reader at saved chapter and offset", () => {
 		const book = makeBook([
 			makeChapter(0, ["a", "b", "c"]),
 			makeChapter(1, ["d", "e", "f"]),
@@ -187,6 +203,28 @@ describe("applyResult", () => {
 		const next = applyResult(session, result, progress);
 		expect(next.currentBookProgress).toBe(progress);
 	});
+
+	it("reopens the reader at the committed progress", () => {
+		const book = makeBook([makeChapter(0, ["a", "b", "c", "d", "e"])]);
+		const session = applyBookSelection(
+			createInitialSession({ type: "book", bookId: "", chapterIndex: 0 }),
+			book,
+			null,
+			3,
+		);
+		const progress = session.bookReader?.commit(2, {
+			charCount: 0,
+			elapsedMs: 0,
+			wpm: 0,
+			now: 0,
+		}) as BookProgress;
+		const next = applyResult(session, RESULT, progress);
+		expect(next.bookReader?.position).toEqual({
+			chapterIndex: 0,
+			wordOffset: 2,
+		});
+		expect(next.bookFeed).toBeNull();
+	});
 });
 
 describe("decideRedo", () => {
@@ -211,7 +249,30 @@ describe("decideRedo", () => {
 		expect(outcome.state.result).toBeNull();
 	});
 
-	it("book mode with words remaining continues feeder", () => {
+	it("book mode continues from the committed position", () => {
+		const book = makeBook([makeChapter(0, ["a", "b", "c", "d", "e"])]);
+		const selected = applyBookSelection(
+			createInitialSession({ type: "book", bookId: "", chapterIndex: 0 }),
+			book,
+			null,
+			3,
+		);
+		expect(selected.text).toBe("a b c");
+		const progress = selected.bookReader?.commit(1, {
+			charCount: 0,
+			elapsedMs: 0,
+			wpm: 0,
+			now: 0,
+		}) as BookProgress;
+		const session = applyResult(selected, RESULT, progress);
+		const outcome = decideRedo(session, 2);
+		expect(outcome.kind).toBe("book-continue");
+		expect(outcome.state.text).toBe("b c");
+		expect(outcome.state.bookFeed?.next(1)).toBe("d");
+		expect(outcome.state.result).toBeNull();
+	});
+
+	it("book mode redo does not advance past uncommitted read-ahead", () => {
 		const book = makeBook([makeChapter(0, ["a", "b", "c", "d", "e"])]);
 		const session = applyBookSelection(
 			createInitialSession({ type: "book", bookId: "", chapterIndex: 0 }),
@@ -219,26 +280,30 @@ describe("decideRedo", () => {
 			null,
 			2,
 		);
-		expect(session.text).toBe("a b");
-		const outcome = decideRedo(session, 2);
-		expect(outcome.kind).toBe("book-continue");
-		expect(outcome.state.text).toBe("c d");
-		expect(outcome.state.result).toBeNull();
+		session.bookFeed?.next(2);
+		expect(decideRedo(session, 2).state.text).toBe("a b");
+		expect(decideRedo(session, 2).state.text).toBe("a b");
 	});
 
-	it("book mode exhausted returns to browser", () => {
+	it("book mode finished returns to browser", () => {
 		const book = makeBook([makeChapter(0, ["a", "b"])]);
-		const session = applyBookSelection(
+		const selected = applyBookSelection(
 			createInitialSession({ type: "book", bookId: "", chapterIndex: 0 }),
 			book,
 			null,
 			5,
 		);
-		// All 2 words consumed; feeder is complete
-		const outcome = decideRedo(session, 5);
+		const progress = selected.bookReader?.commit(2, {
+			charCount: 0,
+			elapsedMs: 0,
+			wpm: 0,
+			now: 0,
+		}) as BookProgress;
+		const outcome = decideRedo(applyResult(selected, RESULT, progress), 5);
 		expect(outcome.kind).toBe("book-finished");
 		expect(outcome.state.activeBook).toBeNull();
-		expect(outcome.state.bookFeeder).toBeNull();
+		expect(outcome.state.bookReader).toBeNull();
+		expect(outcome.state.bookFeed).toBeNull();
 		expect(outcome.state.text).toBeNull();
 	});
 });

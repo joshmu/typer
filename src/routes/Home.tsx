@@ -44,9 +44,7 @@ export default function Home() {
 								<div class="text-center mb-6">
 									<p class="text-sm text-text-sub mb-2">
 										{session.activeBook()!.meta.title} · Chapter{" "}
-										{session.bookFeeder()?.currentChapter !== undefined
-											? session.bookFeeder()!.currentChapter + 1
-											: "?"}
+										{(session.bookReader()?.position.chapterIndex ?? 0) + 1}
 									</p>
 									<div class="w-64 mx-auto h-1.5 bg-bg-secondary rounded-full overflow-hidden">
 										<div
@@ -70,7 +68,7 @@ export default function Home() {
 								onRedo={() => session.redo()}
 								redoLabel={
 									session.mode().type === "book"
-										? session.bookFeeder()?.isComplete
+										? session.bookReader()?.finished
 											? "Back to Library"
 											: "Continue Reading"
 										: undefined
@@ -87,12 +85,10 @@ export default function Home() {
 							>
 								<BookHeader
 									book={session.activeBook()!.meta}
-									chapterIndex={session.bookFeeder()?.currentChapter ?? 0}
-									chapterTitle={
-										session.activeBook()!.chapters[
-											session.bookFeeder()?.currentChapter ?? 0
-										]?.title
+									chapterIndex={
+										session.bookReader()?.position.chapterIndex ?? 0
 									}
+									chapterTitle={session.bookReader()?.chapterTitle}
 									progressPercent={session.bookProgressPercent()}
 								/>
 							</Show>
@@ -101,7 +97,7 @@ export default function Home() {
 								mode={session.mode()}
 								stopOnError={prefs.stopOnError}
 								onComplete={(state) => session.complete(state)}
-								bookFeeder={session.bookFeeder() ?? undefined}
+								bookFeed={session.bookFeed() ?? undefined}
 							/>
 						</div>
 					)}

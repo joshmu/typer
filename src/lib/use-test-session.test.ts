@@ -108,7 +108,7 @@ describe("useTestSession", () => {
 			dispose();
 		}));
 
-	it("selectBook populates activeBook, feeder, and initial text", async () => {
+	it("selectBook populates activeBook, reader, and initial text", async () => {
 		const book = makeBook([
 			makeChapter(0, ["a", "b", "c", "d", "e", "f"]),
 			makeChapter(1, ["g", "h"]),
@@ -123,7 +123,8 @@ describe("useTestSession", () => {
 				});
 				await session.selectBook("author/book");
 				expect(session.activeBook()).toBe(book);
-				expect(session.bookFeeder()).not.toBeNull();
+				expect(session.bookReader()).not.toBeNull();
+				expect(session.bookFeed()).not.toBeNull();
 				expect(session.text()).toBe("a b c d e f g h");
 				expect(session.mode()).toEqual({
 					type: "book",
@@ -137,7 +138,7 @@ describe("useTestSession", () => {
 		);
 	});
 
-	it("selectBook resumes feeder from prior progress", async () => {
+	it("selectBook resumes from prior progress", async () => {
 		const book = makeBook([
 			makeChapter(0, ["a", "b", "c"]),
 			makeChapter(1, ["d", "e", "f"]),
@@ -240,7 +241,7 @@ describe("useTestSession", () => {
 		);
 	});
 
-	it("redo in book mode pulls more words from feeder", async () => {
+	it("redo in book mode continues after the committed words", async () => {
 		const book = makeBook([
 			makeChapter(0, [
 				"a",
@@ -285,16 +286,75 @@ describe("useTestSession", () => {
 			createRoot(async (dispose) => {
 				const session = useTestSession({
 					wordListSize: () => "200",
-					deps: { fetchAndCacheBook: vi.fn().mockResolvedValue(book) },
+					deps: {
+						fetchAndCacheBook: vi.fn().mockResolvedValue(book),
+						saveBookProgress: vi.fn().mockResolvedValue(undefined),
+						saveTypingResult: vi.fn().mockResolvedValue(1),
+					},
 				});
 				await session.selectBook("author/book");
-				const firstText = session.text();
-				expect(firstText).not.toBeNull();
+				const firstText = session.text() ?? "";
+				const state = completedState(firstText);
+				state.mode = { type: "book", bookId: "author/book", chapterIndex: 0 };
+				session.complete(state);
 				session.redo();
-				expect(session.text()).not.toBe(firstText);
-				expect(session.text()).not.toBeNull();
+				expect(session.text()).toBe("ee ff gg hh ii jj");
 				dispose();
 				resolve();
+			}),
+		);
+	});
+
+	it("Continue after Esc mid-chunk resumes at the committed word and saves without drift", async () => {
+		const words = Array.from({ length: 90 }, (_, i) => `w${i}`);
+		const book = makeBook([makeChapter(0, words)]);
+		const saveBookProgress = vi.fn().mockResolvedValue(undefined);
+		const typed = (text: string, wordsTyped: number): TypingState => {
+			const state = completedState(text);
+			state.currentWordIndex = wordsTyped;
+			state.mode = { type: "book", bookId: "author/book", chapterIndex: 0 };
+			return state;
+		};
+		await new Promise<void>((resolve, reject) =>
+			createRoot(async (dispose) => {
+				try {
+					const session = useTestSession({
+						wordListSize: () => "200",
+						deps: {
+							fetchAndCacheBook: vi.fn().mockResolvedValue(book),
+							saveBookProgress,
+							saveTypingResult: vi.fn().mockResolvedValue(1),
+						},
+					});
+					await session.selectBook("author/book");
+					expect(session.text()?.split(" ")).toHaveLength(30);
+
+					session.complete(typed(session.text() ?? "", 10));
+					expect(saveBookProgress.mock.calls[0][0]).toMatchObject({
+						chapterIndex: 0,
+						wordOffset: 10,
+					});
+
+					session.redo();
+					expect(session.text()?.split(" ").slice(0, 3)).toEqual([
+						"w10",
+						"w11",
+						"w12",
+					]);
+
+					session.complete(typed(session.text() ?? "", 5));
+					expect(saveBookProgress.mock.calls[1][0]).toMatchObject({
+						chapterIndex: 0,
+						wordOffset: 15,
+					});
+					session.redo();
+					expect(session.text()?.split(" ")[0]).toBe("w15");
+					resolve();
+				} catch (err) {
+					reject(err);
+				} finally {
+					dispose();
+				}
 			}),
 		);
 	});

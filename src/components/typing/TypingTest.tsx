@@ -5,12 +5,16 @@ import {
 	calculateWPM,
 	isTestComplete,
 } from "@/lib/core/calc";
-import type { BookFeeder } from "@/lib/core/engine/book-feeder";
 import { processKeystroke } from "@/lib/core/engine/process-keystroke";
 import { appendWordsToState, needsMoreWords } from "@/lib/core/engine/zen";
 import { normalizeText, textToWords } from "@/lib/core/text/normalizer";
 import { generateWords } from "@/lib/core/text/words";
-import type { StopOnError, TestMode, TypingState } from "@/lib/core/types";
+import type {
+	Feed,
+	StopOnError,
+	TestMode,
+	TypingState,
+} from "@/lib/core/types";
 import {
 	createTestConfig,
 	createTestMode,
@@ -24,8 +28,8 @@ interface TypingTestProps {
 	mode?: TestMode;
 	stopOnError?: StopOnError;
 	onComplete?: (state: TypingState) => void;
-	/** Book feeder for continuous book typing (used in book mode) */
-	bookFeeder?: BookFeeder;
+	/** Book reader cursor the book mode refills from */
+	bookFeed?: Feed;
 }
 
 function initState(
@@ -150,8 +154,8 @@ export default function TypingTest(props: TypingTestProps) {
 		// Continuous modes: append more words when running low
 		if (isContinuousMode && needsMoreWords(state)) {
 			let newText: string;
-			if (state.mode.type === "book" && props.bookFeeder) {
-				newText = props.bookFeeder.getNextWords(20);
+			if (state.mode.type === "book" && props.bookFeed) {
+				newText = props.bookFeed.next(20);
 			} else {
 				newText = generateWords(20);
 			}

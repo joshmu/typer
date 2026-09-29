@@ -79,7 +79,7 @@ Every keystroke must process in **<16ms** (one frame at 60fps). See `docs/perfor
 - **Dexie.js v4** for typing results + book progress (IndexedDB). Reactive queries via `safeFrom(liveQuery)` wrapper (src/lib/safe-query.ts) with error fallbacks. Skip `solid-dexie` (unmaintained).
 - **@solid-primitives/storage** (`makePersisted`) for user preferences in localStorage.
 - **Character matching** uses `isCharMatch()` (src/lib/core/text/char-match.ts) — NFD decomposition allows base chars to match diacritics (e.g., "z" → "ž").
-- **Book resume** uses `computeBookResumePosition()` (src/lib/core/engine/book-resume.ts) — computes resume offset from actual typed words, not pre-fetched feeder position.
+- **Book reader** (`openBookReader()`, src/lib/core/engine/book-reader.ts) owns the committed position: `cursor()` reads ahead without moving it, only `commit(wordsTyped)` advances it, and its `percent` is the one book percent.
 
 ### Themes
 
