@@ -1,18 +1,4 @@
 import { expect, test } from "@playwright/test";
-import type { GameState } from "../src/lib/game/sim/state";
-
-declare global {
-	interface Window {
-		__game?: {
-			getState(): GameState;
-			sendKeys(keys: string): void;
-			sendBackspace(): void;
-			sendPerk(index: number): void;
-			stepTicks(n: number): void;
-			renderReady(): boolean;
-		};
-	}
-}
 
 test.describe("horde game mode", () => {
 	test("loads arena and kills first enemy by typing", async ({ page }) => {
