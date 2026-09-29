@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getArchetype } from "../content/enemies";
+import abilitiesSrc from "./abilities.ts?raw";
 import { createEnemy } from "./enemy-factory";
 import type { InputLog } from "./replay";
 import { createInitialState, currentWord, type GameState } from "./state";
@@ -86,11 +85,25 @@ describe("advanceWord", () => {
 	it("steps to the next pre-assigned word without growing the chain", () => {
 		const s = withEnemies(["alpha", "bravo", "charlie"]);
 		const e = s.enemies[0];
+		s.targetId = e.id;
 		e.typedCount = 3;
 		advanceWord(s, e);
 		expect(e.wordIndex).toBe(1);
 		expect(e.typedCount).toBe(0);
 		expect(e.words).toEqual(["alpha", "bravo", "charlie"]);
+		expect(s.targetId).toBe(e.id);
+	});
+
+	it("walks every hp-1 advance without ever growing the chain", () => {
+		const s = withEnemies(chain(9, 3));
+		const e = s.enemies[0];
+		const hp = getArchetype("husk-4").hp;
+		for (let i = 1; i < hp; i++) {
+			advanceWord(s, e);
+			expect(e.wordIndex).toBe(i);
+			expect(e.words.length).toBe(hp);
+			expect(currentWord(e).length).toBeGreaterThan(0);
+		}
 	});
 
 	it("redraws a colliding next word into a fresh array", () => {
@@ -129,6 +142,25 @@ describe("growChain", () => {
 });
 
 describe("chain invariant", () => {
+	it("a heal-aura pulse in step grows a wounded ally's chain to its restored hp", () => {
+		const s = withEnemies(["apple", "bear", "cat"], ["dog", "eel", "fox"]);
+		const [healer, ally] = s.enemies;
+		healer.pos = { x: 30, y: 0 };
+		ally.pos = { x: 32, y: 0 };
+		ally.wordIndex = 2;
+		ally.hp = 1;
+		s.tick = 179; // the next step is the healer's 180-tick pulse
+		const next = step(s, []);
+		const healed = next.enemies.find((e) => e.id === ally.id);
+		expect(healed?.hp).toBe(2);
+		expect(healed?.words).toHaveLength(4);
+		expect(healed?.words.slice(0, 3)).toEqual(["dog", "eel", "fox"]);
+		for (const e of next.enemies) {
+			if (e.alive) expect(unwalkedWords(e)).toBe(e.hp);
+		}
+		expect(ally.words).toHaveLength(3);
+	});
+
 	it("every alive enemy has exactly hp unwalked words on every tick of the deep run", async () => {
 		const fixture = await import("./__fixtures__/replay-deep-run.json");
 		const log = fixture.log as InputLog;
@@ -151,10 +183,6 @@ describe("chain invariant", () => {
 
 describe("module graph", () => {
 	it("abilities does not import combat", () => {
-		const src = readFileSync(
-			join(process.cwd(), "src/lib/game/sim/abilities.ts"),
-			"utf8",
-		);
-		expect(src).not.toMatch(/from "\.\/combat"/);
+		expect(abilitiesSrc).not.toMatch(/from "\.\/combat"/);
 	});
 });
