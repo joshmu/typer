@@ -55,3 +55,23 @@ test("redo button restarts the flow", async ({ page }) => {
 	await redoButton.click();
 	await expect(page.getByTestId("text-input")).toBeVisible();
 });
+
+test("time mode ends at its limit with no further keystroke", async ({
+	page,
+}) => {
+	await page.clock.install();
+	await page.goto("/");
+	await page.getByRole("button", { name: "time" }).click();
+
+	const typingTest = page.getByTestId("typing-test");
+	await expect(typingTest).toBeVisible();
+	await typingTest.focus();
+	await page.keyboard.type("t");
+
+	await page.clock.fastForward(29_000);
+	await expect(page.getByText("Redo")).toBeHidden();
+
+	await page.clock.fastForward(1_000);
+	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
+	await expect(page.getByText("30s", { exact: true })).toBeVisible();
+});

@@ -1,13 +1,10 @@
 import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { createStore, produce } from "solid-js/store";
+import { calculateAccuracy, calculateWPM } from "@/lib/core/calc";
 import {
-	calculateAccuracy,
-	calculateWPM,
-	isTestComplete,
-} from "@/lib/core/calc";
-import { applyKeystroke } from "@/lib/core/engine/process-keystroke";
-import { appendWords, needsMoreWords } from "@/lib/core/engine/zen";
-import { normalizeText, textToWords } from "@/lib/core/text/normalizer";
+	createTypingSession,
+	initTypingState,
+} from "@/lib/core/engine/typing-session";
 import { generateWords } from "@/lib/core/text/words";
 import type {
 	Feed,
@@ -15,10 +12,6 @@ import type {
 	TestMode,
 	TypingState,
 } from "@/lib/core/types";
-import {
-	createTestConfig,
-	createTestMode,
-} from "@/lib/core/types/test-fixtures";
 import { setTypingActive } from "@/lib/typing-focus";
 import StatsBar from "./StatsBar";
 import TextDisplay from "./TextDisplay";
@@ -32,34 +25,24 @@ interface TypingTestProps {
 	bookFeed?: Feed;
 }
 
-function initState(
-	text: string,
-	mode?: TestMode,
-	stopOnError?: StopOnError,
-): TypingState {
-	const normalized = normalizeText(text);
-	const words = textToWords(normalized);
-	if (words.length > 0) words[0].isActive = true;
-	return {
-		text: normalized,
-		words,
-		currentWordIndex: 0,
-		currentCharIndex: 0,
-		startTime: null,
-		endTime: null,
-		mode: mode ?? createTestMode(),
-		config: createTestConfig({ stopOnError: stopOnError ?? "off" }),
-	};
-}
+const wordFeed: Feed = {
+	next: (count) => generateWords(count),
+	exhausted: false,
+};
 
 export default function TypingTest(props: TypingTestProps) {
 	const [state, setState] = createStore<TypingState>(
-		initState(props.text, props.mode, props.stopOnError),
+		initTypingState(
+			props.text,
+			props.mode ?? { type: "custom" },
+			props.stopOnError ?? "off",
+		),
 	);
 	const [elapsed, setElapsed] = createSignal(0);
 	const [capsLock, setCapsLock] = createSignal(false);
 	let containerRef: HTMLDivElement | undefined;
 	let timerInterval: ReturnType<typeof setInterval> | undefined;
+	let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const wpm = createMemo(() => {
 		const e = elapsed();
@@ -76,35 +59,43 @@ export default function TypingTest(props: TypingTestProps) {
 	const isContinuousMode =
 		state.mode.type === "zen" || state.mode.type === "book";
 
-	const complete = createMemo(() => {
-		if (isContinuousMode) return state.endTime !== null;
-		return isTestComplete(state);
+	const complete = () => state.endTime !== null;
+
+	const session = createTypingSession({
+		state,
+		feed: state.mode.type === "book" ? props.bookFeed : wordFeed,
+		write: (mutate) => setState(produce(mutate)),
+		onComplete: (s) => {
+			stopTimers();
+			if (s.startTime !== null && s.endTime !== null) {
+				setElapsed(s.endTime - s.startTime);
+			}
+			props.onComplete?.(s);
+		},
 	});
 
-	function startTimer() {
-		if (timerInterval) return;
+	function startTimers() {
 		timerInterval = setInterval(() => {
-			if (state.startTime) {
-				setElapsed(Date.now() - state.startTime);
-			}
+			if (state.startTime) setElapsed(Date.now() - state.startTime);
 		}, 100);
+		armDeadline();
 	}
 
-	function stopTimer() {
-		if (timerInterval) {
-			clearInterval(timerInterval);
-			timerInterval = undefined;
-		}
+	function armDeadline() {
+		const deadline = session.deadline();
+		if (deadline === null) return;
+		deadlineTimer = setTimeout(
+			() => {
+				session.tick(Date.now());
+				if (!session.complete) armDeadline();
+			},
+			Math.max(0, deadline - Date.now()),
+		);
 	}
 
-	function finishZen() {
-		const now = Date.now();
-		setState("endTime", now);
-		stopTimer();
-		if (state.startTime) {
-			setElapsed(now - state.startTime);
-		}
-		props.onComplete?.(state);
+	function stopTimers() {
+		clearInterval(timerInterval);
+		clearTimeout(deadlineTimer);
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -115,14 +106,9 @@ export default function TypingTest(props: TypingTestProps) {
 
 		const key = e.key;
 
-		// Zen/Book mode: Escape finishes the test
-		if (key === "Escape" && isContinuousMode && state.startTime) {
-			e.preventDefault();
-			finishZen();
-			return;
-		}
+		if (key === "Escape" && isContinuousMode) e.preventDefault();
 
-		// Tab+Enter restarts if test hasn't started
+		// Keep focus in the typing area before the test starts
 		if (key === "Tab" && !state.startTime) {
 			e.preventDefault();
 			return;
@@ -136,33 +122,12 @@ export default function TypingTest(props: TypingTestProps) {
 			e.preventDefault();
 		}
 
-		const timestamp = Date.now();
 		const wasStarted = state.startTime !== null;
+		session.key(key, Date.now());
 
-		setState(produce((s) => applyKeystroke(s, key, timestamp)));
-
-		if (!wasStarted && state.startTime !== null) {
-			startTimer();
+		if (!wasStarted && state.startTime !== null && !complete()) {
+			startTimers();
 			setTypingActive(true);
-		}
-
-		// Continuous modes: append more words when running low
-		if (isContinuousMode && needsMoreWords(state)) {
-			let newText: string;
-			if (state.mode.type === "book" && props.bookFeed) {
-				newText = props.bookFeed.next(20);
-			} else {
-				newText = generateWords(20);
-			}
-			if (newText) setState(produce((s) => appendWords(s, newText)));
-		}
-
-		if (!isContinuousMode && isTestComplete(state)) {
-			stopTimer();
-			if (state.startTime && state.endTime) {
-				setElapsed(state.endTime - state.startTime);
-			}
-			props.onComplete?.(state);
 		}
 	}
 
@@ -171,7 +136,7 @@ export default function TypingTest(props: TypingTestProps) {
 	});
 
 	onCleanup(() => {
-		stopTimer();
+		stopTimers();
 		setTypingActive(false);
 	});
 
