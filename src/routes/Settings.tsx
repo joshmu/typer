@@ -1,6 +1,7 @@
 import ThemePicker from "@/components/settings/ThemePicker";
 import type { CaretStyle } from "@/components/typing/Caret";
 import type { StopOnError } from "@/lib/core/types";
+import { typingFontSize } from "@/lib/preferences";
 import { usePreferences } from "@/lib/preferences-context";
 
 function buttonClass(active: boolean): string {
@@ -56,6 +57,8 @@ function ToggleRow(props: {
 			</div>
 			<button
 				type="button"
+				aria-label={props.label}
+				aria-pressed={props.value}
 				class={`w-12 h-6 rounded-full transition-all duration-200 relative ${
 					props.value ? "bg-primary" : "bg-text-sub/30"
 				}`}
@@ -136,7 +139,7 @@ export default function Settings() {
 						options={[14, 16, 18, 20, 24] as const}
 						value={prefs.fontSize}
 						onSelect={(v) => setPrefs("fontSize", v)}
-						renderLabel={(v) => `${v}px`}
+						renderLabel={(v) => `${typingFontSize(v)}px`}
 					/>
 				</div>
 			</div>

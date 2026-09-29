@@ -1,3 +1,6 @@
+import { Show } from "solid-js";
+import { usePreferences } from "@/lib/preferences-context";
+
 interface StatsBarProps {
 	wpm: number;
 	accuracy: number;
@@ -12,15 +15,18 @@ function formatTime(ms: number): string {
 }
 
 export default function StatsBar(props: StatsBarProps) {
+	const [prefs] = usePreferences();
 	return (
 		<div
 			class="flex gap-8 mb-4 text-text-sub text-lg font-mono"
 			data-testid="stats-bar"
 		>
-			<div>
-				<span class="text-primary text-2xl font-bold">{props.wpm}</span>{" "}
-				<span class="text-sm">wpm</span>
-			</div>
+			<Show when={prefs.showLiveWpm}>
+				<div>
+					<span class="text-primary text-2xl font-bold">{props.wpm}</span>{" "}
+					<span class="text-sm">wpm</span>
+				</div>
+			</Show>
 			<div>
 				<span class="text-primary text-2xl font-bold">{props.accuracy}</span>
 				<span class="text-sm">%</span>

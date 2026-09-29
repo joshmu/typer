@@ -12,6 +12,7 @@
 	--error-extra: #7e2a33;
 	--caret: #e2b714;
 	--correct: #d1d0c5;
+	--typing-font-size: 24px;
 }
 
 @theme inline {
