@@ -1,3 +1,5 @@
+import type { Feed } from "../types";
+
 // Top 200 common English words for typing practice
 // Source: Monkeytype (MIT licensed) + curated
 export const top200 = [
@@ -239,4 +241,12 @@ export function generateWords(
 
 export function truncateToWordCount(text: string, count: number): string {
 	return text.split(/\s+/).slice(0, count).join(" ");
+}
+
+/** An endless feed of generated words from `wordList`. */
+export function createWordFeed(wordList?: string[]): Feed {
+	return {
+		next: (count) => generateWords(count, { wordList }),
+		exhausted: false,
+	};
 }

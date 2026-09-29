@@ -55,3 +55,61 @@ test("redo button restarts the flow", async ({ page }) => {
 	await redoButton.click();
 	await expect(page.getByTestId("text-input")).toBeVisible();
 });
+
+test("Tab then Enter on results restarts wherever focus is", async ({
+	page,
+}) => {
+	await page.goto("/");
+	await page.getByRole("button", { name: "custom" }).click();
+	await page.getByTestId("text-input").fill("ab");
+	await page.getByTestId("start-button").click();
+
+	const typingTest = page.getByTestId("typing-test");
+	await typingTest.focus();
+	await page.keyboard.type("ab");
+	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
+
+	// Move the focus start point below the Redo button.
+	await page.getByText("personal best").click();
+	await page.keyboard.press("Tab");
+	await page.keyboard.press("Enter");
+	await expect(page.getByTestId("text-input")).toBeVisible();
+});
+
+test("time mode ends at its limit with no further keystroke", async ({
+	page,
+}) => {
+	await page.clock.install();
+	await page.goto("/");
+	await page.getByRole("button", { name: "time" }).click();
+
+	const typingTest = page.getByTestId("typing-test");
+	await expect(typingTest).toBeVisible();
+	await typingTest.focus();
+	await page.keyboard.type("t");
+
+	await page.clock.fastForward(29_000);
+	await expect(page.getByText("Redo")).toBeHidden();
+
+	await page.clock.fastForward(1_000);
+	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
+	await expect(page.getByText("30s", { exact: true })).toBeVisible();
+});
+
+test("Tab from a focused link on results moves on as usual", async ({
+	page,
+}) => {
+	await page.goto("/");
+	await page.getByRole("button", { name: "custom" }).click();
+	await page.getByTestId("text-input").fill("ab");
+	await page.getByTestId("start-button").click();
+	await page.getByTestId("typing-test").focus();
+	await page.keyboard.type("ab");
+	const redo = page.getByRole("button", { name: "Redo" });
+	await expect(redo).toBeVisible({ timeout: 5000 });
+
+	await page.getByRole("link", { name: "Home" }).focus();
+	await page.keyboard.press("Tab");
+	await expect(redo).not.toBeFocused();
+	await expect(page.getByRole("link", { name: "Game" })).toBeFocused();
+});

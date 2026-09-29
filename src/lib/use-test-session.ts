@@ -20,7 +20,7 @@ import {
 import { simpleHash } from "@/lib/core/text/hash";
 import { getRandomQuote } from "@/lib/core/text/quotes";
 import { loadWordList } from "@/lib/core/text/word-list-loader";
-import { generateWords } from "@/lib/core/text/words";
+import { createWordFeed, generateWords } from "@/lib/core/text/words";
 import type { Feed, TestMode, TypingState } from "@/lib/core/types";
 import type { BookProgress, CachedBook } from "@/lib/core/types/book";
 import { isAppError } from "@/lib/core/types/errors";
@@ -29,7 +29,7 @@ import type { UserPreferences } from "@/lib/preferences";
 
 /** Words fed per typing window in book/zen mode. */
 export const BOOK_WORD_COUNT = 30;
-/** Words fed per typing window for time / non-book modes. */
+/** Words in the first window of a time test; it refills as you type. */
 const TIME_MODE_WORD_COUNT = 200;
 
 export interface UseTestSessionOptions {
@@ -48,7 +48,7 @@ export interface TestSession {
 	result: Accessor<TestResult | null>;
 	activeBook: Accessor<CachedBook | null>;
 	bookReader: Accessor<BookReader | null>;
-	bookFeed: Accessor<Feed | null>;
+	feed: Accessor<Feed | null>;
 	currentBookProgress: Accessor<BookProgress | null>;
 	bookLoading: Accessor<boolean>;
 	bookProgressPercent: Accessor<number>;
@@ -80,7 +80,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const [bookReader, setBookReader] = createSignal<BookReader | null>(
 		initial.bookReader,
 	);
-	const [bookFeed, setBookFeed] = createSignal<Feed | null>(initial.bookFeed);
+	const [feed, setFeed] = createSignal<Feed | null>(initial.feed);
 	const [currentBookProgress, setCurrentBookProgress] =
 		createSignal<BookProgress | null>(initial.currentBookProgress);
 	const [bookLoading, setBookLoading] = createSignal(initial.bookLoading);
@@ -96,7 +96,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			result: result(),
 			activeBook: activeBook(),
 			bookReader: bookReader(),
-			bookFeed: bookFeed(),
+			feed: feed(),
 			currentBookProgress: currentBookProgress(),
 			bookLoading: bookLoading(),
 		};
@@ -109,7 +109,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			setResult(() => next.result);
 			setActiveBook(() => next.activeBook);
 			setBookReader(() => next.bookReader);
-			setBookFeed(() => next.bookFeed);
+			setFeed(() => next.feed);
 			setCurrentBookProgress(() => next.currentBookProgress);
 			setBookLoading(next.bookLoading);
 		});
@@ -118,12 +118,13 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	async function startWithMode(newMode: TestMode): Promise<void> {
 		let next = createInitialSession(newMode);
 		switch (newMode.type) {
-			case "time": {
+			case "time":
+			case "zen": {
 				const wordList = await loadWordList(options.wordListSize());
-				next = applyText(
-					next,
-					generateWords(TIME_MODE_WORD_COUNT, { wordList }),
-				);
+				const feed = createWordFeed(wordList);
+				const count =
+					newMode.type === "time" ? TIME_MODE_WORD_COUNT : BOOK_WORD_COUNT;
+				next = { ...applyText(next, feed.next(count)), feed };
 				break;
 			}
 			case "words": {
@@ -135,9 +136,6 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 				next = applyText(next, getRandomQuote(newMode.length).text);
 				break;
 			}
-			case "zen":
-				next = applyText(next, generateWords(BOOK_WORD_COUNT));
-				break;
 			case "custom":
 			case "book":
 				// Text remains null; UI shows modal/browser respectively.
@@ -228,7 +226,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		result,
 		activeBook,
 		bookReader,
-		bookFeed,
+		feed,
 		currentBookProgress,
 		bookLoading,
 		bookProgressPercent,

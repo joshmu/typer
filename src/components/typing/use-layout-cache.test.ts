@@ -1,4 +1,5 @@
 import { createRoot, createSignal } from "solid-js";
+import { createStore, produce } from "solid-js/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WordState } from "@/lib/core/types";
 import { createWordState } from "@/lib/core/types/test-fixtures";
@@ -90,6 +91,41 @@ describe("useLayoutCache", () => {
 			setWords([createWordState("hello")]);
 			await flush();
 			expect(getCalls()).toBeGreaterThan(initial);
+			dispose();
+		});
+	});
+
+	it("re-measures when words are appended to a store in place", async () => {
+		await createRoot(async (dispose) => {
+			const container = document.createElement("div");
+			const { measurer, getCalls } = trackingMeasurer();
+			const [state, setState] = createStore({
+				words: [createWordState("hi")],
+			});
+
+			useLayoutCache(
+				() => container,
+				() => state.words,
+				measurer,
+			);
+			await flush();
+			const initial = getCalls();
+
+			setState(
+				produce((s) => {
+					s.words[0].characters[0].status = "correct";
+				}),
+			);
+			await flush();
+			expect(getCalls()).toBe(initial);
+
+			setState(
+				produce((s) => {
+					s.words.push(createWordState("there"));
+				}),
+			);
+			await flush();
+			expect(getCalls()).toBe(initial + 1);
 			dispose();
 		});
 	});

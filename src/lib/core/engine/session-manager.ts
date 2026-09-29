@@ -9,8 +9,8 @@ export interface SessionState {
 	result: TestResult | null;
 	activeBook: CachedBook | null;
 	bookReader: BookReader | null;
-	/** Cursor the current book test reads ahead from. */
-	bookFeed: Feed | null;
+	/** Source the current test refills from. */
+	feed: Feed | null;
 	currentBookProgress: BookProgress | null;
 	bookLoading: boolean;
 }
@@ -22,7 +22,7 @@ export function createInitialSession(mode: TestMode): SessionState {
 		result: null,
 		activeBook: null,
 		bookReader: null,
-		bookFeed: null,
+		feed: null,
 		currentBookProgress: null,
 		bookLoading: false,
 	};
@@ -55,7 +55,7 @@ export function applyBookSelection(
 		result: null,
 		activeBook: book,
 		bookReader: reader,
-		bookFeed: feed,
+		feed,
 		currentBookProgress: progress,
 		bookLoading: false,
 	};
@@ -71,7 +71,7 @@ export function applyResult(
 	next.currentBookProgress = bookProgress;
 	if (session.activeBook) {
 		next.bookReader = openBookReader(session.activeBook, bookProgress);
-		next.bookFeed = null;
+		next.feed = null;
 	}
 	return next;
 }
@@ -100,7 +100,7 @@ export function decideRedo(
 			if (nextText) {
 				return {
 					kind: "book-continue",
-					state: { ...cleared, text: nextText, bookFeed: feed },
+					state: { ...cleared, text: nextText, feed },
 				};
 			}
 		}
@@ -111,7 +111,7 @@ export function decideRedo(
 				text: null,
 				activeBook: null,
 				bookReader: null,
-				bookFeed: null,
+				feed: null,
 			},
 		};
 	}

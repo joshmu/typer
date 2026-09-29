@@ -97,7 +97,7 @@ export default function Home() {
 								mode={session.mode()}
 								stopOnError={prefs.stopOnError}
 								onComplete={(state) => session.complete(state)}
-								bookFeed={session.bookFeed() ?? undefined}
+								feed={session.feed() ?? undefined}
 							/>
 						</div>
 					)}

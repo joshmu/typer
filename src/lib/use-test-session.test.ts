@@ -1,7 +1,8 @@
 import "fake-indexeddb/auto";
 import { createRoot } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { TypingState } from "@/lib/core/types";
+import { loadWordList } from "@/lib/core/text/word-list-loader";
+import type { TestMode, TypingState } from "@/lib/core/types";
 import type { BookChapter, CachedBook } from "@/lib/core/types/book";
 import { createTypingState } from "@/lib/core/types/test-fixtures";
 import { db } from "@/lib/db";
@@ -100,6 +101,24 @@ describe("useTestSession", () => {
 		);
 	});
 
+	it.each<TestMode>([
+		{ type: "time", seconds: 30 },
+		{ type: "zen" },
+	])("startWithMode('$type') refills from the chosen word list", async (mode) => {
+		const list = await loadWordList("1k");
+		const words = await new Promise<string[] | null>((resolve) =>
+			createRoot(async (dispose) => {
+				const session = useTestSession({ wordListSize: () => "1k" });
+				await session.startWithMode(mode);
+				const feed = session.feed();
+				resolve(feed && `${session.text()} ${feed.next(50)}`.split(" "));
+				dispose();
+			}),
+		);
+		expect(words).not.toBeNull();
+		for (const word of words ?? []) expect(list).toContain(word);
+	});
+
 	it("setCustomText puts text on the session and clears prior result", () =>
 		createRoot((dispose) => {
 			const session = useTestSession({ wordListSize: () => "200" });
@@ -124,7 +143,7 @@ describe("useTestSession", () => {
 				await session.selectBook("author/book");
 				expect(session.activeBook()).toBe(book);
 				expect(session.bookReader()).not.toBeNull();
-				expect(session.bookFeed()).not.toBeNull();
+				expect(session.feed()).not.toBeNull();
 				expect(session.text()).toBe("a b c d e f g h");
 				expect(session.mode()).toEqual({
 					type: "book",

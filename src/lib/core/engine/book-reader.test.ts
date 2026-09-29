@@ -73,6 +73,27 @@ describe("countCompletedWords", () => {
 		}
 		expect(countCompletedWords(state)).toBe(2);
 	});
+
+	it("counts the last word once it is typed", () => {
+		let state = createTypingState("ab cd");
+		for (const key of ["a", "b", " ", "c", "d"]) {
+			state = processKeystroke(state, key, 1000);
+		}
+		expect(countCompletedWords(state)).toBe(2);
+	});
+
+	it("finishes the book when a session types its last word", () => {
+		const book = makeBook([makeChapter(0, 3), makeChapter(1, 2)]);
+		const reader = openBookReader(book, null);
+		const text = reader.cursor().next(50);
+		let state = createTypingState(text);
+		for (const key of text) state = processKeystroke(state, key, 1000);
+
+		const next = reader.commit(countCompletedWords(state), STATS);
+		const reopened = openBookReader(book, next as BookProgress);
+		expect(reopened.finished).toBe(true);
+		expect(reopened.percent).toBe(100);
+	});
 });
 
 describe("openBookReader", () => {

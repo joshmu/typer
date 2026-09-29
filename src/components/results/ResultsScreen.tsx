@@ -1,5 +1,5 @@
 import { animate, spring, stagger } from "motion";
-import { onMount, Show } from "solid-js";
+import { onCleanup, onMount, Show } from "solid-js";
 import type { CharBreakdown } from "@/lib/core/calc";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
 import HistoryList from "./HistoryList";
@@ -53,6 +53,19 @@ function BreakdownItem(props: { label: string; count: number; color: string }) {
 export default function ResultsScreen(props: ResultsScreenProps) {
 	let heroRef!: HTMLSpanElement;
 	let containerRef!: HTMLDivElement;
+	let redoRef!: HTMLButtonElement;
+
+	// With nothing focused, Tab lands on Redo so Tab then Enter restarts.
+	// Once something has focus, Tab moves on as usual.
+	const focusRedoOnTab = (e: KeyboardEvent) => {
+		const focused = document.activeElement;
+		if (e.key !== "Tab" || e.shiftKey) return;
+		if (focused && focused !== document.body) return;
+		e.preventDefault();
+		redoRef.focus();
+	};
+	window.addEventListener("keydown", focusRedoOnTab);
+	onCleanup(() => window.removeEventListener("keydown", focusRedoOnTab));
 
 	onMount(() => {
 		const reduced = prefersReducedMotion();
@@ -189,6 +202,7 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 			{/* Redo button */}
 			<div class="redo-section flex flex-col items-center gap-2 mt-4 opacity-0">
 				<button
+					ref={redoRef}
 					type="button"
 					class="px-8 py-3 bg-bg-secondary text-text-sub rounded border border-text-sub/20 hover:text-primary hover:border-primary/40 transition-colors text-sm uppercase tracking-widest btn-glow"
 					onClick={props.onRedo}
