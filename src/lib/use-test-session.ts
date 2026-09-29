@@ -1,4 +1,4 @@
-import { type Accessor, batch, createMemo, createSignal } from "solid-js";
+import { type Accessor, createMemo, createSignal } from "solid-js";
 import { useAllBookProgress } from "@/lib/book-progress";
 import { fetchAndCacheBook as defaultFetchAndCacheBook } from "@/lib/book-service";
 import {
@@ -15,7 +15,7 @@ import {
 	type SessionState,
 } from "@/lib/core/engine/session-manager";
 import { getRandomQuote } from "@/lib/core/text/quotes";
-import { loadWordList } from "@/lib/core/text/word-list-loader";
+import { loadWordList as defaultLoadWordList } from "@/lib/core/text/word-list-loader";
 import { createWordFeed, generateWords } from "@/lib/core/text/words";
 import type { Feed, TestMode, TypingState } from "@/lib/core/types";
 import type { BookProgress, CachedBook } from "@/lib/core/types/book";
@@ -25,6 +25,7 @@ import {
 	toTypingResult,
 } from "@/lib/history";
 import type { UserPreferences } from "@/lib/preferences";
+import { isTypingActive } from "@/lib/typing-focus";
 
 /** Words fed per typing window in book/zen mode. */
 export const BOOK_WORD_COUNT = 30;
@@ -36,6 +37,7 @@ export interface UseTestSessionOptions {
 	/** Test-only IO overrides. */
 	deps?: Partial<{
 		fetchAndCacheBook: typeof defaultFetchAndCacheBook;
+		loadWordList: typeof defaultLoadWordList;
 		recordCompletion: typeof defaultRecordCompletion;
 	}>;
 }
@@ -44,10 +46,11 @@ export interface TestSession {
 	mode: Accessor<TestMode>;
 	text: Accessor<string | null>;
 	result: Accessor<TestResult | null>;
+	/** The shown result could not be recorded. */
+	saveFailed: Accessor<boolean>;
 	activeBook: Accessor<CachedBook | null>;
 	bookReader: Accessor<BookReader | null>;
 	feed: Accessor<Feed | null>;
-	currentBookProgress: Accessor<BookProgress | null>;
 	bookLoading: Accessor<boolean>;
 	bookProgressPercent: Accessor<number>;
 	allBookProgress: Accessor<BookProgress[]>;
@@ -63,53 +66,34 @@ const INITIAL_MODE: TestMode = { type: "book", bookId: "", chapterIndex: 0 };
 export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const fetchBook = options.deps?.fetchAndCacheBook ?? defaultFetchAndCacheBook;
 	const record = options.deps?.recordCompletion ?? defaultRecordCompletion;
+	const loadWordList = options.deps?.loadWordList ?? defaultLoadWordList;
 
-	const initial = createInitialSession(INITIAL_MODE);
-	const [mode, setMode] = createSignal<TestMode>(initial.mode);
-	const [text, setText] = createSignal<string | null>(initial.text);
-	const [result, setResult] = createSignal<TestResult | null>(initial.result);
-	const [activeBook, setActiveBook] = createSignal<CachedBook | null>(
-		initial.activeBook,
+	const [session, setSession] = createSignal<SessionState>(
+		createInitialSession(INITIAL_MODE),
 	);
-	const [bookReader, setBookReader] = createSignal<BookReader | null>(
-		initial.bookReader,
-	);
-	const [feed, setFeed] = createSignal<Feed | null>(initial.feed);
-	const [currentBookProgress, setCurrentBookProgress] =
-		createSignal<BookProgress | null>(initial.currentBookProgress);
-	const [bookLoading, setBookLoading] = createSignal(initial.bookLoading);
+	// One memo per field, so a change to one field leaves readers of the others alone.
+	const field = <K extends keyof SessionState>(key: K) =>
+		createMemo(() => session()[key]);
+	const mode = field("mode");
+	const text = field("text");
+	const result = field("result");
+	const activeBook = field("activeBook");
+	const bookReader = field("bookReader");
+	const feed = field("feed");
+	const [bookLoading, setBookLoading] = createSignal(false);
+	const [saveFailed, setSaveFailed] = createSignal(false);
 
 	const allBookProgress = useAllBookProgress();
 
 	const bookProgressPercent = createMemo(() => bookReader()?.percent ?? 0);
 
-	function snapshot(): SessionState {
-		return {
-			mode: mode(),
-			text: text(),
-			result: result(),
-			activeBook: activeBook(),
-			bookReader: bookReader(),
-			feed: feed(),
-			currentBookProgress: currentBookProgress(),
-			bookLoading: bookLoading(),
-		};
-	}
-
-	function apply(next: SessionState) {
-		batch(() => {
-			setMode(() => next.mode);
-			setText(next.text);
-			setResult(() => next.result);
-			setActiveBook(() => next.activeBook);
-			setBookReader(() => next.bookReader);
-			setFeed(() => next.feed);
-			setCurrentBookProgress(() => next.currentBookProgress);
-			setBookLoading(next.bookLoading);
-		});
-	}
+	// Bumped by anything that replaces the current test, so pending loads go stale.
+	let latestStart = 0;
+	const isStale = (request: number) =>
+		request !== latestStart || isTypingActive();
 
 	async function startWithMode(newMode: TestMode): Promise<void> {
+		const request = ++latestStart;
 		let next = createInitialSession(newMode);
 		switch (newMode.type) {
 			case "time":
@@ -135,27 +119,29 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 				// Text remains null; UI shows modal/browser respectively.
 				break;
 		}
-		apply(next);
+		if (isStale(request)) return;
+		setSession(next);
 	}
 
 	function setCustomText(value: string): void {
-		apply(applyText(snapshot(), value));
+		latestStart++;
+		setSession((s) => applyText(s, value));
 	}
+
+	let latestBookFetch = 0;
 
 	async function selectBook(
 		bookId: string,
 		prevProgress?: BookProgress,
 	): Promise<void> {
+		const request = ++latestStart;
+		latestBookFetch = request;
 		setBookLoading(true);
 		try {
 			const cached = await fetchBook(bookId);
-			apply(
-				applyBookSelection(
-					snapshot(),
-					cached,
-					prevProgress ?? null,
-					BOOK_WORD_COUNT,
-				),
+			if (isStale(request)) return;
+			setSession((s) =>
+				applyBookSelection(s, cached, prevProgress ?? null, BOOK_WORD_COUNT),
 			);
 		} catch (err) {
 			if (isAppError(err)) {
@@ -164,7 +150,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 				console.error("Failed to load book:", err);
 			}
 		} finally {
-			setBookLoading(false);
+			if (request === latestBookFetch) setBookLoading(false);
 		}
 	}
 
@@ -184,19 +170,22 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			});
 		}
 
-		apply(applyResult(snapshot(), testResult, draft as BookProgress));
+		latestStart++;
+		setSaveFailed(false);
+		setSession((s) => applyResult(s, testResult, draft));
 
 		void record(
 			toTypingResult(state, completed, activeBook()?.meta.title, now),
 			draft,
-		).catch((err: unknown) =>
-			console.error("Failed to record the completed test:", err),
-		);
+		).catch((err: unknown) => {
+			console.error("Failed to record the completed test:", err);
+			if (result() === testResult) setSaveFailed(true);
+		});
 	}
 
 	function redo(): void {
-		const outcome = decideRedo(snapshot(), BOOK_WORD_COUNT);
-		apply(outcome.state);
+		const outcome = decideRedo(session(), BOOK_WORD_COUNT);
+		setSession(outcome.state);
 		if (outcome.kind === "restart-mode") {
 			void startWithMode(outcome.mode);
 		}
@@ -206,10 +195,10 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		mode,
 		text,
 		result,
+		saveFailed,
 		activeBook,
 		bookReader,
 		feed,
-		currentBookProgress,
 		bookLoading,
 		bookProgressPercent,
 		allBookProgress,

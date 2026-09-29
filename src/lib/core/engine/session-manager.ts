@@ -11,8 +11,6 @@ export interface SessionState {
 	bookReader: BookReader | null;
 	/** Source the current test refills from. */
 	feed: Feed | null;
-	currentBookProgress: BookProgress | null;
-	bookLoading: boolean;
 }
 
 export function createInitialSession(mode: TestMode): SessionState {
@@ -23,8 +21,6 @@ export function createInitialSession(mode: TestMode): SessionState {
 		activeBook: null,
 		bookReader: null,
 		feed: null,
-		currentBookProgress: null,
-		bookLoading: false,
 	};
 }
 
@@ -56,24 +52,21 @@ export function applyBookSelection(
 		activeBook: book,
 		bookReader: reader,
 		feed,
-		currentBookProgress: progress,
-		bookLoading: false,
 	};
 }
 
 export function applyResult(
 	session: SessionState,
 	result: TestResult,
-	bookProgress?: BookProgress | null,
+	bookProgress?: Omit<BookProgress, "id">,
 ): SessionState {
-	const next = { ...session, result };
-	if (bookProgress === undefined) return next;
-	next.currentBookProgress = bookProgress;
-	if (session.activeBook) {
-		next.bookReader = openBookReader(session.activeBook, bookProgress);
-		next.feed = null;
-	}
-	return next;
+	if (!bookProgress || !session.activeBook) return { ...session, result };
+	return {
+		...session,
+		result,
+		bookReader: openBookReader(session.activeBook, bookProgress),
+		feed: null,
+	};
 }
 
 export type RedoOutcome =

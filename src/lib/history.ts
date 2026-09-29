@@ -42,7 +42,7 @@ export async function recordCompletion(
 			database.results,
 			database.bookProgress,
 			async () => {
-				await database.results.add(result as TypingResult);
+				await database.results.add(result);
 				if (!progress) return;
 				const existing = await database.bookProgress
 					.where("bookId")

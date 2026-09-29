@@ -1,11 +1,12 @@
 import "fake-indexeddb/auto";
-import { createRoot } from "solid-js";
+import { createComputed, createRoot } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadWordList } from "@/lib/core/text/word-list-loader";
 import type { TestMode, TypingState } from "@/lib/core/types";
 import type { BookChapter, CachedBook } from "@/lib/core/types/book";
 import { createTypingState } from "@/lib/core/types/test-fixtures";
 import { db } from "@/lib/db";
+import { setTypingActive } from "@/lib/typing-focus";
 import { useTestSession } from "./use-test-session";
 
 function makeChapter(index: number, words: string[]): BookChapter {
@@ -118,6 +119,105 @@ describe("useTestSession", () => {
 			for (const word of words ?? []) expect(list).toContain(word);
 		},
 	);
+
+	describe("word-list loads that resolve late", () => {
+		function deferredLists() {
+			const pending: Array<(list: string[]) => void> = [];
+			const load = vi.fn(
+				() => new Promise<string[]>((resolve) => pending.push(resolve)),
+			);
+			return { load, pending };
+		}
+
+		afterEach(() => setTypingActive(false));
+
+		it("ignores a load superseded by a newer mode choice", async () => {
+			const { load, pending } = deferredLists();
+			await createRoot(async (dispose) => {
+				const session = useTestSession({
+					wordListSize: () => "200",
+					deps: { loadWordList: load },
+				});
+				const slow = session.startWithMode({ type: "time", seconds: 30 });
+				const fast = session.startWithMode({ type: "words", count: 10 });
+				pending[1](["b1", "b2"]);
+				await fast;
+				pending[0](["a1", "a2"]);
+				await slow;
+				expect(session.mode()).toEqual({ type: "words", count: 10 });
+				expect(session.text()).toMatch(/^b\d( b\d)+$/);
+				dispose();
+			});
+		});
+
+		it("does not replace a test the user started typing meanwhile", async () => {
+			const { load, pending } = deferredLists();
+			await createRoot(async (dispose) => {
+				const session = useTestSession({
+					wordListSize: () => "200",
+					deps: { loadWordList: load },
+				});
+				session.setCustomText("hello world");
+				const loading = session.startWithMode({ type: "zen" });
+				setTypingActive(true);
+				pending[0](["a1", "a2"]);
+				await loading;
+				expect(session.mode()).toEqual({
+					type: "book",
+					bookId: "",
+					chapterIndex: 0,
+				});
+				expect(session.text()).toBe("hello world");
+				dispose();
+			});
+		});
+
+		it("does not clear a finished test's result", async () => {
+			const { load, pending } = deferredLists();
+			await createRoot(async (dispose) => {
+				const session = useTestSession({
+					wordListSize: () => "200",
+					deps: {
+						loadWordList: load,
+						recordCompletion: vi.fn().mockResolvedValue(undefined),
+					},
+				});
+				session.setCustomText("the quick");
+				const loading = session.startWithMode({ type: "words", count: 10 });
+				session.complete(completedState("the quick"));
+				pending[0](["a1", "a2"]);
+				await loading;
+				expect(session.result()).not.toBeNull();
+				dispose();
+			});
+		});
+
+		it("ignores a book fetch superseded by a newer mode choice", async () => {
+			const book = makeBook([makeChapter(0, ["a", "b", "c"])]);
+			let resolveFetch: (b: CachedBook) => void = () => {};
+			const fetchAndCacheBook = vi.fn(
+				() =>
+					new Promise<CachedBook>((resolve) => {
+						resolveFetch = resolve;
+					}),
+			);
+			await createRoot(async (dispose) => {
+				const session = useTestSession({
+					wordListSize: () => "200",
+					deps: { fetchAndCacheBook },
+				});
+				const selecting = session.selectBook("author/book");
+				expect(session.bookLoading()).toBe(true);
+				await session.startWithMode({ type: "quote", length: "short" });
+				resolveFetch(book);
+				await selecting;
+				expect(session.mode().type).toBe("quote");
+				expect(session.activeBook()).toBeNull();
+				expect(session.bookLoading()).toBe(false);
+				dispose();
+			});
+		});
+	});
 
 	it("setCustomText puts text on the session and clears prior result", () =>
 		createRoot((dispose) => {
@@ -395,6 +495,82 @@ describe("useTestSession", () => {
 			}),
 		);
 	});
+
+	it("flags the shown result as unsaved when recording fails", async () => {
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		const recordCompletion = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("disk full"))
+			.mockResolvedValue(undefined);
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { recordCompletion },
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			expect(session.saveFailed()).toBe(false);
+			await new Promise((r) => setTimeout(r));
+			expect(session.result()).not.toBeNull();
+			expect(session.saveFailed()).toBe(true);
+
+			session.redo();
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			await new Promise((r) => setTimeout(r));
+			expect(session.saveFailed()).toBe(false);
+			dispose();
+		});
+	});
+
+	it("a late save failure does not flag the next result", async () => {
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		let rejectFirst: (err: Error) => void = () => {};
+		const recordCompletion = vi
+			.fn()
+			.mockReturnValueOnce(
+				new Promise<void>((_, reject) => {
+					rejectFirst = reject;
+				}),
+			)
+			.mockResolvedValue(undefined);
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { recordCompletion },
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			session.redo();
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			rejectFirst(new Error("disk full"));
+			await new Promise((r) => setTimeout(r));
+			expect(session.result()).not.toBeNull();
+			expect(session.saveFailed()).toBe(false);
+			dispose();
+		});
+	});
+
+	it("completing a test leaves the loaded test's accessors untouched", () =>
+		createRoot((dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { recordCompletion: vi.fn().mockResolvedValue(undefined) },
+			});
+			session.setCustomText("the quick");
+			let runs = 0;
+			createComputed(() => {
+				session.text();
+				session.mode();
+				session.feed();
+				runs++;
+			});
+			session.complete(completedState("the quick"));
+			expect(session.result()).not.toBeNull();
+			expect(runs).toBe(1);
+			dispose();
+		}));
 
 	it("redo in custom mode clears text", () =>
 		createRoot((dispose) => {
