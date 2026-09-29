@@ -48,7 +48,7 @@ export interface TestSession {
 	result: Accessor<TestResult | null>;
 	activeBook: Accessor<CachedBook | null>;
 	bookReader: Accessor<BookReader | null>;
-	bookFeed: Accessor<Feed | null>;
+	feed: Accessor<Feed | null>;
 	currentBookProgress: Accessor<BookProgress | null>;
 	bookLoading: Accessor<boolean>;
 	bookProgressPercent: Accessor<number>;
@@ -80,7 +80,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const [bookReader, setBookReader] = createSignal<BookReader | null>(
 		initial.bookReader,
 	);
-	const [bookFeed, setBookFeed] = createSignal<Feed | null>(initial.bookFeed);
+	const [feed, setFeed] = createSignal<Feed | null>(initial.feed);
 	const [currentBookProgress, setCurrentBookProgress] =
 		createSignal<BookProgress | null>(initial.currentBookProgress);
 	const [bookLoading, setBookLoading] = createSignal(initial.bookLoading);
@@ -96,7 +96,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			result: result(),
 			activeBook: activeBook(),
 			bookReader: bookReader(),
-			bookFeed: bookFeed(),
+			feed: feed(),
 			currentBookProgress: currentBookProgress(),
 			bookLoading: bookLoading(),
 		};
@@ -109,7 +109,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			setResult(() => next.result);
 			setActiveBook(() => next.activeBook);
 			setBookReader(() => next.bookReader);
-			setBookFeed(() => next.bookFeed);
+			setFeed(() => next.feed);
 			setCurrentBookProgress(() => next.currentBookProgress);
 			setBookLoading(next.bookLoading);
 		});
@@ -228,7 +228,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		result,
 		activeBook,
 		bookReader,
-		bookFeed,
+		feed,
 		currentBookProgress,
 		bookLoading,
 		bookProgressPercent,

@@ -124,7 +124,7 @@ describe("useTestSession", () => {
 				await session.selectBook("author/book");
 				expect(session.activeBook()).toBe(book);
 				expect(session.bookReader()).not.toBeNull();
-				expect(session.bookFeed()).not.toBeNull();
+				expect(session.feed()).not.toBeNull();
 				expect(session.text()).toBe("a b c d e f g h");
 				expect(session.mode()).toEqual({
 					type: "book",

@@ -21,8 +21,8 @@ interface TypingTestProps {
 	mode?: TestMode;
 	stopOnError?: StopOnError;
 	onComplete?: (state: TypingState) => void;
-	/** Book reader cursor the book mode refills from */
-	bookFeed?: Feed;
+	/** Source the test refills from */
+	feed?: Feed;
 }
 
 const wordFeed: Feed = {
@@ -63,7 +63,7 @@ export default function TypingTest(props: TypingTestProps) {
 
 	const session = createTypingSession({
 		state,
-		feed: state.mode.type === "book" ? props.bookFeed : wordFeed,
+		feed: state.mode.type === "book" ? props.feed : wordFeed,
 		write: (mutate) => setState(produce(mutate)),
 		onComplete: (s) => {
 			stopTimers();

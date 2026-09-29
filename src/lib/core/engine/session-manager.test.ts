@@ -58,7 +58,7 @@ describe("createInitialSession", () => {
 		expect(s.result).toBeNull();
 		expect(s.activeBook).toBeNull();
 		expect(s.bookReader).toBeNull();
-		expect(s.bookFeed).toBeNull();
+		expect(s.feed).toBeNull();
 		expect(s.currentBookProgress).toBeNull();
 		expect(s.bookLoading).toBe(false);
 	});
@@ -105,7 +105,7 @@ describe("applyBookSelection", () => {
 			chapterIndex: 0,
 			wordOffset: 0,
 		});
-		expect(session.bookFeed?.next(1)).toBe("d");
+		expect(session.feed?.next(1)).toBe("d");
 		expect(session.text).toBe("a b c");
 		expect(session.mode).toEqual({
 			type: "book",
@@ -223,7 +223,7 @@ describe("applyResult", () => {
 			chapterIndex: 0,
 			wordOffset: 2,
 		});
-		expect(next.bookFeed).toBeNull();
+		expect(next.feed).toBeNull();
 	});
 });
 
@@ -268,7 +268,7 @@ describe("decideRedo", () => {
 		const outcome = decideRedo(session, 2);
 		expect(outcome.kind).toBe("book-continue");
 		expect(outcome.state.text).toBe("b c");
-		expect(outcome.state.bookFeed?.next(1)).toBe("d");
+		expect(outcome.state.feed?.next(1)).toBe("d");
 		expect(outcome.state.result).toBeNull();
 	});
 
@@ -280,7 +280,7 @@ describe("decideRedo", () => {
 			null,
 			2,
 		);
-		session.bookFeed?.next(2);
+		session.feed?.next(2);
 		expect(decideRedo(session, 2).state.text).toBe("a b");
 		expect(decideRedo(session, 2).state.text).toBe("a b");
 	});
@@ -303,7 +303,7 @@ describe("decideRedo", () => {
 		expect(outcome.kind).toBe("book-finished");
 		expect(outcome.state.activeBook).toBeNull();
 		expect(outcome.state.bookReader).toBeNull();
-		expect(outcome.state.bookFeed).toBeNull();
+		expect(outcome.state.feed).toBeNull();
 		expect(outcome.state.text).toBeNull();
 	});
 });
