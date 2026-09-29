@@ -15,6 +15,8 @@ interface ResultsScreenProps {
 	wpmPerSecond: number[];
 	onRedo: () => void;
 	redoLabel?: string;
+	/** The result could not be recorded to history. */
+	saveFailed?: boolean;
 }
 
 function formatTime(ms: number): string {
@@ -156,6 +158,12 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 				<StatCard label="raw" value={`${props.rawWpm}`} />
 				<StatCard label="time" value={formatTime(props.elapsed)} />
 			</div>
+
+			<Show when={props.saveFailed}>
+				<p role="status" class="-mt-6 text-xs text-text-sub">
+					Couldn't save this result
+				</p>
+			</Show>
 
 			{/* WPM Chart */}
 			<Show when={props.wpmPerSecond.length > 1}>

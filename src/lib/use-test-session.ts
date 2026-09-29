@@ -46,6 +46,8 @@ export interface TestSession {
 	mode: Accessor<TestMode>;
 	text: Accessor<string | null>;
 	result: Accessor<TestResult | null>;
+	/** The shown result could not be recorded. */
+	saveFailed: Accessor<boolean>;
 	activeBook: Accessor<CachedBook | null>;
 	bookReader: Accessor<BookReader | null>;
 	feed: Accessor<Feed | null>;
@@ -79,6 +81,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const bookReader = field("bookReader");
 	const feed = field("feed");
 	const [bookLoading, setBookLoading] = createSignal(false);
+	const [saveFailed, setSaveFailed] = createSignal(false);
 
 	const allBookProgress = useAllBookProgress();
 
@@ -159,14 +162,16 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			});
 		}
 
+		setSaveFailed(false);
 		setSession((s) => applyResult(s, testResult, draft));
 
 		void record(
 			toTypingResult(state, completed, activeBook()?.meta.title, now),
 			draft,
-		).catch((err: unknown) =>
-			console.error("Failed to record the completed test:", err),
-		);
+		).catch((err: unknown) => {
+			console.error("Failed to record the completed test:", err);
+			if (result() === testResult) setSaveFailed(true);
+		});
 	}
 
 	function redo(): void {
@@ -181,6 +186,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		mode,
 		text,
 		result,
+		saveFailed,
 		activeBook,
 		bookReader,
 		feed,

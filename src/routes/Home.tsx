@@ -73,6 +73,7 @@ export default function Home() {
 								elapsed={r().elapsed}
 								wpmPerSecond={r().wpmPerSecond}
 								onRedo={() => session.redo()}
+								saveFailed={session.saveFailed()}
 								redoLabel={
 									session.mode().type === "book"
 										? session.bookReader()?.finished

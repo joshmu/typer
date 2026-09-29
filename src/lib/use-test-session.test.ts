@@ -450,6 +450,33 @@ describe("useTestSession", () => {
 		);
 	});
 
+	it("flags the shown result as unsaved when recording fails", async () => {
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		const recordCompletion = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("disk full"))
+			.mockResolvedValue(undefined);
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { recordCompletion },
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			expect(session.saveFailed()).toBe(false);
+			await new Promise((r) => setTimeout(r));
+			expect(session.result()).not.toBeNull();
+			expect(session.saveFailed()).toBe(true);
+
+			session.redo();
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			await new Promise((r) => setTimeout(r));
+			expect(session.saveFailed()).toBe(false);
+			dispose();
+		});
+	});
+
 	it("completing a test leaves the loaded test's accessors untouched", () =>
 		createRoot((dispose) => {
 			const session = useTestSession({
