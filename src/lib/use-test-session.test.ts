@@ -101,23 +101,23 @@ describe("useTestSession", () => {
 		);
 	});
 
-	it.each<TestMode>([
-		{ type: "time", seconds: 30 },
-		{ type: "zen" },
-	])("startWithMode('$type') refills from the chosen word list", async (mode) => {
-		const list = await loadWordList("1k");
-		const words = await new Promise<string[] | null>((resolve) =>
-			createRoot(async (dispose) => {
-				const session = useTestSession({ wordListSize: () => "1k" });
-				await session.startWithMode(mode);
-				const feed = session.feed();
-				resolve(feed && `${session.text()} ${feed.next(50)}`.split(" "));
-				dispose();
-			}),
-		);
-		expect(words).not.toBeNull();
-		for (const word of words ?? []) expect(list).toContain(word);
-	});
+	it.each<TestMode>([{ type: "time", seconds: 30 }, { type: "zen" }])(
+		"startWithMode('$type') refills from the chosen word list",
+		async (mode) => {
+			const list = await loadWordList("1k");
+			const words = await new Promise<string[] | null>((resolve) =>
+				createRoot(async (dispose) => {
+					const session = useTestSession({ wordListSize: () => "1k" });
+					await session.startWithMode(mode);
+					const feed = session.feed();
+					resolve(feed && `${session.text()} ${feed.next(50)}`.split(" "));
+					dispose();
+				}),
+			);
+			expect(words).not.toBeNull();
+			for (const word of words ?? []) expect(list).toContain(word);
+		},
+	);
 
 	it("setCustomText puts text on the session and clears prior result", () =>
 		createRoot((dispose) => {
