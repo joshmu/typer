@@ -9,9 +9,10 @@ from the mode selector and header nav (`/game`).
 ## Layers
 
 - `src/lib/game/sim` — pure fixed-timestep simulation (60Hz ticks, seeded rng, `step()` sole mutator; no DOM/framework)
-  - `step(state, inputs, out?)` pushes the tick's sim events (`kill`, `breach`, `absorb`, `hit`, `powerup`) into `out`. They are not part of `GameState` and never hashed. The loop collects a frame's events and `render/frame-effects.ts` maps them to effects.
+  - `step(state, inputs, out?)` pushes the tick's sim events (`kill`, `breach`, `absorb`, `hit`, `powerup`) into `out`. They are not part of `GameState` and never hashed. The run session collects a frame's events and `render/frame-effects.ts` maps them to effects.
 - `src/lib/game/content` — data-driven enemy archetypes + word banding
-- `src/lib/game/render` — Babylon adapter + loop (lazy-loaded with the `/game` route)
+- `src/lib/game/session` — framework-free run session: sim state, queued input, `FixedStepClock` (60Hz, 30-tick catch-up cap, pause drops elapsed time) and a `RunRenderer` adapter; a null renderer drives it headless in Vitest
+- `src/lib/game/render` — Babylon renderer adapter + `startGameLoop` wiring (lazy-loaded with the `/game` route)
 - `src/components/game` — Solid shell: HUD, start/death overlays, keyboard capture
 - `src/lib/game-runs.ts` — Dexie persistence for run history (best-run + recent queries)
 
@@ -264,7 +265,11 @@ state's canonical JSON, `src/lib/game/sim/replay.ts`). Golden fixtures live in
   are engine-approximated or impure). Use the `cosR/sinR` helpers in `math.ts`.
 - **Test hooks:** `/game?seed=N&testMode=1` freezes the render loop and exposes
   `window.__game.{getState, sendKeys, stepTicks, renderReady}`. In testMode the
-  shell auto-starts (no start-screen gate) so probes drive the sim directly.
+  shell auto-starts (no start-screen gate) and each sent input steps one tick, so
+  probes drive the sim directly.
+- **Headless runs:** `session/run-session.test.ts` drives a `RunSession` on the
+  null renderer with a hand-set clock, covering the real-time path (catch-up,
+  the 30-tick cap, pause/resume) without Babylon or a browser.
 
 ## Performance budgets & probes
 
@@ -289,7 +294,7 @@ lands at visual-freeze, after which the snapshot gates CI. The capture waits on
 ## Rendering & premium visuals
 
 **Art direction — flat 2D top-down pixel art (Crimsonland-like).** The render
-layer is a Babylon adapter driven by the loop, kept strictly separate from the
+layer is a Babylon adapter driven by the run session, kept strictly separate from the
 pure sim. Enemies and the hero are pixel-art **sprites** under a true overhead
 **orthographic** camera; there are no 3D creature/turret meshes. Everything is
 sampled NEAREST so pixels stay crisp. Key pieces:
