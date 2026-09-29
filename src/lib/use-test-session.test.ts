@@ -523,6 +523,35 @@ describe("useTestSession", () => {
 		});
 	});
 
+	it("a late save failure does not flag the next result", async () => {
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		let rejectFirst: (err: Error) => void = () => {};
+		const recordCompletion = vi
+			.fn()
+			.mockReturnValueOnce(
+				new Promise<void>((_, reject) => {
+					rejectFirst = reject;
+				}),
+			)
+			.mockResolvedValue(undefined);
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { recordCompletion },
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			session.redo();
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			rejectFirst(new Error("disk full"));
+			await new Promise((r) => setTimeout(r));
+			expect(session.result()).not.toBeNull();
+			expect(session.saveFailed()).toBe(false);
+			dispose();
+		});
+	});
+
 	it("completing a test leaves the loaded test's accessors untouched", () =>
 		createRoot((dispose) => {
 			const session = useTestSession({
