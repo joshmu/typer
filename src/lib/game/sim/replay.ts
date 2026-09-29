@@ -1,4 +1,5 @@
 import { fnv1a } from "@/lib/core/text/hash";
+import type { SimEvent } from "./events";
 import { createInitialState, type GameState } from "./state";
 import { type GameEvent, step } from "./step";
 
@@ -15,7 +16,7 @@ export type InputLog = {
 	events: LoggedEvent[];
 };
 
-export function runReplay(log: InputLog): GameState {
+export function runReplay(log: InputLog, out?: SimEvent[]): GameState {
 	for (const e of log.events) {
 		if (e.tick < 1 || e.tick > log.ticks) {
 			throw new Error(`Replay event tick ${e.tick} outside 1..${log.ticks}`);
@@ -31,7 +32,7 @@ export function runReplay(log: InputLog): GameState {
 						? { type: "perk", index: e.perk }
 						: { type: "key", key: e.key },
 			);
-		state = step(state, events);
+		state = step(state, events, out);
 	}
 	return state;
 }

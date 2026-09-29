@@ -2,6 +2,7 @@ import { isBoss } from "../content/enemies";
 import { pickWordForTier } from "../content/words";
 import { absorbsCompletion } from "./abilities";
 import { gainCombo } from "./combo";
+import type { KillCause, SimEvent } from "./events";
 import { cosR, dist, sinR } from "./math";
 import {
 	CHAIN_COMBO,
@@ -65,8 +66,21 @@ export function advanceWord(s: GameState, e: EnemyState): void {
 	}
 }
 
-export function killEnemy(s: GameState, e: EnemyState): void {
+export function killEnemy(
+	s: GameState,
+	e: EnemyState,
+	cause: KillCause = "typed",
+	out?: SimEvent[],
+): void {
 	e.alive = false;
+	out?.push({
+		type: "kill",
+		id: e.id,
+		x: e.pos.x,
+		y: e.pos.y,
+		archetypeId: e.archetypeId,
+		cause,
+	});
 	s.kills += 1;
 	gainCombo(s);
 	s.score += killScoreWithPerks(s, currentWord(e).length, s.combo);
@@ -84,6 +98,7 @@ export function killEnemy(s: GameState, e: EnemyState): void {
 }
 
 export type DamageResult = "absorbed" | "chipped" | "killed";
+export type DamageSource = "typed" | "weapon";
 
 /**
  * Deal ONE point of damage to an enemy — the single code path shared by typed
@@ -97,7 +112,10 @@ export function dealDamage(
 	s: GameState,
 	e: EnemyState,
 	moveScale = 1,
+	source: DamageSource = "typed",
+	out?: SimEvent[],
 ): DamageResult {
+	const typed = source === "typed";
 	if (absorbsCompletion(e)) {
 		// shield / armored-front: the hit CLANGS off the plating — no damage, and
 		// crucially NO new word. The SAME word's progress is reset to 0 so the player
@@ -105,16 +123,25 @@ export function dealDamage(
 		// `shieldHits` was already decremented inside `absorbsCompletion`.
 		e.typedCount = 0;
 		s.absorbs += 1;
+		out?.push({ type: "absorb", id: e.id, x: e.pos.x, y: e.pos.y, typed });
 		return "absorbed";
 	}
 	e.hp -= 1;
 	if (e.hp <= 0) {
-		killEnemy(s, e);
+		killEnemy(s, e, source, out);
 		return "killed";
 	}
 	// multi-hp / boss chain: damaged but alive → recoil out toward the edge, next
 	// word. Bosses (imposing) take a softened recoil so they keep forward pressure;
 	// heavy-rounds lifts both regular and boss recoil.
+	out?.push({
+		type: "hit",
+		id: e.id,
+		x: e.pos.x,
+		y: e.pos.y,
+		typed,
+		damaged: true,
+	});
 	applyKnockback(e, { x: 0, y: 0 }, knockbackMult(s, isBoss(e)), moveScale);
 	advanceWord(s, e);
 	return "chipped";
@@ -131,6 +158,7 @@ function applyWeaponEffects(
 	s: GameState,
 	victim: EnemyState,
 	moveScale: number,
+	out: SimEvent[] | undefined,
 ): void {
 	const vx = victim.pos.x;
 	const vy = victim.pos.y;
@@ -144,7 +172,7 @@ function applyWeaponEffects(
 				o.id !== victim.id &&
 				dist(o.pos.x - vx, o.pos.y - vy) <= SPLASH_RADIUS,
 		);
-		for (const o of targets) dealDamage(s, o, moveScale);
+		for (const o of targets) dealDamage(s, o, moveScale, "weapon", out);
 	}
 
 	// pierce: 1 damage to the nearest enemy within PIERCE_RANGE roughly BEHIND the
@@ -167,7 +195,7 @@ function applyWeaponEffects(
 				best = o;
 			}
 		}
-		if (best) dealDamage(s, best, moveScale);
+		if (best) dealDamage(s, best, moveScale, "weapon", out);
 	}
 
 	// chain-arc: at combo ≥ CHAIN_COMBO, arc 1 damage to the nearest other enemy
@@ -184,7 +212,7 @@ function applyWeaponEffects(
 				best = o;
 			}
 		}
-		if (best) dealDamage(s, best, moveScale);
+		if (best) dealDamage(s, best, moveScale, "weapon", out);
 	}
 }
 
@@ -192,11 +220,22 @@ export function resolveCompletion(
 	s: GameState,
 	e: EnemyState,
 	moveScale = 1,
+	out?: SimEvent[],
 ): void {
 	// Called after every keystroke on the target; act only when the word is done.
 	const word = currentWord(e);
-	if (e.typedCount < word.length) return;
-	const result = dealDamage(s, e, moveScale);
+	if (e.typedCount < word.length) {
+		out?.push({
+			type: "hit",
+			id: e.id,
+			x: e.pos.x,
+			y: e.pos.y,
+			typed: true,
+			damaged: false,
+		});
+		return;
+	}
+	const result = dealDamage(s, e, moveScale, "typed", out);
 	// score: greed applies to every gain; sharpshooter (kill only) is inside
 	// killEnemy. Absorb and chip both pay the flat per-word score for the effort.
 	if (result === "absorbed" || result === "chipped") {
@@ -206,9 +245,9 @@ export function resolveCompletion(
 	// completion, then resets (fires whether or not the enemy is still alive).
 	if (result !== "absorbed" && isOverclockPrimed(s)) {
 		s.overclockStreak = 0;
-		if (e.alive) dealDamage(s, e, moveScale);
+		if (e.alive) dealDamage(s, e, moveScale, "typed", out);
 	}
 	// weapon epics detonate off a typed KILL (one hop — their extra damage never
 	// re-triggers weapon effects). Fire once, after all of this hit's damage lands.
-	if (!e.alive) applyWeaponEffects(s, e, moveScale);
+	if (!e.alive) applyWeaponEffects(s, e, moveScale, out);
 }
