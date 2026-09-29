@@ -3,7 +3,8 @@ import type { SimEvent } from "./events";
 import { cosR, sinR } from "./math";
 import { cryoDurationMult } from "./perks";
 import { nextFloat, nextInt } from "./rng";
-import { ARENA, currentWord, type GameState, type PowerupKind } from "./state";
+import { ARENA, type GameState, type PowerupKind } from "./state";
+import { reservedInitials } from "./wordchain";
 
 export const POWERUP_LIFETIME_TICKS = 600;
 export const FREEZE_TICKS = 180;
@@ -24,12 +25,7 @@ export const POWERUP_WORDS: readonly string[] = [
 export function spawnPowerup(s: GameState): void {
 	const [ki, r1] = nextInt(s.rngState, KINDS.length);
 	const [wi, r2] = nextInt(r1, POWERUP_WORDS.length);
-	// exclude the initials the player could already be aiming at: every live
-	// enemy AND every on-field powerup. Two pickups sharing word[0] would make
-	// the acquiring keystroke ambiguous between them.
-	const initials = new Set<string>();
-	for (const e of s.enemies) if (e.alive) initials.add(currentWord(e)[0]);
-	for (const p of s.powerups) initials.add(p.word[0]);
+	const initials = reservedInitials(s);
 	// keep powerup words visually distinct from POWERUP_WORDS pool; fall back to
 	// pickWord only if a bank word collides with a reserved initial
 	let word = POWERUP_WORDS[wi];
