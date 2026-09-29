@@ -113,3 +113,64 @@ test("Tab from a focused link on results moves on as usual", async ({
 	await expect(redo).not.toBeFocused();
 	await expect(page.getByRole("link", { name: "Game" })).toBeFocused();
 });
+
+test("time sub-options stay reachable once time text loads", async ({
+	page,
+}) => {
+	await page.clock.install();
+	await page.goto("/");
+	await page.getByRole("button", { name: "time" }).click();
+	await expect(page.getByTestId("typing-test")).toBeVisible();
+
+	await page.getByRole("button", { name: "60s" }).click();
+	const typingTest = page.getByTestId("typing-test");
+	await expect(typingTest).toBeFocused();
+	await page.keyboard.type("t");
+
+	await page.clock.fastForward(59_000);
+	await expect(page.getByText("Redo")).toBeHidden();
+
+	await page.clock.fastForward(1_000);
+	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
+	await expect(page.getByText("1:00", { exact: true })).toBeVisible();
+});
+
+test("words-count sub-options stay reachable once words text loads", async ({
+	page,
+}) => {
+	await page.goto("/");
+	await page.getByRole("button", { name: "words" }).click();
+	await expect(page.getByTestId("typing-test")).toBeVisible();
+
+	await page.getByRole("button", { name: "10", exact: true }).click();
+	await expect(page.getByTestId("typing-test")).toBeFocused();
+	await expect(
+		page.locator('[data-testid="text-display"] > div > span'),
+	).toHaveCount(10);
+});
+
+test("quote-length sub-options stay reachable once quote text loads", async ({
+	page,
+}) => {
+	await page.goto("/");
+	await page.getByRole("button", { name: "quote" }).click();
+	await expect(page.getByTestId("typing-test")).toBeVisible();
+
+	const short = page.getByRole("button", { name: "short" });
+	await short.click();
+	await expect(short).toHaveClass(/text-primary/);
+	await expect(page.getByTestId("typing-test")).toBeFocused();
+});
+
+test("the mode selector hides once typing starts", async ({ page }) => {
+	await page.goto("/");
+	await page.getByRole("button", { name: "words" }).click();
+	const selector = page.getByTestId("mode-selector");
+	await expect(selector).toBeVisible();
+	await expect(selector).not.toHaveClass(/pointer-events-none/);
+
+	await page.getByTestId("typing-test").focus();
+	await page.keyboard.type("x");
+	await expect(selector).toHaveClass(/opacity-0/);
+	await expect(selector).toHaveClass(/pointer-events-none/);
+});

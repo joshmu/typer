@@ -1,4 +1,4 @@
-import { lazy, Match, Show, Switch } from "solid-js";
+import { createMemo, lazy, Match, Show, Switch } from "solid-js";
 import BookBrowser from "@/components/books/BookBrowser";
 import BookHeader from "@/components/books/BookHeader";
 import ModeSelector from "@/components/typing/ModeSelector";
@@ -20,9 +20,16 @@ export default function Home() {
 		wordListSize: () => prefs.wordListSize,
 	});
 
+	// A fresh object per loaded test, so a mode or sub-option change remounts
+	// TypingTest even when the text happens to repeat.
+	const loadedTest = createMemo(() => {
+		const text = session.text();
+		return text === null ? null : { text, mode: session.mode() };
+	});
+
 	return (
 		<main class="flex flex-col items-center justify-center flex-1 px-8 py-12">
-			<Show when={!session.result() && !session.text()}>
+			<Show when={!session.result()}>
 				<ModeSelector
 					mode={session.mode()}
 					onModeChange={(m) => session.startWithMode(m)}
@@ -77,8 +84,8 @@ export default function Home() {
 						</div>
 					)}
 				</Match>
-				<Match when={session.text()}>
-					{(t) => (
+				<Match when={loadedTest()} keyed>
+					{(test) => (
 						<div class="w-full">
 							<Show
 								when={session.mode().type === "book" && session.activeBook()}
@@ -93,8 +100,8 @@ export default function Home() {
 								/>
 							</Show>
 							<TypingTest
-								text={t()}
-								mode={session.mode()}
+								text={test.text}
+								mode={test.mode}
 								stopOnError={prefs.stopOnError}
 								onComplete={(state) => session.complete(state)}
 								feed={session.feed() ?? undefined}
