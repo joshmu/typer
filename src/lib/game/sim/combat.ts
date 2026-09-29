@@ -1,11 +1,11 @@
 import { getArchetype } from "../content/enemies";
 import { pickWordForTier } from "../content/words";
 import { absorbsCompletion } from "./abilities";
+import { gainCombo } from "./combo";
 import { cosR, dist, sinR } from "./math";
 import {
 	CHAIN_COMBO,
 	CHAIN_RANGE,
-	comboDecayTicks,
 	hasPerk,
 	isOverclockPrimed,
 	killScoreWithPerks,
@@ -68,8 +68,7 @@ export function advanceWord(s: GameState, e: EnemyState): void {
 export function killEnemy(s: GameState, e: EnemyState): void {
 	e.alive = false;
 	s.kills += 1;
-	s.combo += 1;
-	s.comboTicksLeft = comboDecayTicks(s);
+	gainCombo(s);
 	s.score += killScoreWithPerks(s, currentWord(e).length, s.combo);
 	if (s.targetId === e.id) s.targetId = null;
 	if (e.ability?.kind === "split") {

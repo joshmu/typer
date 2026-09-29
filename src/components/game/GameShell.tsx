@@ -8,9 +8,9 @@ import {
 } from "solid-js";
 import { getArchetype } from "@/lib/game/content/enemies";
 import type { GameLoop } from "@/lib/game/render/loop";
+import { COMBO_DECAY_TICKS, comboMultiplier } from "@/lib/game/sim/combo";
 import { PERK_DEFS } from "@/lib/game/sim/perks";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
-import { COMBO_DECAY_TICKS, comboMultiplier } from "@/lib/game/sim/score";
 import type { EnemyState, GameState } from "@/lib/game/sim/state";
 import { vignetteGradient } from "@/lib/game/view";
 import { getBestRun, saveGameRun, useBestRun } from "@/lib/game-runs";

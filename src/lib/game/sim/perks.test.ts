@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
 	ALL_PERK_IDS,
-	comboDecayTicks,
 	cryoDurationMult,
 	drawPerkOffer,
 	isOverclockPrimed,
@@ -157,13 +156,6 @@ describe("stat perks", () => {
 	it("cryo-mastery scales powerup durations by 1.5", () => {
 		expect(cryoDurationMult(withPerks([]))).toBe(1);
 		expect(cryoDurationMult(withPerks(["cryo-mastery"]))).toBe(1.5);
-	});
-
-	it("adrenaline widens the combo decay window by 1.5", () => {
-		const base = comboDecayTicks(withPerks([]));
-		expect(comboDecayTicks(withPerks(["adrenaline"]))).toBe(
-			Math.floor(base * 1.5),
-		);
 	});
 
 	it("scavenger tightens the powerup milestone divisor 12→9", () => {
