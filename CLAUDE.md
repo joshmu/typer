@@ -54,7 +54,8 @@ src/
   lib/game/           # Horde mode (see docs/game-design.md)
     sim/              # Pure fixed-timestep sim — step() sole mutator, seeded rng
     content/          # Data-driven enemy archetypes + word banding
-    render/           # Babylon adapter + loop (lazy-loaded with /game)
+    session/          # RunSession + FixedStepClock behind a RunRenderer seam (null renderer in tests)
+    render/           # Babylon renderer adapter + loop wiring (lazy-loaded with /game)
   routes/             # @solidjs/router pages
   styles/             # Tailwind config, themes
 e2e/                  # Playwright tests
