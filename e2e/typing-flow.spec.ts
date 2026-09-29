@@ -56,6 +56,26 @@ test("redo button restarts the flow", async ({ page }) => {
 	await expect(page.getByTestId("text-input")).toBeVisible();
 });
 
+test("Tab then Enter on results restarts wherever focus is", async ({
+	page,
+}) => {
+	await page.goto("/");
+	await page.getByRole("button", { name: "custom" }).click();
+	await page.getByTestId("text-input").fill("ab");
+	await page.getByTestId("start-button").click();
+
+	const typingTest = page.getByTestId("typing-test");
+	await typingTest.focus();
+	await page.keyboard.type("ab");
+	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
+
+	// Move the focus start point below the Redo button.
+	await page.getByText("personal best").click();
+	await page.keyboard.press("Tab");
+	await page.keyboard.press("Enter");
+	await expect(page.getByTestId("text-input")).toBeVisible();
+});
+
 test("time mode ends at its limit with no further keystroke", async ({
 	page,
 }) => {
