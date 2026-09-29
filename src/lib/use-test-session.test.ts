@@ -196,24 +196,25 @@ describe("useTestSession", () => {
 		);
 	});
 
-	it("complete writes a typing result and sets session.result", async () => {
-		const saveTypingResult = vi.fn().mockResolvedValue(1);
+	it("complete records the typing result and sets session.result", async () => {
+		const recordCompletion = vi.fn().mockResolvedValue(undefined);
 		await new Promise<void>((resolve) =>
 			createRoot((dispose) => {
 				const session = useTestSession({
 					wordListSize: () => "200",
-					deps: { saveTypingResult },
+					deps: { recordCompletion },
 				});
 				session.complete(completedState("the quick"));
 				expect(session.result()).not.toBeNull();
 				expect(session.result()?.accuracy).toBe(100);
 				// Microtask flush
 				setTimeout(() => {
-					expect(saveTypingResult).toHaveBeenCalledTimes(1);
-					expect(saveTypingResult.mock.calls[0][0]).toMatchObject({
+					expect(recordCompletion).toHaveBeenCalledTimes(1);
+					expect(recordCompletion.mock.calls[0][0]).toMatchObject({
 						mode: "custom",
 						accuracy: 100,
 					});
+					expect(recordCompletion.mock.calls[0][1]).toBeUndefined();
 					dispose();
 					resolve();
 				}, 10);
@@ -221,18 +222,16 @@ describe("useTestSession", () => {
 		);
 	});
 
-	it("complete in book mode also persists book progress", async () => {
+	it("complete in book mode records the result with the committed progress", async () => {
 		const book = makeBook([makeChapter(0, ["a", "b", "c", "d", "e", "f"])]);
-		const saveBookProgress = vi.fn().mockResolvedValue(undefined);
-		const saveTypingResult = vi.fn().mockResolvedValue(1);
+		const recordCompletion = vi.fn().mockResolvedValue(undefined);
 		await new Promise<void>((resolve) =>
 			createRoot(async (dispose) => {
 				const session = useTestSession({
 					wordListSize: () => "200",
 					deps: {
 						fetchAndCacheBook: vi.fn().mockResolvedValue(book),
-						saveBookProgress,
-						saveTypingResult,
+						recordCompletion,
 					},
 				});
 				await session.selectBook("author/book");
@@ -244,14 +243,15 @@ describe("useTestSession", () => {
 				};
 				session.complete(state);
 				setTimeout(() => {
-					expect(saveBookProgress).toHaveBeenCalledTimes(1);
-					expect(saveBookProgress.mock.calls[0][0]).toMatchObject({
-						bookId: "author/book",
-						sessionCount: 1,
-					});
-					expect(saveTypingResult.mock.calls[0][0]).toMatchObject({
+					expect(recordCompletion).toHaveBeenCalledTimes(1);
+					const [record, progress] = recordCompletion.mock.calls[0];
+					expect(record).toMatchObject({
 						mode: "book",
 						bookTitle: "Test Book",
+					});
+					expect(progress).toMatchObject({
+						bookId: "author/book",
+						sessionCount: 1,
 					});
 					dispose();
 					resolve();
@@ -307,8 +307,7 @@ describe("useTestSession", () => {
 					wordListSize: () => "200",
 					deps: {
 						fetchAndCacheBook: vi.fn().mockResolvedValue(book),
-						saveBookProgress: vi.fn().mockResolvedValue(undefined),
-						saveTypingResult: vi.fn().mockResolvedValue(1),
+						recordCompletion: vi.fn().mockResolvedValue(undefined),
 					},
 				});
 				await session.selectBook("author/book");
@@ -327,7 +326,7 @@ describe("useTestSession", () => {
 	it("Continue after Esc mid-chunk resumes at the committed word and saves without drift", async () => {
 		const words = Array.from({ length: 90 }, (_, i) => `w${i}`);
 		const book = makeBook([makeChapter(0, words)]);
-		const saveBookProgress = vi.fn().mockResolvedValue(undefined);
+		const recordCompletion = vi.fn().mockResolvedValue(undefined);
 		const typed = (text: string, wordsTyped: number): TypingState => {
 			const state = completedState(text);
 			state.currentWordIndex = wordsTyped;
@@ -341,15 +340,14 @@ describe("useTestSession", () => {
 						wordListSize: () => "200",
 						deps: {
 							fetchAndCacheBook: vi.fn().mockResolvedValue(book),
-							saveBookProgress,
-							saveTypingResult: vi.fn().mockResolvedValue(1),
+							recordCompletion,
 						},
 					});
 					await session.selectBook("author/book");
 					expect(session.text()?.split(" ")).toHaveLength(30);
 
 					session.complete(typed(session.text() ?? "", 10));
-					expect(saveBookProgress.mock.calls[0][0]).toMatchObject({
+					expect(recordCompletion.mock.calls[0][1]).toMatchObject({
 						chapterIndex: 0,
 						wordOffset: 10,
 					});
@@ -363,7 +361,7 @@ describe("useTestSession", () => {
 					]);
 
 					session.complete(typed(session.text() ?? "", 5));
-					expect(saveBookProgress.mock.calls[1][0]).toMatchObject({
+					expect(recordCompletion.mock.calls[1][1]).toMatchObject({
 						chapterIndex: 0,
 						wordOffset: 15,
 					});
@@ -375,6 +373,25 @@ describe("useTestSession", () => {
 				} finally {
 					dispose();
 				}
+			}),
+		);
+	});
+
+	it("complete surfaces a failed record instead of swallowing it", async () => {
+		const failure = new Error("disk full");
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		await new Promise<void>((resolve) =>
+			createRoot((dispose) => {
+				const session = useTestSession({
+					wordListSize: () => "200",
+					deps: { recordCompletion: vi.fn().mockRejectedValue(failure) },
+				});
+				session.complete(completedState("the quick"));
+				setTimeout(() => {
+					expect(errorSpy).toHaveBeenCalledWith(expect.any(String), failure);
+					dispose();
+					resolve();
+				}, 10);
 			}),
 		);
 	});

@@ -50,29 +50,6 @@ export function useBookPercents() {
 }
 
 /**
- * Save or update reading progress for a book.
- * Upserts by bookId (unique index).
- */
-export async function saveBookProgress(
-	progress: Omit<BookProgress, "id">,
-): Promise<void> {
-	try {
-		const existing = await db.bookProgress
-			.where("bookId")
-			.equals(progress.bookId)
-			.first();
-
-		if (existing?.id) {
-			await db.bookProgress.update(existing.id, progress);
-		} else {
-			await db.bookProgress.add(progress as BookProgress);
-		}
-	} catch (err) {
-		console.error("Failed to save book progress:", err);
-	}
-}
-
-/**
  * Delete progress and cached book data for a book.
  */
 export async function deleteBook(bookId: string): Promise<void> {
