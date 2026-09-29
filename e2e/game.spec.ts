@@ -59,17 +59,15 @@ test.describe("horde game mode", () => {
 		await expect(vignette).toBeVisible();
 		// a world-radius radial gradient: transparent centre, near-opaque past the
 		// spawn ring, so enemies emerge from darkness instead of popping in
-		const bg = await vignette.evaluate(
-			(el) => getComputedStyle(el).backgroundImage,
-		);
-		expect(bg).toContain("radial-gradient");
+		// the gradient waits on the ResizeObserver's first measure, so poll for it
+		const background = () =>
+			vignette.evaluate((el) => getComputedStyle(el).backgroundImage);
+		await expect.poll(background).toContain("radial-gradient");
+		const bg = await background();
 		// gradient is sized from the live canvas, so a resize must rescale it
 		await page.setViewportSize({ width: 800, height: 500 });
-		const bgSmall = await vignette.evaluate(
-			(el) => getComputedStyle(el).backgroundImage,
-		);
-		expect(bgSmall).toContain("radial-gradient");
-		expect(bgSmall).not.toBe(bg);
+		await expect.poll(background).not.toBe(bg);
+		expect(await background()).toContain("radial-gradient");
 	});
 
 	test("holds the sim at tick 0 behind the start overlay", async ({ page }) => {
@@ -320,43 +318,62 @@ test.describe("horde game mode", () => {
 	test("boss bar: wave 5 boss shows a life bar with one segment per max hp", async ({
 		page,
 	}) => {
+		test.slow();
 		await page.goto("/game?seed=42&testMode=1");
 		await page.waitForFunction(() => window.__game !== undefined);
 
 		// drive waves 1-4 clear (auto-picking perk card 0 between waves) until the
 		// wave-5 boss spawns — seed-hunted (see PR description) so this lands well
 		// under the wall-clock budget (~190 keystrokes, no full boss-sentence typing
-		// required since we only need the boss ALIVE, not defeated).
-		const r = await page.evaluate(() => {
-			const g = window.__game;
-			if (!g) return { error: "no game" };
-			const cw = (e: { words: string[]; wordIndex: number }) =>
-				e.words[e.wordIndex];
-			const hasBoss = (s: ReturnType<typeof g.getState>) =>
-				s.wave >= 5 &&
-				s.enemies.some((e) => e.alive && e.archetypeId.startsWith("boss-"));
-			let guard = 0;
-			while (!hasBoss(g.getState()) && guard++ < 4000) {
+		// required since we only need the boss ALIVE, not defeated). Each input
+		// renders a frame, so drive in bounded chunks rather than one evaluate.
+		const CHUNK = 25;
+		const MAX_STEPS = 4000;
+		let r: {
+			error?: string;
+			done?: boolean;
+			wave?: number;
+			bossMaxHp?: number;
+			bossHp?: number;
+		} = {};
+		for (let steps = 0; steps < MAX_STEPS && !r.done && !r.error; ) {
+			const budget = Math.min(CHUNK, MAX_STEPS - steps);
+			r = await page.evaluate((budget) => {
+				const g = window.__game;
+				if (!g) return { error: "no game" };
+				const cw = (e: { words: string[]; wordIndex: number }) =>
+					e.words[e.wordIndex];
+				const hasBoss = (s: ReturnType<typeof g.getState>) =>
+					s.wave >= 5 &&
+					s.enemies.some((e) => e.alive && e.archetypeId.startsWith("boss-"));
+				for (let i = 0; i < budget && !hasBoss(g.getState()); i++) {
+					const s = g.getState();
+					if (s.wavePhase === "perk-choice") {
+						g.sendPerk(0);
+						continue;
+					}
+					const alive = s.enemies.filter((e) => e.alive);
+					if (alive.length === 0) {
+						g.stepTicks(20);
+						continue;
+					}
+					const target = alive.find((e) => e.id === s.targetId) ?? alive[0];
+					const word = cw(target);
+					g.sendKeys(word[target.typedCount] ?? word[0]);
+				}
 				const s = g.getState();
-				if (s.wavePhase === "perk-choice") {
-					g.sendPerk(0);
-					continue;
-				}
-				const alive = s.enemies.filter((e) => e.alive);
-				if (alive.length === 0) {
-					g.stepTicks(20);
-					continue;
-				}
-				const target = alive.find((e) => e.id === s.targetId) ?? alive[0];
-				const word = cw(target);
-				g.sendKeys(word[target.typedCount] ?? word[0]);
-			}
-			const s = g.getState();
-			const boss = s.enemies.find(
-				(e) => e.alive && e.archetypeId.startsWith("boss-"),
-			);
-			return { wave: s.wave, bossMaxHp: boss?.maxHp, bossHp: boss?.hp };
-		});
+				const boss = s.enemies.find(
+					(e) => e.alive && e.archetypeId.startsWith("boss-"),
+				);
+				return {
+					done: hasBoss(s),
+					wave: s.wave,
+					bossMaxHp: boss?.maxHp,
+					bossHp: boss?.hp,
+				};
+			}, budget);
+			steps += budget;
+		}
 
 		expect(r.error).toBeUndefined();
 		expect(r.wave).toBe(5);
