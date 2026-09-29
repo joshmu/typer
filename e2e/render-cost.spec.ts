@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { keySoundRecord, SOUND_TAG, watchKeySound } from "./fixtures/key-sound";
 
 // Counts Word remounts and layout re-measures per keystroke from the outside:
 // a MutationObserver on the word container and wrappers around the layout
@@ -195,16 +196,37 @@ test("the render-cost harness counts measures and remounts", async ({
 	expect(measuresPerKey).toHaveLength(KEYSTROKES);
 });
 
-test("a keystroke remounts at most one Word", async ({ page }) => {
-	const { remountsPerKey } = await measureTyping(page);
-	expect(remountsPerKey).toHaveLength(KEYSTROKES);
-	const max = report("Word remounts", remountsPerKey);
-	expect(max).toBeLessThanOrEqual(1);
-});
+for (const sound of [false, true]) {
+	const on = sound ? " with key sound on" : "";
+	const details = sound ? { tag: SOUND_TAG } : {};
 
-test("a cursor-only keystroke does not re-measure layout", async ({ page }) => {
-	const { measuresPerKey } = await measureTyping(page);
-	expect(measuresPerKey).toHaveLength(KEYSTROKES);
-	const max = report("Layout re-measures", measuresPerKey);
-	expect(max).toBe(0);
-});
+	test(
+		`a keystroke remounts at most one Word${on}`,
+		details,
+		async ({ page }) => {
+			if (sound) await watchKeySound(page, true);
+			const { remountsPerKey } = await measureTyping(page);
+			expect(remountsPerKey).toHaveLength(KEYSTROKES);
+			const max = report(`Word remounts${on}`, remountsPerKey);
+			expect(max).toBeLessThanOrEqual(1);
+			if (sound) {
+				expect((await keySoundRecord(page)).clicks).toHaveLength(KEYSTROKES);
+			}
+		},
+	);
+
+	test(
+		`a cursor-only keystroke does not re-measure layout${on}`,
+		details,
+		async ({ page }) => {
+			if (sound) await watchKeySound(page, true);
+			const { measuresPerKey } = await measureTyping(page);
+			expect(measuresPerKey).toHaveLength(KEYSTROKES);
+			const max = report(`Layout re-measures${on}`, measuresPerKey);
+			expect(max).toBe(0);
+			if (sound) {
+				expect((await keySoundRecord(page)).clicks).toHaveLength(KEYSTROKES);
+			}
+		},
+	);
+}

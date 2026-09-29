@@ -71,10 +71,39 @@ describe("preferences", () => {
 			dispose();
 		}));
 
-	it("has no sound or font family preference", () => {
+	it("has no legacy sound or font family preference", () => {
 		expect(defaultPreferences).not.toHaveProperty("soundEnabled");
 		expect(defaultPreferences).not.toHaveProperty("fontFamily");
 	});
+
+	it("keeps key sound off by default", () =>
+		createRoot((dispose) => {
+			const [prefs] = createPreferences(createMockStorage());
+			expect(prefs.keySound).toBe(false);
+			dispose();
+		}));
+
+	it("does not turn key sound on from a stored soundEnabled", () =>
+		createRoot((dispose) => {
+			const storage = createMockStorage();
+			storage.setItem(
+				"typer-preferences",
+				JSON.stringify({ theme: "dracula", soundEnabled: true }),
+			);
+			const [prefs] = createPreferences(storage);
+			expect(prefs.keySound).toBe(false);
+			dispose();
+		}));
+
+	it("persists key sound", () =>
+		createRoot((dispose) => {
+			const storage = createMockStorage();
+			const [, setPrefs] = createPreferences(storage);
+			setPrefs("keySound", true);
+			const [reloaded] = createPreferences(storage);
+			expect(reloaded.keySound).toBe(true);
+			dispose();
+		}));
 
 	it("toggles boolean preferences", () =>
 		createRoot((dispose) => {

@@ -11,6 +11,8 @@ import type {
 	TestMode,
 	TypingState,
 } from "@/lib/core/types";
+import { keySoundFor } from "@/lib/key-sound";
+import { usePreferences } from "@/lib/preferences-context";
 import { setTypingActive } from "@/lib/typing-focus";
 import StatsBar from "./StatsBar";
 import TextDisplay from "./TextDisplay";
@@ -32,6 +34,8 @@ export default function TypingTest(props: TypingTestProps) {
 			props.stopOnError ?? "off",
 		),
 	);
+	const [prefs] = usePreferences();
+	const keySound = keySoundFor(prefs.keySound);
 	const [elapsed, setElapsed] = createSignal(0);
 	const [capsLock, setCapsLock] = createSignal(false);
 	let containerRef: HTMLDivElement | undefined;
@@ -117,7 +121,8 @@ export default function TypingTest(props: TypingTestProps) {
 		}
 
 		const wasStarted = state.startTime !== null;
-		session.key(key, Date.now());
+		const outcome = session.key(key, Date.now());
+		if (outcome) keySound.play(outcome !== "incorrect");
 
 		if (!wasStarted && state.startTime !== null && !complete()) {
 			startTimers();
@@ -127,6 +132,8 @@ export default function TypingTest(props: TypingTestProps) {
 
 	onMount(() => {
 		containerRef?.focus();
+		const warm = setTimeout(() => keySound.warm(), 0);
+		onCleanup(() => clearTimeout(warm));
 	});
 
 	onCleanup(() => {

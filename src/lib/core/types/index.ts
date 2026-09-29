@@ -5,6 +5,9 @@ export type CharacterStatus =
 	| "extra"
 	| "missed";
 
+/** What a keystroke did; null when it changed nothing. */
+export type KeyOutcome = "correct" | "incorrect" | "backspace" | null;
+
 export interface CharacterState {
 	expected: string;
 	typed: string | null;

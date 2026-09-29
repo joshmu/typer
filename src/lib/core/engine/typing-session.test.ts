@@ -208,3 +208,25 @@ describe("write port", () => {
 		expect(state.endTime).toBe(1001);
 	});
 });
+
+describe("key outcome", () => {
+	it("returns the outcome of an applied key", () => {
+		const { session } = setup("ab cd", { type: "custom" });
+		expect(session.key("a", 1000)).toBe("correct");
+		expect(session.key("x", 1001)).toBe("incorrect");
+		expect(session.key("Backspace", 1002)).toBe("backspace");
+	});
+
+	it("returns null for a key after the deadline", () => {
+		const { session } = setup("ab cd ef", { type: "time", seconds: 30 });
+		session.key("a", 5000);
+		expect(session.key("b", 35_000)).toBeNull();
+	});
+
+	it("returns null for Esc and after completion", () => {
+		const { session } = setup("ab", { type: "zen" });
+		session.key("a", 1000);
+		expect(session.key("Escape", 1001)).toBeNull();
+		expect(session.key("b", 1002)).toBeNull();
+	});
+});

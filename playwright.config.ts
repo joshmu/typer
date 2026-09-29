@@ -15,6 +15,18 @@ export default defineConfig({
 		{
 			name: "chromium",
 			use: { ...devices["Desktop Chrome"] },
+			grepInvert: /@sound/,
+		},
+		{
+			// key sound on: let the AudioContext run without a user gesture
+			name: "chromium-sound",
+			use: {
+				...devices["Desktop Chrome"],
+				launchOptions: {
+					args: ["--autoplay-policy=no-user-gesture-required"],
+				},
+			},
+			grep: /@sound/,
 		},
 	],
 	webServer: {

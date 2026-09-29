@@ -125,6 +125,12 @@ export default function Settings() {
 						value={prefs.showLiveWpm}
 						onChange={(v) => setPrefs("showLiveWpm", v)}
 					/>
+					<ToggleRow
+						label="Key sound"
+						description="Click on every keystroke"
+						value={prefs.keySound}
+						onChange={(v) => setPrefs("keySound", v)}
+					/>
 				</div>
 
 				<div class="bg-bg-secondary/30 rounded-xl p-6 border border-text-sub/10">
