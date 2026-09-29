@@ -46,7 +46,8 @@ export default function GameShell() {
 	let startLoop:
 		| ((seed: number, autoStart: boolean) => Promise<void>)
 		| undefined;
-	// the seed the active run started with — persisted so a run is replayable
+	// the active run's seed, saved with its record; inputs are not logged, so a
+	// saved run cannot be replayed
 	let currentSeed = 0;
 	// one-shot guard: persist a run exactly once per gameover, reset on restart
 	let saved = false;
