@@ -1,5 +1,5 @@
 import { For } from "solid-js";
-import { type Theme, applyTheme, themeNames, themes } from "@/lib/themes";
+import { type Theme, themeNames, themes } from "@/lib/themes";
 
 interface ThemePickerProps {
 	currentTheme: string;
@@ -19,10 +19,7 @@ function ThemeSwatch(props: {
 					? "border-primary bg-bg-secondary"
 					: "border-text-sub/20 hover:border-text-sub/40"
 			}`}
-			onClick={() => {
-				applyTheme(props.theme);
-				props.onSelect();
-			}}
+			onClick={() => props.onSelect()}
 			title={props.theme.label}
 		>
 			{/* Color swatches */}

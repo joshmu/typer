@@ -2,7 +2,6 @@ import ThemePicker from "@/components/settings/ThemePicker";
 import type { CaretStyle } from "@/components/typing/Caret";
 import type { StopOnError } from "@/lib/core/types";
 import { usePreferences } from "@/lib/preferences-context";
-import { applyTheme, getTheme } from "@/lib/themes";
 
 function buttonClass(active: boolean): string {
 	return `px-4 py-2 text-sm rounded border transition-colors ${
@@ -90,10 +89,7 @@ export default function Settings() {
 				<div class="bg-bg-secondary/30 rounded-xl p-6 border border-text-sub/10">
 					<ThemePicker
 						currentTheme={prefs.theme}
-						onSelect={(name) => {
-							setPrefs("theme", name);
-							applyTheme(getTheme(name));
-						}}
+						onSelect={(name) => setPrefs("theme", name)}
 					/>
 				</div>
 

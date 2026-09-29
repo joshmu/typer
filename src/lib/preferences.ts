@@ -26,6 +26,11 @@ export const defaultPreferences: UserPreferences = {
 	wordListSize: "200",
 };
 
+/** Typing text size in px for a stored font size (16 renders at 24px). */
+export function typingFontSize(fontSize: number): number {
+	return fontSize * 1.5;
+}
+
 export function createPreferences(storage?: Storage) {
 	return makePersisted(
 		createStore<UserPreferences>({ ...defaultPreferences }),
