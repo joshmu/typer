@@ -21,12 +21,16 @@ function setup(stepOnInput = false) {
 		stepOnInput,
 		onState: (s) => states.push(s),
 	});
+	/** Let `ms` of wall time pass without a frame. */
+	const elapse = (ms: number) => {
+		t += ms;
+	};
 	/** Let `ms` of wall time pass, then run one frame. */
 	const frameAfter = (ms: number) => {
-		t += ms;
+		elapse(ms);
 		session.frame();
 	};
-	return { session, renderer, states, frameAfter };
+	return { session, renderer, states, elapse, frameAfter };
 }
 
 /** The word the player would type next: the locked target's, else the first enemy's. */
@@ -90,7 +94,7 @@ describe("RunSession (headless, null renderer)", () => {
 
 	it("plays through a wave clear and applies a perk choice", () => {
 		const { session } = setup(true);
-		for (let i = 0; i < 20_000; i++) {
+		for (let i = 0; i < 2000; i++) {
 			const s = session.getState();
 			if (s.wavePhase === "perk-choice" || s.status === "gameover") break;
 			const word = nextWord(s);
@@ -98,6 +102,7 @@ describe("RunSession (headless, null renderer)", () => {
 			else session.stepTicks(1);
 		}
 		const s = session.getState();
+		expect(s.status).not.toBe("gameover");
 		expect(s.wavePhase).toBe("perk-choice");
 		const pick = s.perkOffer?.[1];
 		session.pushPerk(1);
@@ -137,6 +142,17 @@ describe("RunSession (headless, null renderer)", () => {
 		expect(session.getState().tick).toBe(4);
 		session.setRunning(false);
 		frameAfter(3000);
+		session.setRunning(true);
+		frameAfter(TICK_MS + 1);
+		expect(session.getState().tick).toBe(5);
+	});
+
+	it("resuming discards paused time even with no frame while paused", () => {
+		const { session, elapse, frameAfter } = setup();
+		session.setRunning(true);
+		frameAfter(TICK_MS * 4 + 1);
+		session.setRunning(false);
+		elapse(3000);
 		session.setRunning(true);
 		frameAfter(TICK_MS + 1);
 		expect(session.getState().tick).toBe(5);
