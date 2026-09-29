@@ -264,7 +264,7 @@ state's canonical JSON, `src/lib/game/sim/replay.ts`). Golden fixtures live in
   tan/random` and `Date.now` in every non-test `sim/` and `content/` source (those
   are engine-approximated or impure). Use the `cosR/sinR` helpers in `math.ts`.
 - **Test hooks:** `/game?seed=N&testMode=1` freezes the render loop and exposes
-  `window.__game.{getState, sendKeys, stepTicks, renderReady}`. In testMode the
+  `window.__game.{getState, sendKeys, sendBackspace, sendPerk, stepTicks, renderReady}`. In testMode the
   shell auto-starts (no start-screen gate) and each sent input steps one tick, so
   probes drive the sim directly.
 - **Headless runs:** `session/run-session.test.ts` drives a `RunSession` on the
