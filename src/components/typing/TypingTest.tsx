@@ -11,6 +11,8 @@ import type {
 	TestMode,
 	TypingState,
 } from "@/lib/core/types";
+import { keySoundFor } from "@/lib/key-sound";
+import { usePreferences } from "@/lib/preferences-context";
 import { setTypingActive } from "@/lib/typing-focus";
 import StatsBar from "./StatsBar";
 import TextDisplay from "./TextDisplay";
@@ -32,6 +34,8 @@ export default function TypingTest(props: TypingTestProps) {
 			props.stopOnError ?? "off",
 		),
 	);
+	const [prefs] = usePreferences();
+	const keySound = keySoundFor(prefs.keySound);
 	const [elapsed, setElapsed] = createSignal(0);
 	const [capsLock, setCapsLock] = createSignal(false);
 	let containerRef: HTMLDivElement | undefined;
@@ -111,13 +115,16 @@ export default function TypingTest(props: TypingTestProps) {
 		// Don't prevent browser shortcuts
 		if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-		// Prevent default for typing keys
-		if (key.length === 1 || key === "Backspace") {
-			e.preventDefault();
-		}
+		const typed = key.length === 1 || key === "Backspace";
+		if (typed) e.preventDefault();
 
 		const wasStarted = state.startTime !== null;
+		const char =
+			state.words[state.currentWordIndex]?.characters[state.currentCharIndex];
 		session.key(key, Date.now());
+		if (typed && char) {
+			keySound.play(key === "Backspace" || char.status === "correct");
+		}
 
 		if (!wasStarted && state.startTime !== null && !complete()) {
 			startTimers();
