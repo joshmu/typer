@@ -54,7 +54,7 @@
 - [ ] `<ResultsScreen>` — hero WPM, accuracy, consistency
 - [ ] Per-second WPM chart (line chart)
 - [ ] Character breakdown: correct / incorrect / extra / missed
-- [ ] Animated stat counters (motion/dom)
+- [ ] Animated stat counters (motion)
 - [ ] Test replay link (re-do same text)
 
 ### Persistence
