@@ -95,3 +95,21 @@ test("time mode ends at its limit with no further keystroke", async ({
 	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
 	await expect(page.getByText("30s", { exact: true })).toBeVisible();
 });
+
+test("Tab from a focused link on results moves on as usual", async ({
+	page,
+}) => {
+	await page.goto("/");
+	await page.getByRole("button", { name: "custom" }).click();
+	await page.getByTestId("text-input").fill("ab");
+	await page.getByTestId("start-button").click();
+	await page.getByTestId("typing-test").focus();
+	await page.keyboard.type("ab");
+	const redo = page.getByRole("button", { name: "Redo" });
+	await expect(redo).toBeVisible({ timeout: 5000 });
+
+	await page.getByRole("link", { name: "Home" }).focus();
+	await page.keyboard.press("Tab");
+	await expect(redo).not.toBeFocused();
+	await expect(page.getByRole("link", { name: "Game" })).toBeFocused();
+});

@@ -55,11 +55,12 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 	let containerRef!: HTMLDivElement;
 	let redoRef!: HTMLButtonElement;
 
-	// Tab lands on Redo from anywhere, so Tab then Enter restarts.
+	// With nothing focused, Tab lands on Redo so Tab then Enter restarts.
+	// Once something has focus, Tab moves on as usual.
 	const focusRedoOnTab = (e: KeyboardEvent) => {
-		if (e.key !== "Tab" || e.shiftKey || document.activeElement === redoRef) {
-			return;
-		}
+		const focused = document.activeElement;
+		if (e.key !== "Tab" || e.shiftKey) return;
+		if (focused && focused !== document.body) return;
 		e.preventDefault();
 		redoRef.focus();
 	};
