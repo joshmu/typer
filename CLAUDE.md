@@ -13,7 +13,7 @@ Typer is a touch-typing web app for practicing with custom text. Tracks WPM, acc
 | Framework | SolidJS + Vite + @solidjs/router |
 | Language | TypeScript (strict) |
 | Styling | Tailwind CSS v4 + CSS custom properties (themes) |
-| Animation | motion/dom (vanilla) + CSS transitions (caret) |
+| Animation | motion (vanilla `animate` API) + CSS transitions (caret) |
 | State | SolidJS signals + stores (built-in) |
 | Testing | Vitest (unit/component) + Playwright (E2E) |
 | Linting | Biome (lint + format) |
