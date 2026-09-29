@@ -1,17 +1,17 @@
 import {
 	createEffect,
+	createMemo,
 	createSignal,
 	For,
 	onCleanup,
 	onMount,
 	Show,
 } from "solid-js";
-import { getArchetype } from "@/lib/game/content/enemies";
+import { hudView } from "@/lib/game/hud-view";
 import type { GameLoop } from "@/lib/game/render/loop";
-import { COMBO_DECAY_TICKS, comboMultiplier } from "@/lib/game/sim/combo";
 import { PERK_DEFS } from "@/lib/game/sim/perks";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
-import type { EnemyState, GameState } from "@/lib/game/sim/state";
+import type { GameState } from "@/lib/game/sim/state";
 import { vignetteGradient } from "@/lib/game/view";
 import { getBestRun, saveGameRun, useBestRun } from "@/lib/game-runs";
 import DeathScreen from "./DeathScreen";
@@ -28,13 +28,6 @@ declare global {
 			renderReady(): boolean;
 		};
 	}
-}
-
-/** The first alive boss on the field (drives the top-center life bar), if any. */
-function firstAliveBoss(state: GameState): EnemyState | undefined {
-	return state.enemies.find(
-		(e) => e.alive && getArchetype(e.archetypeId).role === "boss",
-	);
 }
 
 /** Rarity accent for a perk card: slate (common) / cyan (rare) / amber glow (epic). */
@@ -241,141 +234,148 @@ export default function GameShell() {
 				</div>
 			</Show>
 			<Show when={hud()}>
-				{(state) => (
-					<>
-						{/* top-center: score, hearts, kills */}
-						<div class="pointer-events-none absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-6 font-mono text-sm">
-							<span data-testid="game-score">score {state().score}</span>
-							<span data-testid="game-hp" class="flex gap-0.5 text-base">
-								<For each={Array.from({ length: state().maxPlayerHp })}>
-									{(_, i) => (
-										<span
-											class={
-												i() < state().playerHp ? "text-rose-400" : "opacity-30"
+				{(state) => {
+					const view = createMemo(() => hudView(state()));
+					return (
+						<>
+							{/* top-center: score, hearts, kills */}
+							<div class="pointer-events-none absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-6 font-mono text-sm">
+								<span data-testid="game-score">score {state().score}</span>
+								<span data-testid="game-hp" class="flex gap-0.5 text-base">
+									<For each={Array.from({ length: state().maxPlayerHp })}>
+										{(_, i) => (
+											<span
+												class={
+													i() < state().playerHp
+														? "text-rose-400"
+														: "opacity-30"
+												}
+											>
+												{i() < state().playerHp ? "♥" : "♡"}
+											</span>
+										)}
+									</For>
+								</span>
+								<span data-testid="game-kills">kills {state().kills}</span>
+							</div>
+
+							{/* top-center (below score): boss life bar — one segment per
+							    remaining word, visible while any boss is alive */}
+							<Show when={view().boss}>
+								{(boss) => (
+									<div
+										data-testid="boss-bar"
+										class="pointer-events-none absolute top-11 left-1/2 flex w-96 max-w-[80vw] -translate-x-1/2 flex-col gap-1 font-mono text-xs"
+									>
+										<div class="flex items-baseline justify-between">
+											<span class="font-bold tracking-wider text-amber-300">
+												{boss().name}
+											</span>
+											<span class="opacity-70">
+												{boss().hp}/{boss().maxHp}
+											</span>
+										</div>
+										<div class="flex gap-0.5">
+											<For each={Array.from({ length: boss().maxHp })}>
+												{(_, i) => (
+													<div
+														class="h-2 flex-1 rounded-sm"
+														classList={{
+															"bg-amber-400": i() < boss().hp,
+															"bg-white/10": i() >= boss().hp,
+														}}
+													/>
+												)}
+											</For>
+										</div>
+									</div>
+								)}
+							</Show>
+
+							{/* top-left: active wave chip + combo meter */}
+							<div class="pointer-events-none absolute top-3 left-3 flex flex-col gap-2 font-mono text-xs">
+								<Show when={view().wave}>
+									{(wave) => (
+										<Show
+											when={wave().frenzy}
+											fallback={
+												<span
+													data-testid="game-wave"
+													class="rounded bg-white/10 px-2 py-1"
+												>
+													{wave().label}
+												</span>
 											}
 										>
-											{i() < state().playerHp ? "♥" : "♡"}
-										</span>
+											<span
+												data-testid="wave-frenzy"
+												class="animate-pulse rounded bg-red-500/25 px-2 py-1 font-bold tracking-wider text-amber-300 shadow-[0_0_12px_rgba(248,113,113,0.7)]"
+											>
+												{wave().label}
+											</span>
+										</Show>
 									)}
-								</For>
-							</span>
-							<span data-testid="game-kills">kills {state().kills}</span>
-						</div>
-
-						{/* top-center (below score): boss life bar — one segment per
-						    remaining word, visible while any boss is alive */}
-						<Show when={firstAliveBoss(state())}>
-							{(boss) => (
-								<div
-									data-testid="boss-bar"
-									class="pointer-events-none absolute top-11 left-1/2 flex w-96 max-w-[80vw] -translate-x-1/2 flex-col gap-1 font-mono text-xs"
-								>
-									<div class="flex items-baseline justify-between">
-										<span class="font-bold tracking-wider text-amber-300">
-											{getArchetype(boss().archetypeId).name}
-										</span>
-										<span class="opacity-70">
-											{boss().hp}/{boss().maxHp}
-										</span>
-									</div>
-									<div class="flex gap-0.5">
-										<For each={Array.from({ length: boss().maxHp })}>
-											{(_, i) => (
-												<div
-													class="h-2 flex-1 rounded-sm"
-													classList={{
-														"bg-amber-400": i() < boss().hp,
-														"bg-white/10": i() >= boss().hp,
-													}}
-												/>
-											)}
-										</For>
-									</div>
-								</div>
-							)}
-						</Show>
-
-						{/* top-left: active wave chip + combo meter */}
-						<div class="pointer-events-none absolute top-3 left-3 flex flex-col gap-2 font-mono text-xs">
-							<Show when={state().wavePhase === "active"}>
-								<Show
-									when={state().waveKind === "swarm"}
-									fallback={
-										<span
-											data-testid="game-wave"
-											class="rounded bg-white/10 px-2 py-1"
-										>
-											wave {state().wave}
-										</span>
-									}
-								>
-									<span
-										data-testid="wave-frenzy"
-										class="animate-pulse rounded bg-red-500/25 px-2 py-1 font-bold tracking-wider text-amber-300 shadow-[0_0_12px_rgba(248,113,113,0.7)]"
-									>
-										FRENZY · wave {state().wave}
-									</span>
 								</Show>
-							</Show>
-							<Show when={state().combo > 0}>
-								<div
-									data-testid="game-combo"
-									class="w-28 rounded bg-white/10 px-2 py-1 transition-shadow"
-									classList={{
-										"shadow-[0_0_14px_rgba(251,191,36,0.75)] bg-amber-400/15":
-											comboMultiplier(state().combo) >= 2,
-									}}
-								>
-									<div class="flex justify-between">
-										<span>combo {state().combo}</span>
-										<span
-											class="text-amber-300"
+								<Show when={view().combo}>
+									{(combo) => (
+										<div
+											data-testid="game-combo"
+											class="w-28 rounded bg-white/10 px-2 py-1 transition-shadow"
 											classList={{
-												"font-bold drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]":
-													comboMultiplier(state().combo) >= 2,
+												"shadow-[0_0_14px_rgba(251,191,36,0.75)] bg-amber-400/15":
+													combo().hot,
 											}}
 										>
-											&times;{comboMultiplier(state().combo)}
-										</span>
+											<div class="flex justify-between">
+												<span>combo {combo().count}</span>
+												<span
+													class="text-amber-300"
+													classList={{
+														"font-bold drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]":
+															combo().hot,
+													}}
+												>
+													&times;{combo().multiplier}
+												</span>
+											</div>
+											<div class="mt-1 h-1 w-full overflow-hidden rounded bg-white/10">
+												<div
+													class="h-full bg-amber-400 transition-[width] duration-100"
+													style={{ width: `${combo().fraction * 100}%` }}
+												/>
+											</div>
+										</div>
+									)}
+								</Show>
+							</div>
+
+							{/* center: wave-incoming banner during intermission */}
+							<Show when={view().incoming}>
+								{(incoming) => (
+									<div class="pointer-events-none absolute inset-x-0 top-1/3 text-center font-mono text-2xl font-bold tracking-widest text-amber-300 animate-pulse">
+										{incoming()}
 									</div>
-									<div class="mt-1 h-1 w-full overflow-hidden rounded bg-white/10">
-										<div
-											class="h-full bg-amber-400 transition-[width] duration-100"
-											style={{
-												width: `${Math.min(100, (state().comboTicksLeft / COMBO_DECAY_TICKS) * 100)}%`,
-											}}
-										/>
-									</div>
+								)}
+							</Show>
+
+							{/* bottom-left: owned-perk strip (short names, tiny mono chips) */}
+							<Show when={view().perkChips.length > 0}>
+								<div
+									data-testid="perk-strip"
+									class="pointer-events-none absolute bottom-3 left-3 flex max-w-[42vw] flex-wrap gap-1 font-mono text-[10px] leading-none"
+								>
+									<For each={view().perkChips}>
+										{(chip) => (
+											<span class="rounded bg-white/10 px-1.5 py-1 tracking-wide opacity-80">
+												{chip}
+											</span>
+										)}
+									</For>
 								</div>
 							</Show>
-						</div>
-
-						{/* center: wave-incoming banner during intermission */}
-						<Show
-							when={state().wavePhase === "intermission" && state().wave > 0}
-						>
-							<div class="pointer-events-none absolute inset-x-0 top-1/3 text-center font-mono text-2xl font-bold tracking-widest text-amber-300 animate-pulse">
-								WAVE {state().wave + 1} INCOMING
-							</div>
-						</Show>
-
-						{/* bottom-left: owned-perk strip (short names, tiny mono chips) */}
-						<Show when={state().perks.length > 0}>
-							<div
-								data-testid="perk-strip"
-								class="pointer-events-none absolute bottom-3 left-3 flex max-w-[42vw] flex-wrap gap-1 font-mono text-[10px] leading-none"
-							>
-								<For each={state().perks}>
-									{(id) => (
-										<span class="rounded bg-white/10 px-1.5 py-1 tracking-wide opacity-80">
-											{PERK_DEFS[id].name.slice(0, 8)}
-										</span>
-									)}
-								</For>
-							</div>
-						</Show>
-					</>
-				)}
+						</>
+					);
+				}}
 			</Show>
 
 			{/* perk draft overlay: three rarity-accented cards, keys [1]/[2]/[3] */}
