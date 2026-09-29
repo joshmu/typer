@@ -1,6 +1,15 @@
-import { createContext, onMount, type ParentProps, useContext } from "solid-js";
+import {
+	createContext,
+	createEffect,
+	type ParentProps,
+	useContext,
+} from "solid-js";
 import type { SetStoreFunction, Store } from "solid-js/store";
-import { createPreferences, type UserPreferences } from "@/lib/preferences";
+import {
+	createPreferences,
+	typingFontSize,
+	type UserPreferences,
+} from "@/lib/preferences";
 import { applyTheme, getTheme } from "@/lib/themes";
 
 type PreferencesContextValue = [
@@ -13,8 +22,12 @@ const PreferencesContext = createContext<PreferencesContextValue>();
 export function PreferencesProvider(props: ParentProps) {
 	const [prefs, setPrefs] = createPreferences();
 
-	onMount(() => {
+	createEffect(() => {
 		applyTheme(getTheme(prefs.theme));
+		document.documentElement.style.setProperty(
+			"--typing-font-size",
+			`${typingFontSize(prefs.fontSize)}px`,
+		);
 	});
 
 	return (

@@ -1,8 +1,10 @@
 import { createEffect, createSignal, For } from "solid-js";
 import { getWordTop } from "@/lib/core/layout/layout-cache";
 import type { WordState } from "@/lib/core/types";
+import { typingFontSize } from "@/lib/preferences";
+import { usePreferences } from "@/lib/preferences-context";
 import Caret from "./Caret";
-import { useLayoutCache } from "./use-layout-cache";
+import { domMeasurer, useLayoutCache } from "./use-layout-cache";
 import Word from "./Word";
 
 interface TextDisplayProps {
@@ -14,13 +16,16 @@ interface TextDisplayProps {
 export default function TextDisplay(props: TextDisplayProps) {
 	let containerRef: HTMLDivElement | undefined;
 	let innerRef: HTMLDivElement | undefined;
+	const [prefs] = usePreferences();
 	const [translateY, setTranslateY] = createSignal(0);
-	const lineHeight = 48;
+	const lineHeight = () => typingFontSize(prefs.fontSize) * 2;
 	const visibleLines = 3;
 
 	const layoutCache = useLayoutCache(
 		() => innerRef,
 		() => props.words,
+		domMeasurer,
+		() => prefs.fontSize,
 	);
 
 	// Read wordTop from the cache, not offsetTop — the keystroke hot path
@@ -28,16 +33,20 @@ export default function TextDisplay(props: TextDisplayProps) {
 	createEffect(() => {
 		const wordTop = getWordTop(layoutCache(), props.currentWordIndex);
 		if (wordTop === null) return;
-		if (wordTop > lineHeight + translateY()) {
-			setTranslateY(wordTop - lineHeight);
+		if (wordTop > lineHeight() + translateY()) {
+			setTranslateY(wordTop - lineHeight());
 		}
 	});
 
 	return (
 		<div
 			ref={containerRef}
-			class="relative overflow-hidden select-none text-2xl leading-[48px] font-mono"
-			style={{ height: `${lineHeight * visibleLines}px` }}
+			class="relative overflow-hidden select-none font-mono"
+			style={{
+				"font-size": "var(--typing-font-size)",
+				"line-height": `${lineHeight()}px`,
+				height: `${lineHeight() * visibleLines}px`,
+			}}
 			data-testid="text-display"
 		>
 			<div
@@ -49,6 +58,8 @@ export default function TextDisplay(props: TextDisplayProps) {
 					layoutCache={layoutCache}
 					currentWordIndex={props.currentWordIndex}
 					currentCharIndex={props.currentCharIndex}
+					style={prefs.caretStyle}
+					smooth={prefs.smoothCaret}
 				/>
 				<For each={props.words}>
 					{(word, index) => (

@@ -1,8 +1,8 @@
 import ThemePicker from "@/components/settings/ThemePicker";
 import type { CaretStyle } from "@/components/typing/Caret";
 import type { StopOnError } from "@/lib/core/types";
+import { typingFontSize } from "@/lib/preferences";
 import { usePreferences } from "@/lib/preferences-context";
-import { applyTheme, getTheme } from "@/lib/themes";
 
 function buttonClass(active: boolean): string {
 	return `px-4 py-2 text-sm rounded border transition-colors ${
@@ -57,6 +57,8 @@ function ToggleRow(props: {
 			</div>
 			<button
 				type="button"
+				aria-label={props.label}
+				aria-pressed={props.value}
 				class={`w-12 h-6 rounded-full transition-all duration-200 relative ${
 					props.value ? "bg-primary" : "bg-text-sub/30"
 				}`}
@@ -90,10 +92,7 @@ export default function Settings() {
 				<div class="bg-bg-secondary/30 rounded-xl p-6 border border-text-sub/10">
 					<ThemePicker
 						currentTheme={prefs.theme}
-						onSelect={(name) => {
-							setPrefs("theme", name);
-							applyTheme(getTheme(name));
-						}}
+						onSelect={(name) => setPrefs("theme", name)}
 					/>
 				</div>
 
@@ -126,12 +125,6 @@ export default function Settings() {
 						value={prefs.showLiveWpm}
 						onChange={(v) => setPrefs("showLiveWpm", v)}
 					/>
-					<ToggleRow
-						label="Sound on keypress"
-						description="Play a sound when typing"
-						value={prefs.soundEnabled}
-						onChange={(v) => setPrefs("soundEnabled", v)}
-					/>
 				</div>
 
 				<div class="bg-bg-secondary/30 rounded-xl p-6 border border-text-sub/10">
@@ -140,7 +133,7 @@ export default function Settings() {
 						options={[14, 16, 18, 20, 24] as const}
 						value={prefs.fontSize}
 						onSelect={(v) => setPrefs("fontSize", v)}
-						renderLabel={(v) => `${v}px`}
+						renderLabel={(v) => `${typingFontSize(v)}px`}
 					/>
 				</div>
 			</div>
