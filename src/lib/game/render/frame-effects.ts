@@ -7,6 +7,8 @@ export type ShotKind = "light" | "heavy" | "clang";
 export type EffectCommands = {
 	/** Snap the turret to (x, y) and fire a tracer from its muzzle. */
 	shot(x: number, y: number, kind: ShotKind): void;
+	/** A small spark where non-typed damage clanged off an enemy. */
+	spark(x: number, y: number): void;
 	/** Death burst and corpse decal. */
 	kill(x: number, y: number, id: number, archetypeId: string): void;
 	/** Core-side scar where an enemy broke through. */
@@ -28,6 +30,7 @@ export function dispatchEffects(
 				break;
 			case "absorb":
 				if (ev.typed) fx.shot(ev.x, ev.y, "clang");
+				else fx.spark(ev.x, ev.y);
 				break;
 			case "kill":
 				if (ev.cause === "typed") fx.shot(ev.x, ev.y, "heavy");

@@ -10,6 +10,7 @@ function recorder(): { calls: string[]; fx: EffectCommands } {
 			shot: (x, y, kind) => calls.push(`shot ${x},${y} ${kind}`),
 			kill: (x, y, id, archetypeId) =>
 				calls.push(`kill ${id} ${x},${y} ${archetypeId}`),
+			spark: (x, y) => calls.push(`spark ${x},${y}`),
 			breach: (x, y, id) => calls.push(`breach ${id} ${x},${y}`),
 			coreHit: () => calls.push("coreHit"),
 			powerupPulse: () => calls.push("powerupPulse"),
@@ -55,7 +56,13 @@ describe("dispatchEffects", () => {
 					cause: "bomb",
 				},
 			]),
-		).toEqual(["kill 4 7,8 husk-1", "kill 5 9,0 husk-1"]);
+		).toEqual(["spark 5,6", "kill 4 7,8 husk-1", "kill 5 9,0 husk-1"]);
+	});
+
+	it("a non-typed absorb sparks at the absorbing enemy", () => {
+		expect(run([{ type: "absorb", id: 3, x: 5, y: 6, typed: false }])).toEqual([
+			"spark 5,6",
+		]);
 	});
 
 	it("a typed kill fires a heavy shot at the victim before the kill", () => {
