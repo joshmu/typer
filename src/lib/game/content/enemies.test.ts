@@ -4,7 +4,7 @@ import { dist } from "../sim/math";
 import { MOVEMENTS as MOVEMENT_FNS } from "../sim/movement";
 import { steer } from "../sim/physics";
 import { ARENA } from "../sim/state";
-import { ENEMIES, getArchetype, type MovementId } from "./enemies";
+import { ENEMIES, getArchetype, isBoss, type MovementId } from "./enemies";
 
 const MOVEMENTS: MovementId[] = [
 	"chase",
@@ -148,5 +148,15 @@ describe("enemy roster", () => {
 			const [word] = pickWordForTier(tier, createRngState(1), new Set());
 			expect(word.length).toBeGreaterThan(0);
 		}
+	});
+});
+
+describe("isBoss", () => {
+	it("is true exactly for boss-role archetypes", () => {
+		for (const a of ENEMIES) {
+			expect(isBoss({ archetypeId: a.id })).toBe(a.role === "boss");
+		}
+		expect(isBoss({ archetypeId: "boss-maw" })).toBe(true);
+		expect(isBoss({ archetypeId: "husk-1" })).toBe(false);
 	});
 });

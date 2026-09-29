@@ -1,6 +1,7 @@
 import { isCharMatch } from "@/lib/core/text/char-match";
 import { isCloaked, isTargetable, tickAbility } from "./abilities";
 import { resolveCompletion } from "./combat";
+import { breakCombo, decayCombo } from "./combo";
 import { dist } from "./math";
 import { MOVEMENTS } from "./movement";
 import {
@@ -146,11 +147,7 @@ export function step(
 		return s;
 	}
 
-	// combo decay
-	if (s.comboTicksLeft > 0) {
-		s.comboTicksLeft -= 1;
-		if (s.comboTicksLeft === 0) s.combo = 0;
-	}
+	decayCombo(s);
 
 	// effect timers
 	if (s.freezeTicksLeft > 0) s.freezeTicksLeft -= 1;
@@ -305,8 +302,7 @@ export function step(
 		if (hasPerk(s, "steady-hands") && !s.steadyHandsUsedThisWave) {
 			s.steadyHandsUsedThisWave = true;
 		} else {
-			s.combo = 0;
-			s.comboTicksLeft = 0;
+			breakCombo(s);
 		}
 	}
 

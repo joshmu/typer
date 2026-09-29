@@ -1,11 +1,11 @@
-import { getArchetype } from "../content/enemies";
+import { isBoss } from "../content/enemies";
 import { pickWordForTier } from "../content/words";
 import { absorbsCompletion } from "./abilities";
+import { gainCombo } from "./combo";
 import { cosR, dist, sinR } from "./math";
 import {
 	CHAIN_COMBO,
 	CHAIN_RANGE,
-	comboDecayTicks,
 	hasPerk,
 	isOverclockPrimed,
 	killScoreWithPerks,
@@ -55,7 +55,7 @@ export function advanceWord(s: GameState, e: EnemyState): void {
 	// bosses type a fixed public-domain sentence: word ORDER is sacred, so they
 	// NEVER redraw a mid-sentence word — the initial-uniqueness nicety yields to
 	// the passage. (Collisions are cosmetic here; the boss is the only long chain.)
-	if (getArchetype(e.archetypeId).role === "boss") return;
+	if (isBoss(e)) return;
 	const initials = liveInitials(s, e.id);
 	const preAssigned = e.words[e.wordIndex];
 	if (initials.has(preAssigned[0])) {
@@ -68,8 +68,7 @@ export function advanceWord(s: GameState, e: EnemyState): void {
 export function killEnemy(s: GameState, e: EnemyState): void {
 	e.alive = false;
 	s.kills += 1;
-	s.combo += 1;
-	s.comboTicksLeft = comboDecayTicks(s);
+	gainCombo(s);
 	s.score += killScoreWithPerks(s, currentWord(e).length, s.combo);
 	if (s.targetId === e.id) s.targetId = null;
 	if (e.ability?.kind === "split") {
@@ -116,8 +115,7 @@ export function dealDamage(
 	// multi-hp / boss chain: damaged but alive → recoil out toward the edge, next
 	// word. Bosses (imposing) take a softened recoil so they keep forward pressure;
 	// heavy-rounds lifts both regular and boss recoil.
-	const isBoss = getArchetype(e.archetypeId).role === "boss";
-	applyKnockback(e, { x: 0, y: 0 }, knockbackMult(s, isBoss), moveScale);
+	applyKnockback(e, { x: 0, y: 0 }, knockbackMult(s, isBoss(e)), moveScale);
 	advanceWord(s, e);
 	return "chipped";
 }

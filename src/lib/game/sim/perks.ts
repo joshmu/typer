@@ -1,5 +1,5 @@
 import { nextFloat } from "./rng";
-import { COMBO_DECAY_TICKS, killScore } from "./score";
+import { killScore } from "./score";
 import type { GameState } from "./state";
 
 /**
@@ -168,7 +168,6 @@ export const CHAIN_COMBO = 10;
 const SHARPSHOOTER_MULT = 1.5;
 const GREED_PER_STACK = 0.1;
 const CRYO_MULT = 1.5;
-const ADRENALINE_MULT = 1.5;
 // base 12 mirrors POWERUP_SPAWN_EVERY_KILLS; inlined to keep perks.ts free of a
 // powerups.ts import (powerups imports cryoDurationMult from here).
 const POWERUP_DIVISOR_BASE = 12;
@@ -253,13 +252,6 @@ export function knockbackMult(s: GameState, isBoss: boolean): number {
 /** Freeze/slow powerup duration multiplier (cryo-mastery x1.5). */
 export function cryoDurationMult(s: GameState): number {
 	return hasPerk(s, "cryo-mastery") ? CRYO_MULT : 1;
-}
-
-/** Combo decay window in ticks (adrenaline widens it x1.5, floored). */
-export function comboDecayTicks(s: GameState): number {
-	return hasPerk(s, "adrenaline")
-		? Math.floor(COMBO_DECAY_TICKS * ADRENALINE_MULT)
-		: COMBO_DECAY_TICKS;
 }
 
 /** Kills between powerup drops (scavenger tightens 12→9). */
