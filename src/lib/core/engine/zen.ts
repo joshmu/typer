@@ -13,31 +13,20 @@ export function needsMoreWords(state: TypingState): boolean {
 }
 
 /**
- * Appends new words to an existing TypingState, preserving all
- * existing word/character states and cursor position.
+ * Append words to the state in place, preserving existing word/character
+ * states and the cursor.
  */
-export function appendWordsToState(
-	state: TypingState,
-	newText: string,
-): TypingState {
+export function appendWords(state: TypingState, newText: string): void {
 	const newWords = textToWords(newText);
-	if (newWords.length === 0) return state;
-
-	// Clone existing words to avoid mutation
-	const existingWords = [...state.words];
+	if (newWords.length === 0) return;
 
 	// The last existing word has no trailing space — add one
-	if (existingWords.length > 0) {
-		const lastWord = existingWords[existingWords.length - 1];
-		const lastChar = lastWord.characters[lastWord.characters.length - 1];
-		if (lastChar.expected !== " ") {
-			lastWord.characters = [...lastWord.characters, ...textToCharacters(" ")];
-		}
+	const lastWord = state.words[state.words.length - 1];
+	const lastChar = lastWord?.characters[lastWord.characters.length - 1];
+	if (lastChar && lastChar.expected !== " ") {
+		lastWord.characters.push(...textToCharacters(" "));
 	}
 
-	return {
-		...state,
-		text: `${state.text} ${newText}`,
-		words: [...existingWords, ...newWords],
-	};
+	state.text = `${state.text} ${newText}`;
+	state.words.push(...newWords);
 }

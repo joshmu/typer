@@ -154,8 +154,8 @@ function report(label: string, perKey: number[]) {
 	return max;
 }
 
-// Guards the known-failure tests below: test.fail would also swallow a broken
-// harness, so prove here that each counter sees what it should.
+// Proves each counter sees what it should, so the budgets below cannot pass
+// on a broken harness.
 test("the render-cost harness counts measures and remounts", async ({
 	page,
 }) => {
@@ -195,22 +195,16 @@ test("the render-cost harness counts measures and remounts", async ({
 	expect(measuresPerKey).toHaveLength(KEYSTROKES);
 });
 
-// Known failure until #100 applies keystroke results path-scoped: today every
-// keystroke replaces the words array, so every Word remounts.
-test.fail("a keystroke remounts at most one Word", async ({ page }) => {
+test("a keystroke remounts at most one Word", async ({ page }) => {
 	const { remountsPerKey } = await measureTyping(page);
 	expect(remountsPerKey).toHaveLength(KEYSTROKES);
 	const max = report("Word remounts", remountsPerKey);
 	expect(max).toBeLessThanOrEqual(1);
 });
 
-// Known failure until #100: the new words array reference triggers a re-measure.
-test.fail(
-	"a cursor-only keystroke does not re-measure layout",
-	async ({ page }) => {
-		const { measuresPerKey } = await measureTyping(page);
-		expect(measuresPerKey).toHaveLength(KEYSTROKES);
-		const max = report("Layout re-measures", measuresPerKey);
-		expect(max).toBe(0);
-	},
-);
+test("a cursor-only keystroke does not re-measure layout", async ({ page }) => {
+	const { measuresPerKey } = await measureTyping(page);
+	expect(measuresPerKey).toHaveLength(KEYSTROKES);
+	const max = report("Layout re-measures", measuresPerKey);
+	expect(max).toBe(0);
+});

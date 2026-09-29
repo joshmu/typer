@@ -84,7 +84,7 @@ Caret position and word tops are read from a `LayoutCache` snapshot that is rebu
 | Trigger | Why it's needed |
 |---|---|
 | `onMount` | Initial measurement after the words first render. |
-| `createEffect` on the words array reference | Zen/book mode appends words; the array reference changes but the container's bounding box may not — `ResizeObserver` would miss this. |
+| `createEffect` on the words array and its length | Zen/book mode appends words in place; the container's bounding box may not change, so `ResizeObserver` would miss this. |
 | `ResizeObserver` on the container | Font-size, window-resize, or zoom changes that don't replace the words array. |
 
 All three coalesce through a single `requestAnimationFrame` token so multiple triggers in the same frame produce one read.

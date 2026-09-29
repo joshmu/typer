@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createTypingState } from "../types/test-fixtures";
-import { processKeystroke } from "./process-keystroke";
+import { applyKeystroke, processKeystroke } from "./process-keystroke";
 
 describe("processKeystroke", () => {
 	describe("correct character", () => {
@@ -305,5 +305,39 @@ describe("processKeystroke", () => {
 			expect(state.words[0].characters[0].mistakeCount).toBe(0);
 			expect(state.words[0].characters[1].mistakeCount).toBe(0);
 		});
+	});
+});
+
+describe("applyKeystroke", () => {
+	it("updates the state in place, keeping the words array and other words", () => {
+		const state = createTypingState("ab cd ef");
+		const words = state.words;
+		const [first, second, third] = words;
+
+		for (const [i, key] of ["a", "b", " "].entries()) {
+			applyKeystroke(state, key, 1000 + i);
+		}
+		applyKeystroke(state, "Backspace", 1003);
+
+		expect(state.words).toBe(words);
+		expect(state.words[0]).toBe(first);
+		expect(state.words[1]).toBe(second);
+		expect(state.words[2]).toBe(third);
+		expect(third.characters.every((c) => c.status === "pending")).toBe(true);
+		expect(first.characters[2].status).toBe("pending");
+		expect(state.currentWordIndex).toBe(0);
+		expect(state.currentCharIndex).toBe(2);
+	});
+});
+
+describe("processKeystroke purity", () => {
+	it("leaves the input state untouched", () => {
+		const state = createTypingState("ab cd");
+		const before = structuredClone(state);
+
+		processKeystroke(state, "a", 1000);
+		processKeystroke(processKeystroke(state, "x", 1000), "Backspace", 1001);
+
+		expect(state).toEqual(before);
 	});
 });

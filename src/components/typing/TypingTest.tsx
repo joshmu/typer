@@ -5,8 +5,8 @@ import {
 	calculateWPM,
 	isTestComplete,
 } from "@/lib/core/calc";
-import { processKeystroke } from "@/lib/core/engine/process-keystroke";
-import { appendWordsToState, needsMoreWords } from "@/lib/core/engine/zen";
+import { applyKeystroke } from "@/lib/core/engine/process-keystroke";
+import { appendWords, needsMoreWords } from "@/lib/core/engine/zen";
 import { normalizeText, textToWords } from "@/lib/core/text/normalizer";
 import { generateWords } from "@/lib/core/text/words";
 import type {
@@ -139,12 +139,7 @@ export default function TypingTest(props: TypingTestProps) {
 		const timestamp = Date.now();
 		const wasStarted = state.startTime !== null;
 
-		setState(
-			produce((s) => {
-				const next = processKeystroke(s, key, timestamp);
-				Object.assign(s, next);
-			}),
-		);
+		setState(produce((s) => applyKeystroke(s, key, timestamp)));
 
 		if (!wasStarted && state.startTime !== null) {
 			startTimer();
@@ -159,14 +154,7 @@ export default function TypingTest(props: TypingTestProps) {
 			} else {
 				newText = generateWords(20);
 			}
-			if (newText) {
-				setState(
-					produce((s) => {
-						const updated = appendWordsToState(s, newText);
-						Object.assign(s, updated);
-					}),
-				);
-			}
+			if (newText) setState(produce((s) => appendWords(s, newText)));
 		}
 
 		if (!isContinuousMode && isTestComplete(state)) {

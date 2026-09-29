@@ -43,7 +43,7 @@ export const domMeasurer: Measurer = {
 
 /**
  * Maintain a LayoutCache that re-measures the container only when the
- * layout could have changed: on mount, when the words array reference
+ * layout could have changed: on mount, when the words array or its length
  * changes (zen/book append, restart), and when the container resizes
  * (font change, window resize). Cursor-only updates do NOT re-measure.
  *
@@ -77,7 +77,7 @@ export function useLayoutCache(
 	});
 
 	createEffect(() => {
-		wordsAccessor();
+		wordsAccessor().length;
 		scheduleMeasure();
 	});
 
