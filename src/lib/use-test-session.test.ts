@@ -334,6 +334,7 @@ describe("useTestSession", () => {
 						chapterIndex: 0,
 						wordOffset: 10,
 					});
+					expect(session.bookProgressPercent()).toBe(11);
 
 					session.redo();
 					expect(session.text()?.split(" ").slice(0, 3)).toEqual([
