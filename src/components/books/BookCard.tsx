@@ -3,15 +3,13 @@ import type { BookMeta, BookProgress } from "@/lib/core/types/book";
 interface BookCardProps {
 	book: BookMeta;
 	progress?: BookProgress;
+	/** Book percent from the book reader */
+	percent: number;
 	onClick: (book: BookMeta) => void;
 }
 
 export default function BookCard(props: BookCardProps) {
-	const progressPercent = () => {
-		const p = props.progress;
-		if (!p || !props.book.wordCount) return 0;
-		return Math.round((p.totalCharsTyped / (props.book.wordCount * 5)) * 100);
-	};
+	const progressPercent = () => props.percent;
 
 	return (
 		<button
