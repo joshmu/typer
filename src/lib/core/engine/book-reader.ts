@@ -30,9 +30,12 @@ export interface BookReader {
 	commit(wordsTyped: number, stats: CommitStats): Omit<BookProgress, "id">;
 }
 
-/** Words the typing cursor has moved past. */
+/** Words the typing cursor has moved past, including a finished last word. */
 export function countCompletedWords(state: TypingState): number {
-	return state.currentWordIndex;
+	const word = state.words[state.currentWordIndex];
+	const pastEnd =
+		word !== undefined && state.currentCharIndex >= word.characters.length;
+	return state.currentWordIndex + (pastEnd ? 1 : 0);
 }
 
 function clampPosition(

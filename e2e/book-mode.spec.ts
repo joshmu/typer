@@ -117,4 +117,29 @@ test.describe("book mode", () => {
 		const secondText = (await typingTest.textContent())?.trim() ?? "";
 		expect(secondText.length).toBeGreaterThan(0);
 	});
+
+	test("typing the book's last word finishes the book", async ({ page }) => {
+		await page.goto("/");
+		await page.getByText("Test Book").first().click();
+		await page.getByRole("button", { name: /start reading/i }).click();
+
+		const typingTest = page.getByTestId("typing-test");
+		await expect(typingTest).toBeVisible({ timeout: 5000 });
+		await typingTest.focus();
+
+		// The display refills as the cursor nears the end: keep typing whatever
+		// it shows until the test completes.
+		const display = page.getByTestId("text-display");
+		let typed = 0;
+		for (let i = 0; i < 10 && (await display.count()) > 0; i++) {
+			const text = (await display.textContent()) ?? "";
+			await page.keyboard.type(text.slice(typed));
+			typed = text.length;
+		}
+
+		await expect(
+			page.getByRole("button", { name: /back to library/i }),
+		).toBeVisible({ timeout: 5000 });
+		await expect(page.getByText("100% complete")).toBeVisible();
+	});
 });
