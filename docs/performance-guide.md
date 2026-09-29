@@ -102,7 +102,7 @@ This is the implementation of the "pre-compute caret positions at render time" r
 |-------|--------|----------|
 | Initial JS | <50KB gz | SolidJS runtime, typing engine, main route |
 | CSS | <15KB gz | Tailwind utilities, theme definitions |
-| Results chunk | <30KB gz | Chart library, motion/dom animations (lazy loaded) |
+| Results chunk | <30KB gz | Chart library, motion animations (lazy loaded) |
 | Settings chunk | <20KB gz | Theme picker, config UI (lazy loaded) |
 | Total | <115KB gz | Everything |
 

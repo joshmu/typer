@@ -33,7 +33,7 @@ v1 was built with AngularJS 1.x, Grunt, Bower, and node-webkit — a 2014-era st
 | Framework | SolidJS + Vite + @solidjs/router |
 | Language | TypeScript (strict) |
 | Styling | Tailwind CSS v4 + CSS custom properties for themes |
-| Animation | motion/dom (vanilla) + CSS transitions (caret) |
+| Animation | motion (vanilla `animate` API) + CSS transitions (caret) |
 | State | SolidJS signals + stores (built-in) |
 | Testing | Vitest (unit/component) + Playwright (E2E) |
 | Build | Vite |

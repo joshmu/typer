@@ -18,7 +18,7 @@ Each decision is documented with context, options considered, and rationale.
 | React 19 | 51.4 KB | 1.55 | 14.1ms | Overkill — VDOM overhead |
 | Vue 3 | 22.8 KB | 1.28 | 12.4ms | Acceptable but heavier |
 
-*Benchmark data: krausest/js-framework-benchmark, Chrome 145, Feb 2026*
+Benchmark data: krausest/js-framework-benchmark, Chrome 145, Feb 2026.
 
 **Decision:** SolidJS (without SolidStart)
 
@@ -189,7 +189,7 @@ const [theme, setTheme] = makePersisted(createSignal('dark'), { name: 'typer-the
 
 ---
 
-## 9. Animation: motion/dom + CSS
+## 9. Animation: motion (vanilla API) + CSS
 
 **Context:** Two distinct animation needs — high-frequency caret movement and one-time result reveals.
 
@@ -197,15 +197,15 @@ const [theme, setTheme] = makePersisted(createSignal('dark'), { name: 'typer-the
 |----------|------|-----|
 | Caret movement | CSS `transition` | Lowest latency — no JS in the path, GPU composited |
 | Caret blink | CSS `animation` (step-end) | Pure CSS, zero overhead |
-| Result screen stats | motion/dom (vanilla API) | Stagger, spring physics, number counting |
+| Result screen stats | motion (vanilla `animate` API) | Stagger, spring physics, number counting |
 | Page transitions | View Transitions API | Native browser API, progressive enhancement |
 
 **Rationale:**
 - The caret is on the keystroke hot path — CSS transitions have zero JS overhead
-- motion/dom is the vanilla (framework-agnostic) API from the Motion library — works with SolidJS without a framework-specific wrapper
+- `animate`, `spring` and `stagger` imported from `"motion"` are the vanilla (framework-agnostic) API of the Motion library — works with SolidJS without a framework-specific wrapper
 - ~15 KB gz, MIT licensed
 
-**Why not solid-motionone:** Wraps the old Motion One, not the merged Motion library. Use motion/dom directly.
+**Why not solid-motionone:** Wraps the old Motion One, not the merged Motion library. Use the `"motion"` package's vanilla API directly.
 
 ---
 
