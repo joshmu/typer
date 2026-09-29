@@ -52,9 +52,8 @@ export type GameState = {
 	kills: number;
 	misses: number;
 	hits: number;
-	// monotonic count of completions that CLANGED off plating (shield / armored-
-	// front) — the render layer fires its dull-spark clang only when this
-	// increments, so a same-frame typedCount reset can never lose the feedback
+	// monotonic count of hits that clanged off plating (shield / armored-front).
+	// Render reads SimEvents instead; the field stays because it is hashed.
 	absorbs: number;
 	playerHp: number;
 	targetId: number | null;
@@ -84,8 +83,8 @@ export type GameState = {
 	powerups: PowerupPickup[];
 	nextPowerupId: number;
 	lastPowerupMilestone: number;
-	// monotonic count of powerups actually applied — the render layer pulses its
-	// activation ring only when this increments, so an expiring pickup can't fake it
+	// monotonic count of powerups applied. Render reads SimEvents instead; the
+	// field stays because it is hashed.
 	powerupsUsed: number;
 	// roguelite perk draft (run-only, no meta-progression). `perks` are the owned
 	// perks; `perkOffer` is the 3-card draw shown during "perk-choice" (null when

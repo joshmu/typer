@@ -62,8 +62,6 @@ export function applyPowerup(
 	kind: PowerupKind,
 	out?: SimEvent[],
 ): void {
-	// count the activation so the render layer can pulse its ring on the rise of
-	// this counter alone — never on a pickup merely expiring while locked
 	s.powerupsUsed += 1;
 	out?.push({ type: "powerup", kind });
 	// cryo-mastery stretches the crowd-control windows at APPLICATION time (floored
