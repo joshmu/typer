@@ -76,7 +76,6 @@ export function dealDamage(
 		// retypes it; the chain is untouched.
 		// `shieldHits` was already decremented inside `absorbsCompletion`.
 		e.typedCount = 0;
-		s.absorbs += 1;
 		out?.push({ type: "absorb", id: e.id, x: e.pos.x, y: e.pos.y, typed });
 		return "absorbed";
 	}

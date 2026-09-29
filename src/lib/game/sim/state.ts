@@ -52,9 +52,6 @@ export type GameState = {
 	kills: number;
 	misses: number;
 	hits: number;
-	// monotonic count of hits that clanged off plating (shield / armored-front).
-	// Render reads SimEvents instead; the field stays because it is hashed.
-	absorbs: number;
 	playerHp: number;
 	targetId: number | null;
 	nextEnemyId: number;
@@ -83,9 +80,6 @@ export type GameState = {
 	powerups: PowerupPickup[];
 	nextPowerupId: number;
 	lastPowerupMilestone: number;
-	// monotonic count of powerups applied. Render reads SimEvents instead; the
-	// field stays because it is hashed.
-	powerupsUsed: number;
 	// roguelite perk draft (run-only, no meta-progression). `perks` are the owned
 	// perks; `perkOffer` is the 3-card draw shown during "perk-choice" (null when
 	// no choice is pending). Effect bookkeeping counters live alongside so the sim
@@ -116,7 +110,6 @@ export function createInitialState(seed: number): GameState {
 		kills: 0,
 		misses: 0,
 		hits: 0,
-		absorbs: 0,
 		playerHp: 3,
 		targetId: null,
 		nextEnemyId: 1,
@@ -137,7 +130,6 @@ export function createInitialState(seed: number): GameState {
 		powerups: [],
 		nextPowerupId: 1,
 		lastPowerupMilestone: 0,
-		powerupsUsed: 0,
 		perks: [],
 		perkOffer: null,
 		overclockStreak: 0,

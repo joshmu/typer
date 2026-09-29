@@ -58,7 +58,6 @@ export function applyPowerup(
 	kind: PowerupKind,
 	out?: SimEvent[],
 ): void {
-	s.powerupsUsed += 1;
 	out?.push({ type: "powerup", kind });
 	// cryo-mastery stretches the crowd-control windows at APPLICATION time (floored
 	// so tick counts stay integers and the state hash stays cross-engine stable).
