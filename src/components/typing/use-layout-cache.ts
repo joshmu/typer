@@ -44,8 +44,9 @@ export const domMeasurer: Measurer = {
 /**
  * Maintain a LayoutCache that re-measures the container only when the
  * layout could have changed: on mount, when the words array or its length
- * changes (zen/book append, restart), and when the container resizes
- * (font change, window resize). Cursor-only updates do NOT re-measure.
+ * changes (zen/book append, restart), when `layoutKey` changes (font size),
+ * and when the container resizes (window resize). Cursor-only updates do NOT
+ * re-measure.
  *
  * All measure calls are coalesced through a single requestAnimationFrame
  * so multiple triggers in the same frame produce a single read.
@@ -54,6 +55,7 @@ export function useLayoutCache(
 	containerRef: () => HTMLElement | undefined,
 	wordsAccessor: () => WordState[],
 	measurer: Measurer = domMeasurer,
+	layoutKey: () => unknown = () => undefined,
 ): Accessor<LayoutCache> {
 	const [cache, setCache] = createSignal<LayoutCache>(emptyCache());
 	let rafId: number | null = null;
@@ -78,6 +80,7 @@ export function useLayoutCache(
 
 	createEffect(() => {
 		wordsAccessor().length;
+		layoutKey();
 		scheduleMeasure();
 	});
 

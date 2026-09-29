@@ -148,6 +148,24 @@ describe("useLayoutCache", () => {
 		});
 	});
 
+	it("re-measures when the layout key changes", async () => {
+		await createRoot(async (dispose) => {
+			const container = document.createElement("div");
+			const { measurer, getCalls } = trackingMeasurer();
+			const [words] = createSignal<WordState[]>([createWordState("hi")]);
+			const [fontSize, setFontSize] = createSignal(16);
+
+			useLayoutCache(() => container, words, measurer, fontSize);
+			await flush();
+			const initial = getCalls();
+
+			setFontSize(20);
+			await flush();
+			expect(getCalls()).toBe(initial + 1);
+			dispose();
+		});
+	});
+
 	it("re-measures when the ResizeObserver callback fires", async () => {
 		await createRoot(async (dispose) => {
 			const container = document.createElement("div");
