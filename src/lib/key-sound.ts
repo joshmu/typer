@@ -1,9 +1,11 @@
 /** Plays a click per keystroke; `ok` is false for a wrong key. */
 export interface KeySound {
+	/** Opens the audio ahead of the first key, off the keystroke path. */
+	warm(): void;
 	play(ok: boolean): void;
 }
 
-export const silentKeySound: KeySound = { play() {} };
+export const silentKeySound: KeySound = { warm() {}, play() {} };
 
 const VOLUME = 0.25;
 
@@ -35,9 +37,9 @@ interface Voice {
 }
 
 /**
- * Creates the audio context on the first play and synthesizes both clicks
- * then; each play only starts a buffer source. Audio errors never reach the
- * caller.
+ * Creates the audio context on warm() or the first play, and synthesizes both
+ * clicks then; each play only starts a buffer source. Audio errors never reach
+ * the caller.
  */
 export function createKeySound(
 	createContext: () => AudioContext = () => new AudioContext(),
@@ -45,33 +47,39 @@ export function createKeySound(
 	let voice: Voice | null = null;
 	let failed = false;
 
-	function open(): Voice {
-		const ctx = createContext();
-		const out = ctx.createGain();
-		out.gain.value = VOLUME;
-		out.connect(ctx.destination);
-		return {
-			ctx,
-			out,
-			ok: synthesize(ctx, OK_CLICK),
-			wrong: synthesize(ctx, WRONG_CLICK),
-		};
+	function open(): Voice | null {
+		if (voice || failed) return voice;
+		try {
+			const ctx = createContext();
+			const out = ctx.createGain();
+			out.gain.value = VOLUME;
+			out.connect(ctx.destination);
+			voice = {
+				ctx,
+				out,
+				ok: synthesize(ctx, OK_CLICK),
+				wrong: synthesize(ctx, WRONG_CLICK),
+			};
+		} catch {
+			failed = true;
+		}
+		return voice;
 	}
 
 	return {
+		warm() {
+			open();
+		},
 		play(ok) {
-			if (failed) return;
+			const v = open();
+			if (!v) return;
 			try {
-				voice ??= open();
-				const { ctx } = voice;
-				if (ctx.state === "suspended") ctx.resume().catch(() => {});
-				const source = ctx.createBufferSource();
-				source.buffer = ok ? voice.ok : voice.wrong;
-				source.connect(voice.out);
+				if (v.ctx.state === "suspended") v.ctx.resume().catch(() => {});
+				const source = v.ctx.createBufferSource();
+				source.buffer = ok ? v.ok : v.wrong;
+				source.connect(v.out);
 				source.start();
-			} catch {
-				if (!voice) failed = true;
-			}
+			} catch {}
 		},
 	};
 }

@@ -25,7 +25,10 @@ test.describe("key sound on", { tag: SOUND_TAG }, () => {
 	}) => {
 		await watchKeySound(page, true);
 		await startCustomTest(page);
-		expect((await keySoundRecord(page)).contexts).toBe(0);
+		// warmed on mount, before the first key
+		await expect
+			.poll(async () => (await keySoundRecord(page)).contexts)
+			.toBe(1);
 
 		await page.keyboard.type("tx");
 		await page.keyboard.press("Backspace");

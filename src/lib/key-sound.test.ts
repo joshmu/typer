@@ -66,6 +66,29 @@ describe("createKeySound", () => {
 		expect(create).not.toHaveBeenCalled();
 	});
 
+	it("warm opens the context so a later play creates none", () => {
+		const create = vi.fn(fakeContext);
+		const sound = createKeySound(create);
+		sound.warm();
+		expect(create).toHaveBeenCalledTimes(1);
+		expect(FakeContext.instances[0].buffers).toHaveLength(2);
+
+		sound.warm();
+		sound.play(true);
+		expect(create).toHaveBeenCalledTimes(1);
+		expect(FakeContext.instances[0].sources).toHaveLength(1);
+	});
+
+	it("swallows a warm that cannot create a context", () => {
+		const create = vi.fn(() => {
+			throw new Error("no audio");
+		});
+		const sound = createKeySound(create);
+		expect(() => sound.warm()).not.toThrow();
+		expect(() => sound.play(true)).not.toThrow();
+		expect(create).toHaveBeenCalledTimes(1);
+	});
+
 	it("creates one context and synthesizes the click buffers once", () => {
 		const create = vi.fn(fakeContext);
 		const sound = createKeySound(create);
@@ -146,6 +169,7 @@ describe("keySoundFor", () => {
 		vi.stubGlobal("AudioContext", FakeContext);
 		const sound = keySoundFor(false);
 		expect(sound).toBe(silentKeySound);
+		sound.warm();
 		sound.play(true);
 		expect(FakeContext.instances).toHaveLength(0);
 	});

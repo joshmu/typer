@@ -132,6 +132,8 @@ export default function TypingTest(props: TypingTestProps) {
 
 	onMount(() => {
 		containerRef?.focus();
+		const warm = setTimeout(() => keySound.warm(), 0);
+		onCleanup(() => clearTimeout(warm));
 	});
 
 	onCleanup(() => {

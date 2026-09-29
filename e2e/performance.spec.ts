@@ -81,6 +81,10 @@ async function expectKeystrokesWithinBudget(page: Page, label: string) {
 		p95,
 		`p95 keystroke handler time should be under ${KEYSTROKE_BUDGET_MS}ms`,
 	).toBeLessThan(KEYSTROKE_BUDGET_MS);
+	expect(
+		durations[0],
+		`the first keystroke should be under ${KEYSTROKE_BUDGET_MS}ms`,
+	).toBeLessThan(KEYSTROKE_BUDGET_MS);
 }
 
 test("keydown handler stays within the 16ms frame budget at p95", async ({
