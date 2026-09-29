@@ -115,16 +115,14 @@ export default function TypingTest(props: TypingTestProps) {
 		// Don't prevent browser shortcuts
 		if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-		const typed = key.length === 1 || key === "Backspace";
-		if (typed) e.preventDefault();
+		// Prevent default for typing keys
+		if (key.length === 1 || key === "Backspace") {
+			e.preventDefault();
+		}
 
 		const wasStarted = state.startTime !== null;
-		const char =
-			state.words[state.currentWordIndex]?.characters[state.currentCharIndex];
-		session.key(key, Date.now());
-		if (typed && char) {
-			keySound.play(key === "Backspace" || char.status === "correct");
-		}
+		const outcome = session.key(key, Date.now());
+		if (outcome) keySound.play(outcome !== "incorrect");
 
 		if (!wasStarted && state.startTime !== null && !complete()) {
 			startTimers();

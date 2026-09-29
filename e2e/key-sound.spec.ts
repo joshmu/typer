@@ -40,4 +40,30 @@ test.describe("key sound on", { tag: SOUND_TAG }, () => {
 		expect(back).toBe(ok);
 		expect(okAgain).toBe(ok);
 	});
+
+	test("stop on error word: the key that resets the word clicks as correct", async ({
+		page,
+	}) => {
+		await watchKeySound(page, true, { stopOnError: "word" });
+		await startCustomTest(page);
+
+		await page.keyboard.type("txe ");
+
+		const { clicks } = await keySoundRecord(page);
+		expect(clicks).toHaveLength(4);
+		const [ok, wrong, okAfter, reset] = clicks;
+		expect(wrong).not.toBe(ok);
+		expect(okAfter).toBe(ok);
+		expect(reset).toBe(ok);
+	});
+
+	test("backspace at the very start plays nothing", async ({ page }) => {
+		await watchKeySound(page, true);
+		await startCustomTest(page);
+
+		await page.keyboard.press("Backspace");
+		await page.keyboard.type("t");
+
+		expect((await keySoundRecord(page)).clicks).toHaveLength(1);
+	});
 });
