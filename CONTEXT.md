@@ -7,8 +7,8 @@ Names for the concepts the code is organised around. Use these terms in code, te
 - **Test**: one timed or counted typing attempt in a given mode (time, words, quote, zen, custom, book). It ends exactly once and produces a **Result**.
 - **Typing session**: the module that owns a test from first keystroke to completion: the keystroke fold, the clock, each mode's end rule, and refilling words in continuous modes. UI components wire DOM events into it and render its state.
 - **End rule**: what finishes a test in a given mode. Time mode ends at its time limit, even if no key is pressed. Words and quote modes end on the last word. Zen ends on Esc. Book mode ends on Esc or when the book runs out.
-- **Continuous mode**: a mode whose text is refilled as the user types (zen, book).
-- **Feed**: the source a continuous mode refills from (the word generator, or a Book reader cursor).
+- **Continuous mode**: a mode with no fixed end that the user finishes with Esc (zen, book).
+- **Feed**: the source time, zen and book modes refill from as the user types (the word generator on the chosen word list, or a Book reader cursor).
 
 ## Books
 

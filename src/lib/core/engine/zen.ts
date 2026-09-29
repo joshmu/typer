@@ -4,11 +4,12 @@ import type { TypingState } from "../types";
 const LOOK_AHEAD = 5;
 
 /**
- * Returns true when the user is within LOOK_AHEAD words of the end
- * and the mode is zen or book. Used to trigger dynamic word appending.
+ * Returns true when the user is within LOOK_AHEAD words of the end in a
+ * mode that refills as you type (time, zen, book).
  */
 export function needsMoreWords(state: TypingState): boolean {
-	if (state.mode.type !== "zen" && state.mode.type !== "book") return false;
+	const { type } = state.mode;
+	if (type !== "time" && type !== "zen" && type !== "book") return false;
 	return state.words.length - state.currentWordIndex <= LOOK_AHEAD;
 }
 

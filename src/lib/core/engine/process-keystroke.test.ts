@@ -108,6 +108,17 @@ describe("processKeystroke", () => {
 			expect(next).toEqual(state);
 		});
 
+		it("does not end time mode on the last word", () => {
+			let state = createTypingState("ab", {
+				mode: { type: "time", seconds: 30 },
+			});
+			state = processKeystroke(state, "a", 1000);
+			state = processKeystroke(state, "b", 1001);
+
+			expect(state.endTime).toBeNull();
+			expect(state.currentCharIndex).toBe(2);
+		});
+
 		it("sets endTime when last character is typed", () => {
 			let state = createTypingState("ab");
 			state = processKeystroke(state, "a", 1000);

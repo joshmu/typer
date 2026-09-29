@@ -35,6 +35,12 @@ describe("needsMoreWords", () => {
 		expect(needsMoreWords(state)).toBe(true);
 	});
 
+	it("returns true for time mode", () => {
+		const state = createZenState("a b c", 2);
+		state.mode = { type: "time", seconds: 30 };
+		expect(needsMoreWords(state)).toBe(true);
+	});
+
 	it("returns false for non-zen modes", () => {
 		const state = createZenState("a b c", 2);
 		state.mode = { type: "custom" };

@@ -76,6 +76,30 @@ describe("time mode", () => {
 		expect(onComplete).toHaveBeenCalledTimes(1);
 	});
 
+	it("refills past the initial words and ends exactly at the deadline", () => {
+		const feed = listFeed(Array.from({ length: 40 }, () => "ab"));
+		const { state, session, onComplete, type } = setup("ab cd", time30, feed);
+		type("ab cd ");
+		type("ab ".repeat(10), 2000);
+		expect(state.currentWordIndex).toBe(12);
+		expect(onComplete).not.toHaveBeenCalled();
+
+		session.tick(31_000);
+		expect(onComplete).toHaveBeenCalledTimes(1);
+		expect(state.endTime).toBe(31_000);
+	});
+
+	it("waits for its limit when the words run out", () => {
+		const { state, session, onComplete, type } = setup("ab cd", time30);
+		type("ab cd");
+		expect(onComplete).not.toHaveBeenCalled();
+		expect(state.endTime).toBeNull();
+
+		session.tick(31_000);
+		expect(onComplete).toHaveBeenCalledTimes(1);
+		expect(state.endTime).toBe(31_000);
+	});
+
 	it("does not end before the first key", () => {
 		const { session, onComplete } = setup("ab cd", time30);
 		session.tick(1_000_000);
@@ -160,16 +184,6 @@ describe("onComplete fires exactly once", () => {
 		session.key("Escape", 2000);
 		session.key("Escape", 2001);
 		session.key("b", 2002);
-		session.tick(1_000_000);
-		expect(onComplete).toHaveBeenCalledTimes(1);
-	});
-
-	it("does not fire twice when time runs out after the last word", () => {
-		const { session, onComplete, type } = setup("ab", {
-			type: "time",
-			seconds: 15,
-		});
-		type("ab");
 		session.tick(1_000_000);
 		expect(onComplete).toHaveBeenCalledTimes(1);
 	});

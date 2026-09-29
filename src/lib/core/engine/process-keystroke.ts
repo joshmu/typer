@@ -115,10 +115,11 @@ function advanceCursor(state: TypingState, timestamp: number): void {
 
 	currentWord.isActive = false;
 
-	// Last word complete: end test
+	// Last word complete: end the test, except time mode, which ends only at
+	// its limit
 	if (currentWordIndex >= words.length - 1) {
 		state.currentCharIndex = nextCharIndex;
-		state.endTime = timestamp;
+		if (state.mode.type !== "time") state.endTime = timestamp;
 		return;
 	}
 

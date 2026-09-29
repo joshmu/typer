@@ -5,7 +5,6 @@ import {
 	createTypingSession,
 	initTypingState,
 } from "@/lib/core/engine/typing-session";
-import { generateWords } from "@/lib/core/text/words";
 import type {
 	Feed,
 	StopOnError,
@@ -24,11 +23,6 @@ interface TypingTestProps {
 	/** Source the test refills from */
 	feed?: Feed;
 }
-
-const wordFeed: Feed = {
-	next: (count) => generateWords(count),
-	exhausted: false,
-};
 
 export default function TypingTest(props: TypingTestProps) {
 	const [state, setState] = createStore<TypingState>(
@@ -63,7 +57,7 @@ export default function TypingTest(props: TypingTestProps) {
 
 	const session = createTypingSession({
 		state,
-		feed: state.mode.type === "book" ? props.feed : wordFeed,
+		feed: props.feed,
 		write: (mutate) => setState(produce(mutate)),
 		onComplete: (s) => {
 			stopTimers();
