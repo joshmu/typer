@@ -401,3 +401,7 @@ export function getArchetype(id: string): EnemyArchetype {
 	if (!found) throw new Error(`Unknown enemy archetype: ${id}`);
 	return found;
 }
+
+export function isBoss(e: { archetypeId: string }): boolean {
+	return getArchetype(e.archetypeId).role === "boss";
+}

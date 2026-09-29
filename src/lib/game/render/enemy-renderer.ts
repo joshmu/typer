@@ -8,7 +8,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Sprite } from "@babylonjs/core/Sprites/sprite";
 import type { SpriteManager } from "@babylonjs/core/Sprites/spriteManager";
 import type { Scene } from "@babylonjs/core/scene";
-import { getArchetype } from "../content/enemies";
+import { getArchetype, isBoss } from "../content/enemies";
 import { isCloaked } from "../sim/abilities";
 import type { GameState } from "../sim/state";
 import { drawStackedLabel } from "./label";
@@ -88,8 +88,8 @@ export function createEnemyRenderer(
 	function create(id: number, archetypeId: string): EnemyVisual {
 		const arch = getArchetype(archetypeId);
 		const family = archetypeId.split("-")[0];
-		const isBoss = arch.role === "boss";
-		const cells = isBoss ? walkCells("boss") : walkCells(family);
+		const boss = isBoss({ archetypeId });
+		const cells = boss ? walkCells("boss") : walkCells(family);
 
 		const sprite = new Sprite(`enemy-${id}`, manager);
 		sprite.cellIndex = cells[0];
@@ -125,7 +125,7 @@ export function createEnemyRenderer(
 		glow.addExcludedMesh(label); // word plates stay crisp, never bloomed
 
 		const baseSize = arch.size * ENEMY_SPRITE_SCALE;
-		const renderSize = baseSize * (isBoss ? BOSS_SCALE : 1);
+		const renderSize = baseSize * (boss ? BOSS_SCALE : 1);
 		return {
 			sprite,
 			cells,
@@ -140,7 +140,7 @@ export function createEnemyRenderer(
 			baseSize,
 			labelUp: renderSize / 2 + LABEL_GAP + LABEL_PLATE_HALF + LABEL_ROW_DROP,
 			phase: idPhase(id),
-			isBoss,
+			isBoss: boss,
 		};
 	}
 
