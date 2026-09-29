@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { SimEvent } from "./events";
 import {
+	eventsHash,
 	type InputLog,
 	type LoggedEvent,
 	runReplay,
@@ -102,8 +103,10 @@ describe("replay", () => {
 
 	it("matches the golden fixture hash", async () => {
 		const fixture = await import("./__fixtures__/replay-first-kill.json");
-		const result = runReplay(fixture.log as InputLog);
+		const events: SimEvent[] = [];
+		const result = runReplay(fixture.log as InputLog, events);
 		expect(stateHash(result)).toBe(fixture.expectedHash);
+		expect(eventsHash(events)).toBe(fixture.expectedEventsHash);
 		expect(result.kills).toBe(fixture.expectedKills);
 	});
 
@@ -125,8 +128,10 @@ describe("replay", () => {
 
 	it("matches the deep-run golden fixture", async () => {
 		const fixture = await import("./__fixtures__/replay-deep-run.json");
-		const result = runReplay(fixture.log as InputLog);
+		const events: SimEvent[] = [];
+		const result = runReplay(fixture.log as InputLog, events);
 		expect(stateHash(result)).toBe(fixture.expectedHash);
+		expect(eventsHash(events)).toBe(fixture.expectedEventsHash);
 		expect(result.wave).toBe(fixture.expectedWave);
 	});
 
@@ -135,10 +140,12 @@ describe("replay", () => {
 	it("[record] regenerate golden fixture", () => {
 		if (!process.env.RECORD_FIXTURE) return;
 		const log = buildFirstKillLog(42);
-		const result = runReplay(log);
+		const events: SimEvent[] = [];
+		const result = runReplay(log, events);
 		const fixture = {
 			log,
 			expectedHash: stateHash(result),
+			expectedEventsHash: eventsHash(events),
 			expectedKills: result.kills,
 		};
 		writeFileSync(
@@ -150,10 +157,12 @@ describe("replay", () => {
 	it("[record] regenerate deep-run fixture", () => {
 		if (!process.env.RECORD_FIXTURE) return;
 		const log = buildDeepRunLog(42);
-		const result = runReplay(log);
+		const events: SimEvent[] = [];
+		const result = runReplay(log, events);
 		const fixture = {
 			log,
 			expectedHash: stateHash(result),
+			expectedEventsHash: eventsHash(events),
 			expectedWave: result.wave,
 		};
 		writeFileSync(
