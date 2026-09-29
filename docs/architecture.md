@@ -25,7 +25,7 @@ typer/
   vite.config.ts
 ```
 
-No monorepo. Flat structure with path aliases (`@/` → `src/`). The typing engine lives in `src/lib/core/` as pure TypeScript with zero framework imports.
+No monorepo. Flat structure with path aliases (`@/` → `src/`). The typing engine lives in `src/lib/core/` as TypeScript with zero framework imports.
 
 ## Why SolidJS
 
@@ -125,20 +125,33 @@ interface TestConfig {
 }
 ```
 
-### Engine Functions (pure, testable)
+### Engine Functions (framework-free, testable)
 
 ```typescript
-// All pure functions — easy to test with Vitest
-function processKeystroke(state: TypingState, key: string): TypingState
+// No Solid, no DOM, deterministic: time only arrives as arguments
+function applyKeystroke(state: TypingState, key: string, now: number): void // mutates a draft in place
+function processKeystroke(state: TypingState, key: string, now: number): TypingState // pure clone-then-apply
 function calculateWPM(chars: CharacterState[], elapsedMs: number): number
 function calculateAccuracy(chars: CharacterState[]): number
 function calculateConsistency(perSecondWPM: number[]): number
-function isTestComplete(state: TypingState): boolean
 ```
+
+### Typing Session
+
+`createTypingSession({ state, feed, write, onComplete })` (src/lib/core/engine/typing-session.ts) owns a test from first key to completion: the keystroke fold, each mode's end rule and refilling from the feed. It exposes `key(k, now)`, `tick(now)`, `deadline()` and `complete`, and calls `onComplete` exactly once.
+
+| Mode | End rule |
+|---|---|
+| time | at `startTime + seconds`, via `tick`; refills from the word feed, so the last word never ends it |
+| words, quote, custom | on the last word |
+| zen | on Esc once started; refills from the word feed |
+| book | on Esc once started, or on the last word once the Book reader cursor runs out |
+
+Every state change goes through the injected `write(mutate)` port. Engine functions mutate only the draft they are given, touching the current char, its word and the cursor, so a store applies each keystroke path-scoped.
 
 ### Character Matching — Diacritics Support
 
-`processKeystroke` uses `isCharMatch()` (src/lib/core/text/char-match.ts) instead of strict `===` for character comparison. This enables typing base characters to match accented book text:
+`applyKeystroke` uses `isCharMatch()` (src/lib/core/text/char-match.ts) instead of strict `===` for character comparison. This enables typing base characters to match accented book text:
 
 ```typescript
 // Unicode NFD decomposition: "ž" → "z" + combining caron → base "z"
@@ -156,25 +169,23 @@ This is critical for book mode where Standard Ebooks texts contain diacritics th
 
 ## Reactive UI Layer
 
-The Solid components wrap the pure engine:
+The Solid components wrap the engine. `TypingTest` keeps only DOM wiring: it hands keys to the session and arms a `setTimeout` to the time deadline that calls `tick`.
 
 ```typescript
-const [state, setState] = createStore<TypingState>(initialState);
+const [state, setState] = createStore<TypingState>(initTypingState(text, mode, stopOnError));
 
-const wpm = createMemo(() =>
-  calculateWPM(state.characters, elapsed())
-);
+const session = createTypingSession({
+  state,
+  feed,
+  // produce applies the engine's in-place writes path-scoped: no words-array replacement
+  write: (mutate) => setState(produce(mutate)),
+  onComplete,
+});
 
-const accuracy = createMemo(() =>
-  calculateAccuracy(state.characters)
-);
-
-// Keydown handler — the hot path
+// Keydown handler: the hot path
 function handleKeydown(e: KeyboardEvent) {
-  if (shouldIgnoreKey(e)) return;
   e.preventDefault();
-
-  setState(processKeystroke(state, e.key));
+  session.key(e.key, Date.now());
 }
 ```
 
