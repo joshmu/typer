@@ -1,6 +1,7 @@
 import { useNavigate } from "@solidjs/router";
 import { createEffect, For, onMount, Show } from "solid-js";
 import type { TestMode } from "@/lib/core/types";
+import { isTypingActive } from "@/lib/typing-focus";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
 
 const wordListOptions = ["200", "1k", "5k"] as const;
@@ -51,7 +52,12 @@ export default function ModeSelector(props: ModeSelectorProps) {
 	});
 
 	return (
-		<div class="flex flex-col items-center gap-3 mb-8">
+		<div
+			data-testid="mode-selector"
+			class="flex flex-col items-center gap-3 mb-8 transition-opacity duration-500"
+			classList={{ "opacity-0 pointer-events-none": isTypingActive() }}
+			inert={isTypingActive()}
+		>
 			{/* Mode type tabs */}
 			<div
 				ref={containerRef}
