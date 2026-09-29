@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import Dexie, { liveQuery } from "dexie";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type GameRun, TyperDB, type TypingResult } from "./db";
 
 function createResult(overrides?: Partial<TypingResult>): TypingResult {
@@ -109,11 +109,11 @@ describe("TyperDB", () => {
 			next: (results) => emissions.push([...results]),
 		});
 
-		await new Promise((r) => setTimeout(r, 50));
+		await vi.waitFor(() => expect(emissions.length).toBeGreaterThan(0));
 
 		await db.results.add(createResult({ wpm: 150 }));
 
-		await new Promise((r) => setTimeout(r, 50));
+		await vi.waitFor(() => expect(emissions.at(-1)).toHaveLength(1));
 
 		subscription.unsubscribe();
 
