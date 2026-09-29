@@ -60,9 +60,9 @@ export function pickLetter(
  * Draw a chain of `count` band words for an enemy's word list. Every word obeys
  * the field-uniqueness reservation (`excludeInitials`) so both the fresh enemy's
  * acquiring keystroke and its previewed queued words stay unambiguous against the
- * rest of the field at spawn time; the sim redraws each word again (against the
- * then-current field) when the enemy actually advances onto it. Threads the rng
- * deterministically.
+ * rest of the field at spawn time. When the enemy later advances onto a word,
+ * the sim redraws it only if its initial collides with the then-current field.
+ * Threads the rng deterministically.
  */
 export function pickWordChain(
 	tier: Tier,
