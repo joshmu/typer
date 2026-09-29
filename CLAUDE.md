@@ -62,7 +62,7 @@ e2e/                  # Playwright tests
 
 ### Key Architecture Rules
 
-- **Typing engine (`src/lib/core/`) is pure TypeScript** — no SolidJS imports, no DOM. All engine functions are pure and testable with Vitest alone.
+- **Typing engine (`src/lib/core/`) is pure TypeScript** — no SolidJS imports, no DOM. Engine functions are deterministic and testable with Vitest alone; hot-path functions (`applyKeystroke`, `appendWords`) mutate the draft they are given so the UI can apply keystrokes path-scoped. The **Typing session** (`src/lib/core/engine/typing-session.ts`) owns each mode's end rule, the clock and refills.
 - **O(1) keystroke processing** — cursor-based, not broadcast. Only the current character's DOM node updates per keystroke.
 - **Word-level rendering** — render `<span>` per word, update character CSS classes imperatively. Do NOT create a reactive component per character.
 - **Caret positions pre-computed at render time** — never read `offsetLeft`/`offsetTop` during keystroke handling.
