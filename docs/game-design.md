@@ -313,9 +313,11 @@ sampled NEAREST so pixels stay crisp. Key pieces:
   a powerup activation pulse (`ringPulse()`) and a red danger perimeter that flares
   as the horde presses within 6 units. Exposes `getMuzzle()` for shot origins.
 - **Projectile tracers + muzzle flash + gibs** (`effects.ts`): pooled emissive
-  beams; the loop diffs each enemy's `typedCount`/`hp` per frame to fire a thin bolt
-  on a keystroke, a heavier bolt + flash on a completion/kill, and a dull spark on a
-  shield/armored **clang** (a `typedCount` drop with no hp loss). The death burst is
+  beams driven by the frame's sim events (`frame-effects.ts`). Only typed events
+  fire, **one tracer per enemy per frame** (the heaviest: a thin bolt for a
+  keystroke, a heavier bolt + flash for damage or a kill, a clang bolt for a typed
+  absorb). A non-typed absorb (weapon-perk damage a shield or armor shrugs off)
+  draws a dull **spark** at that enemy instead. The death burst is
   **chunky opaque pixel gibs** (a hard NEAREST square, family-coloured) plus the
   screen shake.
 - **Sprite enemies** (`enemy-renderer.ts`): a `Sprite` per enemy — `angle =
