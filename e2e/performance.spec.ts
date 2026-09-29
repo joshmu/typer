@@ -1,16 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
-import type { GameState } from "../src/lib/game/sim/state";
 import { keySoundRecord, SOUND_TAG, watchKeySound } from "./fixtures/key-sound";
 
 declare global {
 	interface Window {
 		__keyDurations?: number[];
-		__game?: {
-			getState(): GameState;
-			sendKeys(keys: string): void;
-			stepTicks(n: number): void;
-			renderReady(): boolean;
-		};
 	}
 }
 
