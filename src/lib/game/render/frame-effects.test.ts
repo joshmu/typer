@@ -27,11 +27,11 @@ function run(events: SimEvent[]): string[] {
 describe("dispatchEffects", () => {
 	it("a typed keystroke fires a light shot; a typed chip a heavy one", () => {
 		expect(
-			run([
-				{ type: "hit", id: 1, x: 1, y: 2, typed: true, damaged: false },
-				{ type: "hit", id: 1, x: 1, y: 2, typed: true, damaged: true },
-			]),
-		).toEqual(["shot 1,2 light", "shot 1,2 heavy"]);
+			run([{ type: "hit", id: 1, x: 1, y: 2, typed: true, damaged: false }]),
+		).toEqual(["shot 1,2 light"]);
+		expect(
+			run([{ type: "hit", id: 1, x: 1, y: 2, typed: true, damaged: true }]),
+		).toEqual(["shot 1,2 heavy"]);
 	});
 
 	it("never fires a shot for non-typed damage", () => {
@@ -63,6 +63,46 @@ describe("dispatchEffects", () => {
 		expect(run([{ type: "absorb", id: 3, x: 5, y: 6, typed: false }])).toEqual([
 			"spark 5,6",
 		]);
+	});
+
+	it("two typed hits on one enemy in one frame fire one tracer, the heaviest", () => {
+		expect(
+			run([
+				{ type: "hit", id: 1, x: 1, y: 2, typed: true, damaged: true },
+				{ type: "hit", id: 1, x: 1, y: 3, typed: true, damaged: true },
+			]),
+		).toEqual(["shot 1,3 heavy"]);
+		expect(
+			run([
+				{ type: "hit", id: 1, x: 1, y: 2, typed: true, damaged: true },
+				{ type: "absorb", id: 1, x: 1, y: 2, typed: true },
+			]),
+		).toEqual(["shot 1,2 heavy"]);
+	});
+
+	it("a typed chip then kill on one enemy fires one shot before the kill", () => {
+		expect(
+			run([
+				{ type: "hit", id: 1, x: 1, y: 2, typed: true, damaged: true },
+				{
+					type: "kill",
+					id: 1,
+					x: 1,
+					y: 3,
+					archetypeId: "husk-1",
+					cause: "typed",
+				},
+			]),
+		).toEqual(["shot 1,3 heavy", "kill 1 1,3 husk-1"]);
+	});
+
+	it("typed shots on different enemies in one frame each fire", () => {
+		expect(
+			run([
+				{ type: "hit", id: 1, x: 1, y: 1, typed: true, damaged: true },
+				{ type: "hit", id: 2, x: 2, y: 2, typed: true, damaged: false },
+			]),
+		).toEqual(["shot 1,1 heavy", "shot 2,2 light"]);
 	});
 
 	it("a typed kill fires a heavy shot at the victim before the kill", () => {
