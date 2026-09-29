@@ -45,7 +45,7 @@
 - [x] 3.5: Zen mode
 - [x] 3.6: Test mode selector UI
 - [x] 3.7: Caret style settings
-- [ ] 3.8: Sound on keypress (removed until a hot-path-safe design lands, see #106)
+- [x] 3.8: Sound on keypress (Key sound toggle, off by default; clicks synthesized once into buffers, see #106)
 - [x] 3.9: Settings page
 - [x] 3.10: Live WPM display toggle
 
