@@ -85,3 +85,9 @@ test("font size resizes the text and the caret stays on the next character", asy
 		})
 		.toEqual({ left: 0, top: 0 });
 });
+
+test("settings has no sound toggle", async ({ page }) => {
+	await page.goto("/settings");
+	await expect(page.getByRole("button", { name: "Live WPM" })).toBeVisible();
+	await expect(page.getByText("Sound on keypress")).toHaveCount(0);
+});
