@@ -1,5 +1,10 @@
 import type { PersonalBestOutcome } from "@/lib/core/calc";
-import { monotonePath, wpmScale } from "./chart-scale";
+import {
+	monotonePath,
+	movingAverage,
+	smoothingWindow,
+	wpmScale,
+} from "./chart-scale";
 
 export interface ShareCardData {
 	wpm: number;
@@ -44,23 +49,51 @@ function readPalette(): Palette {
 
 let scratch: CanvasRenderingContext2D | null = null;
 
-/** A theme colour at an alpha, whatever CSS colour syntax it uses. */
-function alpha(colour: string, a: number): string {
+/** A CSS colour as [r, g, b], whatever syntax the theme uses. */
+function toRgb(colour: string): number[] {
 	scratch ??= document.createElement("canvas").getContext("2d");
-	if (!scratch) return colour;
+	if (!scratch) return [0, 0, 0];
 	scratch.fillStyle = "#000";
 	scratch.fillStyle = colour;
 	const resolved = String(scratch.fillStyle);
-	let rgb: number[];
 	if (resolved.startsWith("#")) {
 		const hex = resolved.slice(1);
-		rgb = [0, 2, 4].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
-	} else {
-		rgb = (resolved.match(/[\d.]+/g) ?? ["0", "0", "0"])
-			.slice(0, 3)
-			.map(Number);
+		return [0, 2, 4].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
 	}
-	return `rgba(${rgb.join(", ")}, ${a})`;
+	return (resolved.match(/[\d.]+/g) ?? ["0", "0", "0"]).slice(0, 3).map(Number);
+}
+
+/** A theme colour at an alpha. */
+function alpha(colour: string, a: number): string {
+	return `rgba(${toRgb(colour).join(", ")}, ${a})`;
+}
+
+function luminance(rgb: number[]): number {
+	const [r, g, b] = rgb.map((v) => {
+		const c = v / 255;
+		return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+	});
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a: number[], b: number[]): number {
+	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+	return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * The accent as drawn on the card's background: moved towards the theme's
+ * text colour until it reaches large-text contrast (3:1).
+ */
+function readableAccent(p: Palette): string {
+	const fg = toRgb(p.primary);
+	const bg = toRgb(p.bg);
+	const text = toRgb(p.text);
+	for (let step = 0; step <= 10; step++) {
+		const mixed = fg.map((v, i) => Math.round(v + ((text[i] - v) * step) / 10));
+		if (contrast(mixed, bg) >= 3) return `rgb(${mixed.join(", ")})`;
+	}
+	return p.text;
 }
 
 async function loadFonts(): Promise<void> {
@@ -127,6 +160,7 @@ function pbLabel(pb: PersonalBestOutcome | null): string | null {
 function drawChart(
 	ctx: CanvasRenderingContext2D,
 	p: Palette,
+	accent: string,
 	data: ShareCardData,
 	box: { x: number; y: number; w: number; h: number },
 ): void {
@@ -147,7 +181,8 @@ function drawChart(
 		ctx.stroke();
 	}
 
-	const wpmPts = data.wpmPerSecond.map((v, i) => [x(i), y(v)] as const);
+	const smoothed = movingAverage(data.wpmPerSecond, smoothingWindow(n));
+	const wpmPts = smoothed.map((v, i) => [x(i), y(v)] as const);
 	const line = new Path2D(monotonePath(wpmPts));
 
 	const area = new Path2D(
@@ -174,13 +209,13 @@ function drawChart(
 	ctx.save();
 	ctx.shadowColor = alpha(p.primary, 0.6);
 	ctx.shadowBlur = 18;
-	ctx.strokeStyle = p.primary;
+	ctx.strokeStyle = accent;
 	ctx.lineWidth = 5;
 	ctx.stroke(line);
 	ctx.restore();
 
 	const [ex, ey] = wpmPts[n - 1];
-	ctx.fillStyle = p.primary;
+	ctx.fillStyle = accent;
 	ctx.strokeStyle = p.bg;
 	ctx.lineWidth = 4;
 	ctx.beginPath();
@@ -193,6 +228,7 @@ function drawChart(
 export async function renderShareCard(data: ShareCardData): Promise<Blob> {
 	await loadFonts();
 	const p = readPalette();
+	const accent = readableAccent(p);
 	const canvas = document.createElement("canvas");
 	canvas.width = W;
 	canvas.height = H;
@@ -209,9 +245,9 @@ export async function renderShareCard(data: ShareCardData): Promise<Blob> {
 
 	ctx.textBaseline = "alphabetic";
 	ctx.font = `500 30px ${DISPLAY}`;
-	ctx.fillStyle = p.primary;
+	ctx.fillStyle = accent;
 	spaced(ctx, "TYPER", M, 104, 6);
-	ctx.fillStyle = alpha(p.primary, 0.5);
+	ctx.fillStyle = alpha(accent, 0.5);
 	ctx.fillText("_", M + ctx.measureText("TYPER").width + 30, 104);
 
 	ctx.font = `500 22px ${MONO}`;
@@ -224,7 +260,7 @@ export async function renderShareCard(data: ShareCardData): Promise<Blob> {
 	spaced(ctx, "WPM", M, 196, 6);
 	ctx.save();
 	ctx.font = `700 196px ${DISPLAY}`;
-	ctx.fillStyle = afk ? p.textSub : p.primary;
+	ctx.fillStyle = afk ? p.textSub : accent;
 	if (!afk) {
 		ctx.shadowColor = alpha(p.primary, 0.35);
 		ctx.shadowBlur = 48;
@@ -241,12 +277,12 @@ export async function renderShareCard(data: ShareCardData): Promise<Blob> {
 			M,
 			392,
 			label,
-			isNew ? p.primary : p.textSub,
+			isNew ? accent : p.textSub,
 			isNew ? alpha(p.primary, 0.16) : alpha(p.textSub, 0.16),
 		);
 	}
 
-	drawChart(ctx, p, data, { x: 560, y: 160, w: W - M - 560, h: 260 });
+	drawChart(ctx, p, accent, data, { x: 560, y: 160, w: W - M - 560, h: 260 });
 
 	ctx.strokeStyle = alpha(p.textSub, 0.25);
 	ctx.lineWidth = 1;
