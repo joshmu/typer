@@ -66,6 +66,38 @@ describe("parseCatalogPage", () => {
 });
 
 describe("parseChapterList", () => {
+	// A collection (Ring Lardner's Short Fiction): one file per story, no chapter-N.
+	const collectionToc = `<nav id="toc"><ol>
+<li><a href="text/titlepage">Titlepage</a></li>
+<li><a href="text/imprint">Imprint</a></li>
+<li><a href="text/my-roomy">My Roomy</a><ol>
+<li><a href="text/my-roomy#my-roomy-1">I</a></li>
+<li><a href="text/my-roomy#my-roomy-2">II</a></li></ol></li>
+<li><a href="text/sick-em">Sick 'Em</a></li>
+<li><a href="text/haircut">Haircut</a></li>
+<li><a href="text/endnotes">Endnotes</a></li>
+<li><a href="text/colophon">Colophon</a></li>
+<li><a href="text/uncopyright">Uncopyright</a></li>
+</ol></nav>`;
+
+	it("reads a collection's story files when there are no chapter files", () => {
+		expect(parseChapterList(collectionToc)).toEqual([
+			"my-roomy",
+			"sick-em",
+			"haircut",
+		]);
+	});
+
+	it("keeps only chapter files when a book has them", () => {
+		const toc = `<a href="text/preface">Preface</a><a href="text/chapter-1">I</a><a href="text/chapter-2">II</a>`;
+		expect(parseChapterList(toc)).toEqual(["chapter-1", "chapter-2"]);
+	});
+
+	it("finds nothing in a table of contents with only front and back matter", () => {
+		const toc = `<a href="text/titlepage">T</a><a href="text/colophon">C</a>`;
+		expect(parseChapterList(toc)).toEqual([]);
+	});
+
 	it("extracts chapter filenames from book TOC", () => {
 		const xhtml = loadFixture("book-toc.xhtml");
 		const chapters = parseChapterList(xhtml);

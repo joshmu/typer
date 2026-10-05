@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures/se-stub";
 
 test("full typing flow: paste text → type → see results", async ({ page }) => {
 	await page.goto("/");

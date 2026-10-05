@@ -1,5 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { keySoundRecord, SOUND_TAG, watchKeySound } from "./fixtures/key-sound";
+import { expect, test } from "./fixtures/se-stub";
 
 // Counts Word remounts and layout re-measures per keystroke from the outside:
 // a MutationObserver on the word container and wrappers around the layout

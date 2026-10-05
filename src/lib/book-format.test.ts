@@ -4,6 +4,7 @@ import {
 	chapterLabel,
 	coverToneBackground,
 	DEFAULT_WPM,
+	formatAge,
 	formatDuration,
 	pickTypingPace,
 	typingMinutes,
@@ -147,5 +148,22 @@ describe("chapterFills", () => {
 
 	it("treats an empty chapter before the cursor as read", () => {
 		expect(chapterFills([0, 10], 1, 0)).toEqual([1, 0]);
+	});
+});
+
+describe("formatAge", () => {
+	const now = 1_000_000_000_000;
+	const ago = (ms: number) => formatAge(now - ms, now);
+
+	it("says just now under a minute", () => {
+		expect(ago(30_000)).toBe("just now");
+	});
+
+	it("uses the largest whole unit", () => {
+		expect(ago(60_000)).toBe("1 minute ago");
+		expect(ago(5 * 60_000)).toBe("5 minutes ago");
+		expect(ago(3 * 3_600_000)).toBe("3 hours ago");
+		expect(ago(24 * 3_600_000)).toBe("yesterday");
+		expect(ago(4 * 86_400_000)).toBe("4 days ago");
 	});
 });
