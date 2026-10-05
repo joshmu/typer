@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { applyKeystroke } from "../engine/process-keystroke";
 import type { TestMode, TypingState } from "../types";
 import { createTypingState } from "../types/test-fixtures";
 import { AFK_WINDOW_MS, isAfk } from "./afk";
@@ -22,6 +23,7 @@ function finished(
 		t.timestamp = START;
 		h.status = "correct";
 		h.timestamp = START + lastKeyMs;
+		state.activity.lastAt = START + lastKeyMs;
 	}
 	return state;
 }
@@ -57,6 +59,20 @@ describe("isAfk", () => {
 		] as TestMode[]) {
 			expect(isAfk(finished(mode, 15_000, 1_000))).toBe(false);
 		}
+	});
+
+	it("passes a time test whose last keys were erased", () => {
+		const state = createTypingState("the cat", { mode: TIME_15 });
+		let t = START;
+		for (const key of ["t", "h", "e", " ", "c", "x"]) {
+			applyKeystroke(state, key, t);
+			t += 200;
+		}
+		applyKeystroke(state, "Backspace", START + 14_000);
+		applyKeystroke(state, "x", START + 14_500);
+		applyKeystroke(state, "Backspace", START + 14_700);
+		state.endTime = START + 15_000;
+		expect(isAfk(state)).toBe(false);
 	});
 
 	it("does not flag a test that never started", () => {

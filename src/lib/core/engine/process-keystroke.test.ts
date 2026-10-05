@@ -454,3 +454,37 @@ describe("keystroke counts", () => {
 		expect(state.keystrokes.correct).toBe(0);
 	});
 });
+
+describe("key activity", () => {
+	it("starts with no character key", () => {
+		expect(createTypingState("ab").activity.lastAt).toBeNull();
+	});
+
+	it("keeps the last character key's time when Backspace erases it", () => {
+		const state = createTypingState("ab cd");
+		applyKeystroke(state, "a", 1000);
+		applyKeystroke(state, "x", 1500);
+		applyKeystroke(state, "Backspace", 1700);
+		applyKeystroke(state, "Shift", 1800);
+		expect(state.activity.lastAt).toBe(1500);
+	});
+
+	it("keeps it through a stop on error word reset", () => {
+		const state = createTypingState("ab cd");
+		state.config.stopOnError = "word";
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "b", 1001);
+		applyKeystroke(state, " ", 1002);
+		expect(state.words[0].characters.every((c) => c.timestamp === null)).toBe(
+			true,
+		);
+		expect(state.activity.lastAt).toBe(1002);
+	});
+
+	it("leaves the input activity untouched in the pure form", () => {
+		const state = createTypingState("ab");
+		const next = processKeystroke(state, "a", 1000);
+		expect(next.activity.lastAt).toBe(1000);
+		expect(state.activity.lastAt).toBeNull();
+	});
+});

@@ -44,6 +44,7 @@ export function processKeystroke(
 	const next: TypingState = {
 		...state,
 		keystrokes: { ...state.keystrokes },
+		activity: { ...state.activity },
 		words: state.words.map((w) => ({
 			...w,
 			characters: w.characters.map((c) => ({ ...c })),
@@ -82,6 +83,7 @@ export function applyKeystroke(
 		char.mistakeCount++;
 	}
 	if (state.startTime === null) state.startTime = timestamp;
+	state.activity.lastAt = timestamp;
 
 	// Letter mode: block cursor on incorrect unless auto-advance threshold reached
 	if (

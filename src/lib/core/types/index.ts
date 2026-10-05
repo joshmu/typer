@@ -38,6 +38,12 @@ export interface TestConfig {
 	stopOnError: StopOnError;
 }
 
+/** When character keys landed, kept when their characters are erased. */
+export interface KeyActivity {
+	/** Time of the last character key, null before the first. */
+	lastAt: number | null;
+}
+
 /** Character keys pressed this test, kept even when later corrected. */
 export interface KeystrokeCounts {
 	correct: number;
@@ -52,6 +58,7 @@ export interface TypingState {
 	startTime: number | null;
 	endTime: number | null;
 	keystrokes: KeystrokeCounts;
+	activity: KeyActivity;
 	mode: TestMode;
 	config: TestConfig;
 }
