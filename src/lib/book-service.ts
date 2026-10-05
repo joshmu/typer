@@ -14,6 +14,7 @@ import {
 	BookCacheError,
 	BookNotFoundError,
 	BookServiceError,
+	BookUnsupportedError,
 	NetworkError,
 } from "./core/types/errors";
 import { db } from "./db";
@@ -181,9 +182,14 @@ export async function fetchAndCacheBook(bookId: string): Promise<CachedBook> {
 
 	const meta = await loadBookDetail(bookId);
 	if (meta.chapters.length === 0) {
-		// No chapter list (it failed or timed out): nothing to type, and an
-		// empty book must not be cached.
-		throw new BookServiceError("fetch chapter list", 0);
+		// The chapter list failed earlier, or had nothing to type. Ask again:
+		// a failure throws its own (retryable) error, an empty list is final.
+		const toc = await fetchText(`${SE_BASE}/${bookId}/text`, {
+			operation: "fetch chapter list",
+			bookId,
+		});
+		meta.chapters = parseChapterList(toc);
+		if (meta.chapters.length === 0) throw new BookUnsupportedError(bookId);
 	}
 
 	const chapters = await Promise.all(

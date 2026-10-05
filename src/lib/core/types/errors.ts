@@ -2,6 +2,7 @@ export type AppErrorKind =
 	| "app"
 	| "book-not-found"
 	| "book-service"
+	| "book-unsupported"
 	| "network"
 	| "database"
 	| "book-cache";
@@ -46,6 +47,22 @@ export class BookServiceError extends AppError {
 			...options,
 		});
 		this.name = "BookServiceError";
+	}
+}
+
+/** The book loaded, but its contents list has nothing this app can type. */
+export class BookUnsupportedError extends AppError {
+	readonly kind: AppErrorKind = "book-unsupported";
+
+	constructor(
+		readonly bookId: string,
+		options: { cause?: unknown } = {},
+	) {
+		super(`Nothing to type in ${bookId}`, {
+			kind: "book-unsupported",
+			...options,
+		});
+		this.name = "BookUnsupportedError";
 	}
 }
 

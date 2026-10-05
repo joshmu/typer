@@ -1,6 +1,7 @@
 import {
 	BookNotFoundError,
 	BookServiceError,
+	BookUnsupportedError,
 	NetworkError,
 } from "./core/types/errors";
 
@@ -24,6 +25,13 @@ export function describeBookError(
 		return {
 			title: "This book isn't available",
 			body: "Standard Ebooks no longer lists it. Pick another from the library.",
+			retryable: false,
+		};
+	}
+	if (err instanceof BookUnsupportedError) {
+		return {
+			title: "This book can't be typed here yet",
+			body: "Its contents list has no chapters or stories we can read. Pick another from the library.",
 			retryable: false,
 		};
 	}
@@ -59,13 +67,6 @@ export function describeBookError(
 			return {
 				title: "Standard Ebooks is having trouble",
 				body: `Its server answered with an error (${err.status}). Try again shortly.`,
-				retryable: true,
-			};
-		}
-		if (err.status === 0) {
-			return {
-				title: "This book wouldn't open",
-				body: "Its chapter list didn't load. Try again.",
 				retryable: true,
 			};
 		}

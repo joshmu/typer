@@ -13,6 +13,7 @@ import { readSavedCatalogue } from "./catalogue-cache";
 import {
 	BookNotFoundError,
 	BookServiceError,
+	BookUnsupportedError,
 	NetworkError,
 } from "./core/types/errors";
 import { db } from "./db";
@@ -346,8 +347,27 @@ describe("fetchBookDetail timing", () => {
 
 		const result = fetchAndCacheBook("p/empty").catch((e) => e);
 		await settle();
-		expect(await result).toBeInstanceOf(BookServiceError);
+		expect(await result).toMatchObject({ kind: "book-service", status: 503 });
 		expect(await db.cachedBooks.get("p/empty")).toBeUndefined();
+	});
+
+	it("calls a contents list with nothing to type unsupported, not a failed load", async () => {
+		const fetchMock = vi.fn((url: string) =>
+			Promise.resolve(
+				new Response(
+					url.endsWith("/text")
+						? `<a href="text/titlepage">T</a><a href="text/colophon">C</a>`
+						: detail,
+					{ status: 200 },
+				),
+			),
+		);
+		globalThis.fetch = fetchMock as never;
+
+		const err = await fetchAndCacheBook("p/no-pieces").catch((e) => e);
+
+		expect(err).toBeInstanceOf(BookUnsupportedError);
+		expect(await db.cachedBooks.get("p/no-pieces")).toBeUndefined();
 	});
 });
 

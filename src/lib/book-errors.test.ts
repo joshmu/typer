@@ -3,6 +3,7 @@ import { describeBookError } from "./book-errors";
 import {
 	BookNotFoundError,
 	BookServiceError,
+	BookUnsupportedError,
 	NetworkError,
 } from "./core/types/errors";
 
@@ -33,13 +34,10 @@ describe("describeBookError", () => {
 		expect(down.retryable).toBe(true);
 	});
 
-	it("explains a book with no chapter list", () => {
-		const d = describeBookError(
-			new BookServiceError("fetch chapter list", 0),
-			true,
-		);
-		expect(d.title).toMatch(/wouldn't open/i);
-		expect(d.retryable).toBe(true);
+	it("does not offer a retry for a book with nothing to type", () => {
+		const d = describeBookError(new BookUnsupportedError("a/b"), true);
+		expect(d.title).toMatch(/can't be typed/i);
+		expect(d.retryable).toBe(false);
 	});
 
 	it("does not offer a retry for a book that is gone", () => {
