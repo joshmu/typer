@@ -101,24 +101,37 @@ export function parseCatalogPage(xhtml: string): BookMeta[] {
 }
 
 /**
- * Parse the chapter list from a book's /text endpoint (TOC page).
- * Returns only chapter filenames, excluding front/back matter.
+ * Parse the chapter list from a book's /text endpoint (TOC page): its
+ * chapter files, or for a collection with none, every piece's file. Front
+ * and back matter is left out.
  */
 export function parseChapterList(xhtml: string): string[] {
-	const chapters: string[] = [];
-
-	// Match links to chapter files: href="text/chapter-N"
-	const linkRegex = /href="text\/(chapter-[^"]+)"/gi;
-
-	for (const match of xhtml.matchAll(linkRegex)) {
-		const filename = match[1];
-		if (!chapters.includes(filename)) {
-			chapters.push(filename);
-		}
+	const files = new Set<string>();
+	for (const match of xhtml.matchAll(/href="text\/([^"#]+)/gi)) {
+		files.add(match[1]);
 	}
-
-	return chapters;
+	const all = [...files];
+	const chapters = all.filter((f) => /^chapter-/i.test(f));
+	// Collections (stories, poems, plays) have one file per piece instead.
+	return chapters.length > 0
+		? chapters
+		: all.filter((f) => !MATTER_FILES.has(f.toLowerCase()));
 }
+
+/** Standard Ebooks front and back matter: never typed. */
+const MATTER_FILES = new Set([
+	"titlepage",
+	"halftitlepage",
+	"imprint",
+	"dedication",
+	"epigraph",
+	"endnotes",
+	"colophon",
+	"uncopyright",
+	"loi",
+	"glossary",
+	"bibliography",
+]);
 
 /**
  * Parse the book detail page for full metadata.
