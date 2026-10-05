@@ -66,7 +66,7 @@ function Segmented<T extends string | number>(props: {
 						aria-pressed={props.value === opt}
 						class="rounded-md px-3 py-1.5 font-display text-sm font-medium tracking-wide tabular-nums transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
 						classList={{
-							"bg-primary/15 text-primary": props.value === opt,
+							"bg-primary text-on-primary shadow-sm": props.value === opt,
 							"text-text-sub hover:text-text": props.value !== opt,
 						}}
 						onClick={() => props.onSelect(opt)}
@@ -133,7 +133,7 @@ export default function Settings() {
 					</p>
 				</header>
 
-				<div class="z-20 sm:sticky sm:top-0 -mx-5 bg-bg/85 px-5 pt-3 pb-6 backdrop-blur-md sm:-mx-8 sm:px-8">
+				<div class="z-20 pt-3 pb-6 sm:sticky sm:top-0 sm:backdrop-blur-md">
 					<SettingsPreview
 						themeLabel={getTheme(previewing() ?? prefs.theme).label}
 					/>

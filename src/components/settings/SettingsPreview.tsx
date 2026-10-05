@@ -47,7 +47,7 @@ export default function SettingsPreview(props: { themeLabel?: string }) {
 	let touched = false;
 
 	const classes = () => charClasses(state());
-	const lineHeight = () => typingFontSize(prefs.fontSize) * 2;
+	const lineHeight = () => typingFontSize(prefs.fontSize) * 1.75;
 	const label = () => props.themeLabel ?? getTheme(prefs.theme).label;
 
 	// Not the typing hot path: a settings scratch line can read layout.
@@ -118,7 +118,12 @@ export default function SettingsPreview(props: { themeLabel?: string }) {
 
 	return (
 		<div
-			class="rounded-xl bg-bg-secondary shadow-[0_18px_40px_-28px_rgb(0_0_0/0.9)] ring-1 ring-text/10 transition-shadow focus-within:ring-primary/40"
+			class="rounded-xl bg-bg-secondary ring-1 ring-text/10 transition-shadow focus-within:ring-primary/40"
+			// A deeper shade of the theme's own background, so light themes get a soft shadow
+			style={{
+				"box-shadow":
+					"0 18px 36px -26px oklch(from var(--bg) calc(l * 0.35) c h / 0.7)",
+			}}
 			data-testid="settings-preview"
 		>
 			<div class="flex items-center justify-between gap-4 border-b border-text/[0.06] px-5 py-2.5">
@@ -147,10 +152,6 @@ export default function SettingsPreview(props: { themeLabel?: string }) {
 				tabIndex={0}
 				aria-label="Typing preview, type to try your settings"
 				class="relative cursor-text px-5 outline-none"
-				style={{
-					"font-size": "var(--typing-font-size)",
-					"line-height": `${lineHeight()}px`,
-				}}
 				onKeyDown={onKeyDown}
 				onFocus={() => {
 					setFocused(true);
@@ -158,7 +159,13 @@ export default function SettingsPreview(props: { themeLabel?: string }) {
 				}}
 				onBlur={() => setFocused(false)}
 			>
-				<div class="relative my-2 font-mono select-none">
+				<div
+					class="relative pt-3 font-mono select-none"
+					style={{
+						"font-size": "var(--typing-font-size)",
+						"line-height": `${lineHeight()}px`,
+					}}
+				>
 					<div
 						ref={caretEl}
 						class="caret absolute left-0 top-0 will-change-transform"
@@ -176,7 +183,7 @@ export default function SettingsPreview(props: { themeLabel?: string }) {
 						</For>
 					</div>
 				</div>
-				<p class="pb-3 font-display text-[0.7rem] tracking-wide text-text-sub">
+				<p class="pt-1 pb-4 font-display text-[0.7rem] leading-4 tracking-wide text-text-sub">
 					<Show
 						when={focused()}
 						fallback={<>Click to try it. Nothing you type here is saved.</>}
