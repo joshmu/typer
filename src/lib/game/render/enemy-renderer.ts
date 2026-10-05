@@ -12,8 +12,15 @@ import { getArchetype, isBoss } from "../content/enemies";
 import { isCloaked } from "../sim/abilities";
 import type { GameState } from "../sim/state";
 import { spawnFade } from "../view";
-import { drawStackedLabel, FONT_IDLE, type PlateFlash } from "./label";
-import { labelRows } from "./label-rows";
+import {
+	drawStackedLabel,
+	FONT_IDLE,
+	FONT_TARGET,
+	MAX_STACK,
+	type PlateFlash,
+} from "./label";
+import { type LabelBox, layoutLabels } from "./label-layout";
+import { type LabelRow, labelRows } from "./label-rows";
 import { FIELD_GROUP, type SceneView } from "./scene";
 import { spriteAngle } from "./sprite-angle";
 import { walkCells } from "./sprite-atlas";
@@ -74,6 +81,8 @@ type EnemyVisual = {
 	baseSize: number;
 	// half the rendered sprite size: the label's bottom plate floats just above it
 	spriteHalf: number;
+	// eased vertical offset that keeps this label clear of its neighbours
+	nudge: number;
 	phase: number;
 	isBoss: boolean;
 	// wall-clock end of the front plate's absorb flash (0 = none) and its kind
@@ -83,6 +92,28 @@ type EnemyVisual = {
 
 // how long the front plate rings after an absorbed completion
 const FLASH_MS = 180;
+// CSS px kept clear of labels under the top HUD (wave, score, hull)
+const HUD_SAFE_TOP_PX = 120;
+// how fast a nudged label eases to its de-overlapped place (per frame)
+const NUDGE_EASE = 0.25;
+
+/** Approximate on-screen box of a label stack, in world units at scale `ls`. */
+function labelBox(
+	x: number,
+	bottom: number,
+	rows: readonly LabelRow[],
+	isTarget: boolean,
+	ls: number,
+): LabelBox {
+	const shown = Math.min(MAX_STACK, rows.length);
+	let chars = 0;
+	for (let i = 0; i < shown; i++) chars = Math.max(chars, rows[i].word.length);
+	const em = IDLE_FONT_WORLD * ls * (isTarget ? FONT_TARGET / FONT_IDLE : 1);
+	const icon = rows[0]?.kind === "normal" ? 0 : 0.95;
+	const width = (chars * 0.62 + 0.9 + icon) * em;
+	const stack = shown + (rows.length > shown ? 1 : 0);
+	return { x, bottom, halfW: width / 2, height: stack * LABEL_ROW_W * ls };
+}
 
 // squared-velocity threshold below which facing is held (matches sprite-angle's
 // own negligible-velocity guard)
@@ -161,6 +192,7 @@ export function createEnemyRenderer(
 			isBoss: boss,
 			flashUntil: 0,
 			flash: "none",
+			nudge: 0,
 		};
 	}
 
@@ -176,6 +208,10 @@ export function createEnemyRenderer(
 		sync(state: GameState, now: number) {
 			const ls = labelScale(view);
 			const plateDrop = (LABEL_PLATE_HALF + LABEL_ROW_DROP) * ls;
+			const safeTop = view.halfH - HUD_SAFE_TOP_PX / view.ppu;
+			// labels of on-screen enemies, laid out together after the loop
+			const laid: { v: EnemyVisual; x: number; natural: number }[] = [];
+			const boxes: LabelBox[] = [];
 			const present = new Set(state.enemies.map((e) => e.id));
 			for (const [id, v] of visuals) {
 				if (!present.has(id)) {
@@ -197,11 +233,23 @@ export function createEnemyRenderer(
 				// position the sprite flat on the field; label floats above it on screen
 				v.sprite.position.set(e.pos.x, SPRITE_Y, e.pos.y);
 				v.labelRoot.scaling.setAll(ls);
-				v.labelRoot.position.set(
-					e.pos.x,
-					LABEL_Y,
-					e.pos.y + v.spriteHalf + LABEL_GAP + plateDrop,
-				);
+				const rows = labelRows(e);
+				// natural bottom edge of the label: just above the sprite
+				const natural = e.pos.y + v.spriteHalf + LABEL_GAP;
+				if (e.pos.y - v.spriteHalf < view.halfH) {
+					const box = labelBox(e.pos.x, natural, rows, isTarget, ls);
+					// a label that would run up under the HUD hangs below its
+					// sprite instead, so it never detaches from the creature
+					if (natural + box.height > safeTop) {
+						box.bottom = e.pos.y - v.spriteHalf - LABEL_GAP - box.height;
+					}
+					laid.push({ v, x: e.pos.x, natural: box.bottom });
+					boxes.push(box);
+				} else {
+					// above the frame: no layout, no HUD clamp
+					v.nudge = 0;
+					v.labelRoot.position.set(e.pos.x, LABEL_Y, natural + plateDrop);
+				}
 
 				// face travel direction (sim velocity) — a creature walking forward.
 				// Hold the last angle while velocity is negligible so a paused enemy
@@ -248,7 +296,16 @@ export function createEnemyRenderer(
 				// target emphasis comes from the label draw itself (bigger font, --primary
 				// border, chevron) — mesh scaling would shift the bottom-anchored plate
 				if (v.flash !== "none" && now >= v.flashUntil) v.flash = "none";
-				drawStackedLabel(v, labelRows(e), isTarget, v.flash);
+				drawStackedLabel(v, rows, isTarget, v.flash);
+			}
+
+			// keep neighbouring labels apart and out from under the HUD
+			const ys = layoutLabels(boxes, safeTop);
+			for (let i = 0; i < laid.length; i++) {
+				const { v, x, natural } = laid[i];
+				v.nudge += (ys[i] - natural - v.nudge) * NUDGE_EASE;
+				const bottom = Math.min(natural + v.nudge, safeTop - boxes[i].height);
+				v.labelRoot.position.set(x, LABEL_Y, bottom + plateDrop);
 			}
 		},
 		dispose() {

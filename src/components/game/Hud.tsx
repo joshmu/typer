@@ -33,7 +33,7 @@ export default function Hud(props: { state: GameState; frame: Frame }) {
 	return (
 		<div class="pointer-events-none absolute inset-0 select-none">
 			{/* scrims frame the top and bottom edges so the HUD has a home */}
-			<div class="absolute inset-x-0 top-0 h-36 bg-linear-to-b from-bg/75 via-bg/30 to-transparent" />
+			<div class="absolute inset-x-0 top-0 h-24 bg-linear-to-b from-bg/55 to-transparent" />
 			<div class="absolute inset-x-0 bottom-0 h-28 bg-linear-to-t from-bg/70 to-transparent" />
 
 			<div class="absolute inset-x-0 top-0 grid grid-cols-[1fr_auto_1fr] items-start gap-3 px-4 pt-4 sm:px-8 sm:pt-6">

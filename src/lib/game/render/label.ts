@@ -15,7 +15,7 @@ export type LabelTarget = {
 // in every label texture. The renderers scale the label planes so FONT_IDLE
 // lands at the view's plate font size on screen (see view.plateFontPx).
 export const FONT_IDLE = 68;
-const FONT_TARGET = 80;
+export const FONT_TARGET = 80;
 const PLATE_TARGET = 104;
 const PLATE_IDLE = 88;
 // queued words: smaller and dimmer than the current word, still readable
@@ -369,7 +369,7 @@ export function drawLabel(
 
 // words shown before collapsing the rest into a "+n" chip. Regular chains fit;
 // boss sentences overflow into it.
-const MAX_STACK = 5;
+export const MAX_STACK = 5;
 
 /**
  * Stacked label for enemies: one plate per row of `labelRows`, in typing

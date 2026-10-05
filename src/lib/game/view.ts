@@ -6,10 +6,10 @@
 import { ARENA } from "./sim/state";
 
 // world half-HEIGHT the ortho camera frames on a landscape canvas. At 1440x900
-// that is ~13 CSS px per world unit: two thirds of a top/bottom approach and
-// all of a side approach are on screen, with the spawn ring just past the
-// top and bottom edges.
-export const ORTHO_HALF = 34;
+// that is ~12 CSS px per world unit: nearly three quarters of a top/bottom
+// approach and all of a side approach are on screen, with the spawn ring
+// just past the top and bottom edges.
+export const ORTHO_HALF = 37;
 // CSS px per world unit on the 1440x900 reference canvas
 export const REF_PPU = 900 / (2 * ORTHO_HALF);
 // a portrait canvas widens until the short axis shows at least this much, so
