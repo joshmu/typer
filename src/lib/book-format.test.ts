@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	chapterFills,
 	chapterLabel,
 	coverToneBackground,
 	DEFAULT_WPM,
@@ -94,5 +95,19 @@ describe("coverToneBackground", () => {
 			["a/1", "b/2", "c/3", "d/4", "e/5", "f/6"].map(coverToneBackground),
 		);
 		expect(tones.size).toBeGreaterThan(1);
+	});
+});
+
+describe("chapterFills", () => {
+	it("fills chapters before the committed one and part of the current", () => {
+		expect(chapterFills([100, 50, 200], 1, 25)).toEqual([1, 0.5, 0]);
+	});
+
+	it("clamps an offset past the chapter end", () => {
+		expect(chapterFills([10, 10], 0, 40)).toEqual([1, 0]);
+	});
+
+	it("treats an empty chapter before the cursor as read", () => {
+		expect(chapterFills([0, 10], 1, 0)).toEqual([1, 0]);
 	});
 });

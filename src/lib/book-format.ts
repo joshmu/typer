@@ -22,6 +22,21 @@ export function chapterLabel(index: number, title?: string): string {
 	return `${base}: ${name}`;
 }
 
+/**
+ * How much of each chapter the committed position covers, 0 to 1.
+ */
+export function chapterFills(
+	chapterWords: number[],
+	chapterIndex: number,
+	wordOffset: number,
+): number[] {
+	return chapterWords.map((words, i) => {
+		if (i < chapterIndex) return 1;
+		if (i > chapterIndex || words <= 0) return 0;
+		return Math.min(1, Math.max(0, wordOffset / words));
+	});
+}
+
 export function typingMinutes(words: number, wpm: number): number {
 	if (words <= 0 || wpm <= 0) return 0;
 	return Math.ceil(words / wpm);
@@ -55,7 +70,7 @@ export function pickTypingPace(
 	return { wpm: DEFAULT_WPM, source: "default" };
 }
 
-const TONE_TOKENS = ["--primary", "--caret", "--warning", "--error", "--text"];
+const TONE_TOKENS = ["--primary", "--caret", "--warning", "--error"];
 const TONE_STRENGTHS = [18, 26, 34];
 
 function hash(text: string): number {
