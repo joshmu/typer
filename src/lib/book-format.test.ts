@@ -109,11 +109,24 @@ describe("coverToneBackground", () => {
 		expect(a).not.toMatch(/#[0-9a-f]{3,8}\b/i);
 	});
 
-	it("keeps the tone saturated rather than greyed by the mix", () => {
+	it("mixes toward a neutral copy of the background, so its hue cannot drift", () => {
+		const tone = coverToneBackground("author/book-a");
+		expect(tone).toContain("oklch(from var(--bg-secondary) l 0 0)");
+	});
+
+	it("keeps the tone saturated, with a chroma floor", () => {
 		const tone = coverToneBackground("author/book-a");
 		expect(tone).toMatch(
-			/oklch\(from color-mix\(in oklab, .+\) l calc\(c \* [\d.]+\) h\)/,
+			/ l clamp\(0\.\d+, calc\(c \* [\d.]+\), 0\.\d+\) h\)$/,
 		);
+	});
+
+	it("uses no muted text tone, which reads as mud on cool themes", () => {
+		for (let i = 0; i < 64; i++) {
+			expect(coverToneBackground(`author/book-${i}`)).not.toContain(
+				"--text-sub",
+			);
+		}
 	});
 
 	it("draws tones from more than the accent tokens", () => {

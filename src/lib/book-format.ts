@@ -81,16 +81,21 @@ export function pickTypingPace(
 
 /**
  * Cover tones, all read from the active theme: its accents, a complement of
- * the primary hue, and its muted text colour for the occasional plain cloth.
+ * the primary hue and a deep shade of the primary.
  */
 const TONES: [tone: string, chromaBoost: number][] = [
-	["var(--primary)", 1.7],
-	["var(--error)", 1.7],
-	["var(--warning)", 1.7],
-	["oklch(from var(--primary) l c calc(h + 180))", 1.4],
-	["var(--text-sub)", 1],
+	["var(--primary)", 1.6],
+	["var(--error)", 1.6],
+	["var(--warning)", 1.6],
+	["oklch(from var(--primary) l c calc(h + 180))", 1.6],
+	["oklch(from var(--primary) calc(l * 0.62) c h)", 1.4],
 ];
 const TONE_STRENGTHS = [24, 32, 40];
+/** The background at its own lightness with no hue, so a mix keeps the tone's hue. */
+const NEUTRAL_BG = "oklch(from var(--bg-secondary) l 0 0)";
+/** Enough colour that no cover reads as grey or mud. */
+const MIN_CHROMA = 0.07;
+const MAX_CHROMA = 0.2;
 
 function hash(text: string): number {
 	let h = 2166136261;
@@ -107,11 +112,11 @@ function hash(text: string): number {
  */
 export function coverToneBackground(bookId: string): string {
 	const h = hash(bookId);
-	// The boost undoes the greying a mix toward the background adds.
+	// The boost wins back the chroma a mix toward the background loses.
 	const [tone, boost] = TONES[h % TONES.length];
 	const strength =
 		TONE_STRENGTHS[Math.floor(h / TONES.length) % TONE_STRENGTHS.length];
-	return `oklch(from color-mix(in oklab, ${tone} ${strength}%, var(--bg-secondary)) l calc(c * ${boost}) h)`;
+	return `oklch(from color-mix(in oklab, ${tone} ${strength}%, ${NEUTRAL_BG}) l clamp(${MIN_CHROMA}, calc(c * ${boost}), ${MAX_CHROMA}) h)`;
 }
 
 const AGE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
