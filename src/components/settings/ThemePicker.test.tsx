@@ -71,6 +71,23 @@ describe("ThemePicker", () => {
 		expect(onPreview).not.toHaveBeenCalledWith(null);
 	});
 
+	it("Esc reverts the preview and leaves the grid", () => {
+		const { onPreview } = setup();
+		const nord = screen.getByRole("button", { name: "Nord" });
+		nord.focus();
+		fireEvent.focusIn(nord);
+		fireEvent.keyDown(nord, { key: "Escape" });
+		expect(onPreview).toHaveBeenLastCalledWith(null);
+		expect(document.activeElement).not.toBe(nord);
+	});
+
+	it("reverts the preview when the window loses focus", () => {
+		const { onPreview } = setup();
+		fireEvent.pointerEnter(screen.getByRole("button", { name: "Nord" }));
+		fireEvent.blur(window);
+		expect(onPreview).toHaveBeenLastCalledWith(null);
+	});
+
 	it("selects on click", () => {
 		const { onSelect } = setup();
 		fireEvent.click(screen.getByRole("button", { name: "Rose Pine" }));

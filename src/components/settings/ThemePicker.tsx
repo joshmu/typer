@@ -1,4 +1,4 @@
-import { For } from "solid-js";
+import { For, onCleanup, onMount } from "solid-js";
 import { DEFAULT_THEME, type Theme, themeNames, themes } from "@/lib/themes";
 
 interface ThemePickerProps {
@@ -26,6 +26,7 @@ function ThemeTile(props: {
 	featured: boolean;
 	onSelect: () => void;
 	onPreview: () => void;
+	onEscape: () => void;
 }) {
 	return (
 		<button
@@ -42,6 +43,11 @@ function ThemeTile(props: {
 			onClick={() => props.onSelect()}
 			onPointerEnter={() => props.onPreview()}
 			onFocusIn={() => props.onPreview()}
+			onKeyDown={(e) => {
+				if (e.key !== "Escape") return;
+				props.onEscape();
+				e.currentTarget.blur();
+			}}
 		>
 			<span aria-hidden="true" class="flex items-start justify-between gap-2">
 				<span
@@ -87,6 +93,13 @@ export default function ThemePicker(props: ThemePickerProps) {
 	let grid: HTMLDivElement | undefined;
 	const preview = (name: string | null) => props.onPreview?.(name);
 
+	// Switching apps or windows mid-hover must not leave a theme on show.
+	onMount(() => {
+		const revert = () => preview(null);
+		window.addEventListener("blur", revert);
+		onCleanup(() => window.removeEventListener("blur", revert));
+	});
+
 	return (
 		<div
 			ref={grid}
@@ -106,6 +119,7 @@ export default function ThemePicker(props: ThemePickerProps) {
 						featured={name === DEFAULT_THEME}
 						onSelect={() => props.onSelect(name)}
 						onPreview={() => preview(name)}
+						onEscape={() => preview(null)}
 					/>
 				)}
 			</For>
