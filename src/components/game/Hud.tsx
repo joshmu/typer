@@ -1,7 +1,21 @@
-import { createMemo, For, Show } from "solid-js";
-import { hudView, type PerkChip } from "@/lib/game/hud-view";
+import { animate, spring } from "motion";
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	For,
+	onCleanup,
+	Show,
+} from "solid-js";
+import {
+	type HudMoments,
+	hudMoments,
+	hudView,
+	type PerkChip,
+} from "@/lib/game/hud-view";
 import type { GameState } from "@/lib/game/sim/state";
 import { type Frame, inFrame } from "@/lib/game/view";
+import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
 
 /** Rarity accent for a perk glyph and border, all on theme tokens. */
 export function rarityText(rarity: PerkChip["rarity"]): string {
@@ -21,6 +35,84 @@ const LABEL =
 	"font-display text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-text-sub";
 // a translucent panel so HUD text reads over any part of the arena
 const PANEL = "rounded-lg border border-text/10 bg-bg/65 backdrop-blur-sm";
+// a broken combo drains red for this long, then the panel leaves
+const BREAK_MS = 520;
+const SNAP: [number, number, number, number] = [0.2, 0.8, 0.2, 1];
+
+/** A banner slamming in: its text's scale and tracking settle, it holds,
+ * then `frame` (the text itself if absent) lifts away. Reduced motion only
+ * fades it. */
+export function slamIn(
+	text: HTMLElement,
+	opts: { exit: boolean; frame?: HTMLElement; tracking?: number },
+): void {
+	const box = opts.frame ?? text;
+	const reduced = prefersReducedMotion();
+	if (reduced) {
+		animate(
+			box,
+			{ opacity: opts.exit ? [0, 1, 1, 0] : [0, 1] },
+			{
+				duration: opts.exit ? 1.25 : 0.2,
+				times: opts.exit ? [0, 0.1, 0.8, 1] : undefined,
+			},
+		);
+		return;
+	}
+	animate(
+		text,
+		{ scale: [1.6, 1] },
+		{ type: spring, bounce: 0.35, visualDuration: 0.35 },
+	);
+	const em = opts.tracking ?? 0.3;
+	animate(
+		text,
+		{ letterSpacing: [`${em * 2}em`, `${em}em`] },
+		{ duration: 0.45, ease: [0.16, 1, 0.3, 1] },
+	);
+	if (opts.exit) {
+		// in fast, hold ~600ms, lift away over 250ms
+		animate(
+			box,
+			{ opacity: [0, 1, 1, 0], y: [0, 0, 0, -28] },
+			{ duration: 1.2, times: [0, 0.05, 0.79, 1], ease: "easeIn" },
+		);
+	} else {
+		animate(box, { opacity: [0, 1] }, { duration: 0.08 });
+	}
+}
+
+/** The lost heart pops and breaks into shards that scatter and fade. */
+function shatter(heart: HTMLElement, reduced: boolean): void {
+	if (reduced) {
+		animate(heart, { opacity: [0.2, 1] }, { duration: 0.35 });
+		return;
+	}
+	animate(
+		heart,
+		{ scale: [1.8, 1] },
+		{ type: spring, bounce: 0.4, visualDuration: 0.35 },
+	);
+	const SHARDS = 6;
+	for (let i = 0; i < SHARDS; i++) {
+		const shard = document.createElement("span");
+		shard.className =
+			"pointer-events-none absolute top-1/2 left-1/2 size-1.5 rounded-[1px] bg-error";
+		heart.appendChild(shard);
+		const a = (i / SHARDS) * Math.PI * 2 + 0.4;
+		const d = 18 + (i % 3) * 7;
+		void animate(
+			shard,
+			{
+				x: [0, Math.cos(a) * d],
+				y: [0, Math.sin(a) * d + 10],
+				rotate: [0, (i % 2 ? 1 : -1) * 220],
+				opacity: [1, 0],
+			},
+			{ duration: 0.55, ease: [0.15, 0.7, 0.3, 1] },
+		).then(() => shard.remove());
+	}
+}
 
 /**
  * The Horde heads-up display framing the play area: wave and combo top-left,
@@ -29,6 +121,99 @@ const PANEL = "rounded-lg border border-text/10 bg-bg/65 backdrop-blur-sm";
  */
 export default function Hud(props: { state: GameState; frame: Frame }) {
 	const view = createMemo(() => hudView(props.state));
+	const reduced = prefersReducedMotion();
+
+	// the combo panel lingers after a break to drain red
+	const [broken, setBroken] = createSignal<HudMoments["comboBroke"]>(null);
+	let breakTimer: ReturnType<typeof setTimeout> | undefined;
+	const combo = () =>
+		view().combo ??
+		(broken()
+			? {
+					count: broken()?.count ?? 0,
+					multiplier: 1,
+					fraction: broken()?.fraction ?? 0,
+					hot: false,
+				}
+			: null);
+	let comboPanel: HTMLDivElement | undefined;
+	let comboCount: HTMLDivElement | undefined;
+	let comboMult: HTMLSpanElement | undefined;
+	let comboFlash: HTMLDivElement | undefined;
+	let comboBar: HTMLDivElement | undefined;
+	const hearts: HTMLSpanElement[] = [];
+	// the break's drain and fade, stopped if a new streak starts mid-drain
+	let draining: { stop(): void }[] = [];
+	function endBreak(): void {
+		clearTimeout(breakTimer);
+		for (const a of draining) a.stop();
+		draining = [];
+		setBroken(null);
+		if (comboPanel) comboPanel.style.opacity = "";
+	}
+
+	onCleanup(() => clearTimeout(breakTimer));
+
+	let prev: Parameters<typeof hudMoments>[0] = null;
+	createEffect(() => {
+		const s = props.state;
+		const m = hudMoments(prev, s);
+		prev = {
+			combo: s.combo,
+			playerHp: s.playerHp,
+			comboTicksLeft: s.comboTicksLeft,
+			perks: s.perks,
+		};
+		if (m.comboUp) {
+			if (broken()) endBreak();
+			if (comboCount && !reduced) {
+				animate(
+					comboCount,
+					{ scale: [1.25, 1] },
+					{ duration: 0.2, ease: SNAP },
+				);
+			}
+		}
+		if (m.tierUp) {
+			if (comboMult && !reduced) {
+				animate(
+					comboMult,
+					{ scale: [1.8, 1] },
+					{ type: spring, bounce: 0.45, visualDuration: 0.35 },
+				);
+			}
+			if (comboFlash)
+				animate(comboFlash, { opacity: [0.5, 0] }, { duration: 0.5 });
+		}
+		if (m.comboBroke) {
+			endBreak();
+			setBroken(m.comboBroke);
+			const from = m.comboBroke.fraction * 100;
+			if (comboBar) {
+				draining.push(
+					animate(
+						comboBar,
+						{ width: [`${from}%`, "0%"] },
+						{ duration: BREAK_MS / 1000 - 0.1, ease: "easeIn" },
+					),
+				);
+			}
+			if (comboPanel) {
+				draining.push(
+					animate(
+						comboPanel,
+						{ opacity: [1, 0] },
+						{ delay: 0.3, duration: 0.22 },
+					),
+				);
+			}
+			breakTimer = setTimeout(endBreak, BREAK_MS);
+		}
+		if (m.heartLost !== null) {
+			const heart = hearts[m.heartLost];
+			if (heart) shatter(heart, reduced);
+		}
+	});
 
 	return (
 		<div class="pointer-events-none absolute inset-0 select-none">
@@ -54,28 +239,44 @@ export default function Hud(props: { state: GameState; frame: Frame }) {
 							>
 								<span
 									data-testid="wave-frenzy"
-									class="rounded-lg border border-error/70 bg-error/20 px-3 py-1.5 font-display text-xs font-bold uppercase tracking-[0.25em] text-error shadow-[0_0_18px_color-mix(in_srgb,var(--error)_45%,transparent)] motion-safe:animate-pulse"
+									ref={(el) =>
+										queueMicrotask(() =>
+											slamIn(el, { exit: false, tracking: 0.25 }),
+										)
+									}
+									class="origin-left rounded-lg border border-error/70 bg-error/20 px-3 py-1.5 font-display text-xs font-bold uppercase tracking-[0.25em] text-error shadow-[0_0_18px_color-mix(in_srgb,var(--error)_45%,transparent)]"
 								>
 									{wave().label}
 								</span>
 							</Show>
 						)}
 					</Show>
-					<Show when={view().combo}>
+					<Show when={combo()}>
 						{(combo) => (
 							<div
+								ref={comboPanel}
 								data-testid="game-combo"
-								class={`${PANEL} w-40 px-3 py-2 transition-[box-shadow,border-color] duration-200 sm:w-48`}
+								data-broken={broken() ? "true" : undefined}
+								class={`${PANEL} relative w-40 overflow-hidden px-3 py-2 transition-[box-shadow,border-color] duration-200 sm:w-48`}
 								classList={{
 									"border-primary/60 shadow-[0_0_22px_color-mix(in_srgb,var(--primary)_35%,transparent)]":
 										combo().hot,
+									"border-error/60": !!broken(),
 								}}
 							>
-								<div class="flex items-baseline justify-between gap-2">
+								{/* tier-up flash */}
+								<div
+									ref={comboFlash}
+									class="pointer-events-none absolute inset-0 bg-primary opacity-0"
+								/>
+								<div class="relative flex items-baseline justify-between gap-2">
 									<span class={LABEL}>combo</span>
 									<span
-										class="font-display text-xl font-black tabular-nums text-primary"
+										ref={comboMult}
+										class="inline-block origin-right font-display text-xl font-black tabular-nums"
 										classList={{
+											"text-primary": !broken(),
+											"text-error": !!broken(),
 											"drop-shadow-[0_0_8px_color-mix(in_srgb,var(--primary)_80%,transparent)]":
 												combo().hot,
 										}}
@@ -83,13 +284,29 @@ export default function Hud(props: { state: GameState; frame: Frame }) {
 										&times;{combo().multiplier}
 									</span>
 								</div>
-								<div class="font-display text-2xl font-bold leading-none tabular-nums text-text">
+								<div
+									ref={comboCount}
+									class="relative origin-left font-display text-2xl font-bold leading-none tabular-nums"
+									classList={{
+										"text-text": !broken(),
+										"text-error line-through decoration-2": !!broken(),
+									}}
+								>
 									{combo().count}
 								</div>
-								<div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-text/10">
+								<div class="relative mt-2 h-1 w-full overflow-hidden rounded-full bg-text/10">
 									<div
-										class="h-full rounded-full bg-primary transition-[width] duration-100"
-										style={{ width: `${combo().fraction * 100}%` }}
+										ref={comboBar}
+										class="h-full rounded-full"
+										classList={{
+											"bg-primary transition-[width] duration-100": !broken(),
+											"bg-error": !!broken(),
+										}}
+										style={
+											broken()
+												? undefined
+												: { width: `${combo().fraction * 100}%` }
+										}
 									/>
 								</div>
 							</div>
@@ -167,11 +384,15 @@ export default function Hud(props: { state: GameState; frame: Frame }) {
 						<For each={Array.from({ length: props.state.maxPlayerHp })}>
 							{(_, i) => (
 								<span
-									class={
-										i() < props.state.playerHp
-											? "text-error drop-shadow-[0_0_6px_color-mix(in_srgb,var(--error)_70%,transparent)]"
-											: "text-text-sub/50"
-									}
+									ref={(el) => {
+										hearts[i()] = el;
+									}}
+									class="relative inline-block"
+									classList={{
+										"text-error drop-shadow-[0_0_6px_color-mix(in_srgb,var(--error)_70%,transparent)]":
+											i() < props.state.playerHp,
+										"text-text-sub/50": i() >= props.state.playerHp,
+									}}
 								>
 									{i() < props.state.playerHp ? "♥" : "♡"}
 								</span>
@@ -192,11 +413,28 @@ export default function Hud(props: { state: GameState; frame: Frame }) {
 
 			{/* wave-incoming banner during intermission */}
 			<Show when={view().incoming}>
-				{(incoming) => (
-					<div class="absolute inset-x-0 top-[28%] text-center font-display text-2xl font-black uppercase tracking-[0.35em] text-primary drop-shadow-[0_0_18px_color-mix(in_srgb,var(--primary)_55%,transparent)] motion-safe:animate-pulse sm:text-4xl">
-						{incoming()}
-					</div>
-				)}
+				{(incoming) => {
+					let band: HTMLDivElement | undefined;
+					return (
+						<div
+							ref={band}
+							class="absolute inset-x-0 top-[24%] flex justify-center py-5 opacity-0"
+						>
+							<div class="absolute inset-0 bg-linear-to-r from-transparent via-bg/70 to-transparent" />
+							<div class="absolute inset-x-[18%] top-0 h-px bg-linear-to-r from-transparent via-primary/70 to-transparent" />
+							<div class="absolute inset-x-[18%] bottom-0 h-px bg-linear-to-r from-transparent via-primary/70 to-transparent" />
+							<div
+								data-testid="wave-banner"
+								ref={(el) =>
+									queueMicrotask(() => slamIn(el, { exit: true, frame: band }))
+								}
+								class="relative pl-[0.3em] text-center font-display text-3xl font-black uppercase tracking-[0.3em] text-primary drop-shadow-[0_0_18px_color-mix(in_srgb,var(--primary)_55%,transparent)] sm:text-5xl"
+							>
+								{incoming()}
+							</div>
+						</div>
+					);
+				}}
 			</Show>
 
 			{/* bottom-left: owned perks, full names with a glyph */}
