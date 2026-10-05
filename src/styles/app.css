@@ -226,6 +226,16 @@ html:is(:not([data-theme]), [data-theme="lamplight"])
 		animation: ember-halo 2.8s ease-in-out infinite;
 	}
 }
+/* Horde overdrive: the ember edge glow smoulders */
+@keyframes ember-smoulder {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.7;
+	}
+}
 @keyframes ember-breath {
 	0%,
 	100% {

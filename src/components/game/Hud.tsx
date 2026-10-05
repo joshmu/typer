@@ -4,6 +4,7 @@ import {
 	createMemo,
 	createSignal,
 	For,
+	on,
 	onCleanup,
 	Show,
 } from "solid-js";
@@ -142,6 +143,23 @@ export default function Hud(props: { state: GameState; frame: Frame }) {
 	let comboFlash: HTMLDivElement | undefined;
 	let comboBar: HTMLDivElement | undefined;
 	const hearts: HTMLSpanElement[] = [];
+	let odTag: HTMLSpanElement | undefined;
+	// the overdrive tag slams in each time the streak reaches x3
+	createEffect(
+		on(
+			() => view().overdrive,
+			(now, was) => {
+				// opacity stays with the class, so the tag can fade out on a break
+				if (now && !was && odTag && !reduced) {
+					animate(
+						odTag,
+						{ scale: [1.6, 1], letterSpacing: ["0.7em", "0.35em"] },
+						{ type: spring, bounce: 0.35, visualDuration: 0.35 },
+					);
+				}
+			},
+		),
+	);
 	// the break's drain and fade, stopped if a new streak starts mid-drain
 	let draining: { stop(): void }[] = [];
 	function endBreak(): void {
@@ -312,6 +330,16 @@ export default function Hud(props: { state: GameState; frame: Frame }) {
 							</div>
 						)}
 					</Show>
+					{/* overdrive: x3 and up. Fades out when the streak breaks */}
+					<span
+						ref={odTag}
+						data-testid="game-overdrive"
+						aria-hidden={!view().overdrive}
+						class="origin-left rounded-md border border-primary/70 bg-primary/20 px-2.5 py-1 font-display text-[0.7rem] font-black uppercase tracking-[0.35em] text-primary shadow-[0_0_20px_color-mix(in_srgb,var(--primary)_55%,transparent)] transition-opacity duration-500"
+						classList={{ "opacity-0": !view().overdrive }}
+					>
+						Overdrive
+					</span>
 				</div>
 
 				{/* centre: score, then the boss life bar while a boss lives */}

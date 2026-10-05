@@ -1,9 +1,22 @@
 import { animate } from "motion";
-import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
+import {
+	createEffect,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from "solid-js";
+import { isOverdrive } from "@/lib/game/hud-view";
 import type { GameLoop } from "@/lib/game/render/loop";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
 import type { GameState } from "@/lib/game/sim/state";
-import { arenaInk, frameFor, vignetteGradient } from "@/lib/game/view";
+import {
+	arenaInk,
+	frameFor,
+	STATUS_TINT_RGB,
+	vignetteGradient,
+} from "@/lib/game/view";
 import { setRunLive } from "@/lib/game-chrome";
 import { getBestRun, saveGameRun, useBestRun } from "@/lib/game-runs";
 import DeathScreen from "./DeathScreen";
@@ -93,6 +106,16 @@ export default function GameShell() {
 	const [previousBest, setPreviousBest] = createSignal<number | null>(null);
 
 	const isOver = () => hud()?.status === "gameover";
+	const statusTint = () => {
+		const s = hud();
+		if (!s || s.status === "gameover") return null;
+		if (s.freezeTicksLeft > 0) return "freeze";
+		return s.slowTicksLeft > 0 ? "slow" : null;
+	};
+	const overdrive = () => {
+		const s = hud();
+		return !!s && s.status !== "gameover" && isOverdrive(s.combo);
+	};
 	// the death screen and the perk draft wait a beat so the final breach or
 	// kill plays out on the field first (never in testMode)
 	const deathShown = revealAfter(isOver, DEATH_REVEAL_MS, testMode);
@@ -360,6 +383,31 @@ export default function GameShell() {
 				class="pointer-events-none absolute inset-0"
 				style={{
 					"background-image": vignetteGradient(shellSize().w, shellSize().h),
+				}}
+			/>
+			{/* freeze and slow wash in from the edges */}
+			<For each={["freeze", "slow"] as const}>
+				{(kind) => (
+					<div
+						data-testid={`status-tint-${kind}`}
+						class="pointer-events-none absolute inset-0 transition-opacity duration-200"
+						style={{
+							opacity: statusTint() === kind ? 1 : 0,
+							"box-shadow": `inset 0 0 180px 44px rgba(${STATUS_TINT_RGB[kind]}, 0.42)`,
+							background: `radial-gradient(ellipse at center, transparent 55%, rgba(${STATUS_TINT_RGB[kind]}, 0.12))`,
+						}}
+					/>
+				)}
+			</For>
+			{/* overdrive: the edges smoulder in the theme's ember */}
+			<div
+				data-testid="overdrive-glow"
+				class="pointer-events-none absolute inset-0 shadow-[inset_0_0_220px_40px_color-mix(in_srgb,var(--primary)_38%,transparent)] transition-opacity ease-out"
+				classList={{
+					"opacity-100 duration-300": overdrive(),
+					"opacity-0 duration-700": !overdrive(),
+					"motion-safe:animate-[ember-smoulder_1.6s_ease-in-out_infinite]":
+						overdrive(),
 				}}
 			/>
 			<div
