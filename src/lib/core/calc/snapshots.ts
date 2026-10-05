@@ -31,25 +31,30 @@ export interface PerSecondActivity {
  * from the keys counted as they landed, so erased ones still show.
  */
 export function collectPerSecondActivity(
-	{ keysPerSecond, errorsPerSecond }: KeyActivity,
+	{ seconds, keys: keyCounts, errors }: KeyActivity,
 	elapsedMs: number,
 ): PerSecondActivity {
 	if (elapsedMs <= 0) return { raw: [], errors: [] };
-	const keys = fold(keysPerSecond, elapsedMs);
+	const keys = fold(seconds, keyCounts, elapsedMs);
 	return {
 		raw: toWpm(keys, elapsedMs),
-		errors: fold(errorsPerSecond, elapsedMs),
+		errors: fold(seconds, errors, elapsedMs),
 	};
 }
 
-/** Per-second counts spread over the test's seconds; any past the end join the last. */
-function fold(perSecond: number[], elapsedMs: number): number[] {
-	const seconds = secondsIn(elapsedMs);
-	const counts = new Array<number>(seconds).fill(0);
-	perSecond.forEach((n, i) => {
-		counts[Math.min(i, seconds - 1)] += n;
-	});
-	return counts;
+/** Sparse per-second counts laid over every second of the test, idle ones
+ * as zeros; any past the end join the last. */
+function fold(
+	seconds: readonly number[],
+	counts: readonly number[],
+	elapsedMs: number,
+): number[] {
+	const n = secondsIn(elapsedMs);
+	const out = new Array<number>(n).fill(0);
+	for (let k = 0; k < seconds.length; k++) {
+		out[Math.min(Math.max(seconds[k], 0), n - 1)] += counts[k];
+	}
+	return out;
 }
 
 function secondsIn(elapsedMs: number): number {

@@ -490,7 +490,7 @@ describe("key activity", () => {
 });
 
 describe("per-second key activity", () => {
-	it("counts character keys and mistakes in each second, erased ones included", () => {
+	it("counts character keys and mistakes in each second they land, erased ones included", () => {
 		const state = createTypingState("ab cd");
 		applyKeystroke(state, "a", 1000);
 		applyKeystroke(state, "x", 1500);
@@ -498,8 +498,9 @@ describe("per-second key activity", () => {
 		applyKeystroke(state, "b", 2100);
 		applyKeystroke(state, "Shift", 2200);
 		applyKeystroke(state, "q", 4200);
-		expect(state.activity.keysPerSecond).toEqual([2, 1, 0, 1]);
-		expect(state.activity.errorsPerSecond).toEqual([1, 0, 0, 1]);
+		expect(state.activity.seconds).toEqual([0, 1, 3]);
+		expect(state.activity.keys).toEqual([2, 1, 1]);
+		expect(state.activity.errors).toEqual([1, 0, 1]);
 	});
 
 	it("keeps keys a stop on error word reset wipes from the word", () => {
@@ -508,16 +509,25 @@ describe("per-second key activity", () => {
 		applyKeystroke(state, "x", 1000);
 		applyKeystroke(state, "b", 1100);
 		applyKeystroke(state, " ", 1200);
-		expect(state.activity.keysPerSecond).toEqual([3]);
-		expect(state.activity.errorsPerSecond).toEqual([1]);
+		expect(state.activity.keys).toEqual([3]);
+		expect(state.activity.errors).toEqual([1]);
+	});
+
+	it("records a key after an 8-hour idle gap as one entry, not a second each", () => {
+		const state = createTypingState("ab cd");
+		applyKeystroke(state, "a", 1000);
+		applyKeystroke(state, "b", 1000 + 8 * 3600 * 1000);
+		expect(state.activity.seconds).toEqual([0, 8 * 3600]);
+		expect(state.activity.keys).toEqual([1, 1]);
+		expect(state.activity.errors).toEqual([0, 0]);
 	});
 
 	it("leaves the input's counts untouched in the pure form", () => {
 		const state = createTypingState("ab");
 		const first = processKeystroke(state, "a", 1000);
 		const second = processKeystroke(first, "b", 1100);
-		expect(second.activity.keysPerSecond).toEqual([2]);
-		expect(first.activity.keysPerSecond).toEqual([1]);
-		expect(state.activity.keysPerSecond).toEqual([]);
+		expect(second.activity.keys).toEqual([2]);
+		expect(first.activity.keys).toEqual([1]);
+		expect(state.activity.keys).toEqual([]);
 	});
 });

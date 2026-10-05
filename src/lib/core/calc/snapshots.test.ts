@@ -105,10 +105,33 @@ describe("trimIdleTail", () => {
 });
 
 describe("collectPerSecondActivity", () => {
-	const activity = (keysPerSecond: number[], errorsPerSecond: number[]) => ({
-		lastAt: null,
-		keysPerSecond,
-		errorsPerSecond,
+	/** The sparse activity a run with these dense per-second counts records. */
+	const activity = (keysPerSecond: number[], errorsPerSecond: number[]) => {
+		const out = {
+			lastAt: null,
+			seconds: [] as number[],
+			keys: [] as number[],
+			errors: [] as number[],
+		};
+		keysPerSecond.forEach((n, i) => {
+			if (n === 0) return;
+			out.seconds.push(i);
+			out.keys.push(n);
+			out.errors.push(errorsPerSecond[i]);
+		});
+		return out;
+	};
+
+	it("fills the seconds between sparse entries with zeros", () => {
+		const gap = {
+			lastAt: null,
+			seconds: [0, 4],
+			keys: [5, 10],
+			errors: [0, 2],
+		};
+		const out = collectPerSecondActivity(gap, 5000);
+		expect(out.raw).toEqual([60, 0, 0, 0, 120]);
+		expect(out.errors).toEqual([0, 0, 0, 0, 2]);
 	});
 
 	it("turns character keys per second into raw WPM", () => {

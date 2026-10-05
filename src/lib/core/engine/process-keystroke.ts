@@ -46,8 +46,9 @@ export function processKeystroke(
 		keystrokes: { ...state.keystrokes },
 		activity: {
 			lastAt: state.activity.lastAt,
-			keysPerSecond: [...state.activity.keysPerSecond],
-			errorsPerSecond: [...state.activity.errorsPerSecond],
+			seconds: [...state.activity.seconds],
+			keys: [...state.activity.keys],
+			errors: [...state.activity.errors],
 		},
 		words: state.words.map((w) => ({
 			...w,
@@ -102,7 +103,7 @@ export function applyKeystroke(
 	return isCorrect ? "correct" : "incorrect";
 }
 
-/** Counts a character key in its second. O(1) amortised: idle seconds fill once. */
+/** Counts a character key in its second. O(1): idle seconds are not stored. */
 function recordKey(
 	state: TypingState,
 	timestamp: number,
@@ -114,12 +115,15 @@ function recordKey(
 		0,
 		Math.floor((timestamp - (state.startTime ?? timestamp)) / 1000),
 	);
-	while (activity.keysPerSecond.length <= second) {
-		activity.keysPerSecond.push(0);
-		activity.errorsPerSecond.push(0);
+	let last = activity.seconds.length - 1;
+	if (last < 0 || second > activity.seconds[last]) {
+		activity.seconds.push(second);
+		activity.keys.push(0);
+		activity.errors.push(0);
+		last += 1;
 	}
-	activity.keysPerSecond[second]++;
-	if (!isCorrect) activity.errorsPerSecond[second]++;
+	activity.keys[last]++;
+	if (!isCorrect) activity.errors[last]++;
 }
 
 function advanceCursor(state: TypingState, timestamp: number): void {
