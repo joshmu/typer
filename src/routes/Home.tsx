@@ -31,22 +31,16 @@ const ResultsScreen = lazy(() => import("@/components/results/ResultsScreen"));
 /**
  * Anchors its content a little above centre: the spacers split the free
  * height 1 : 2.4, which puts the active line near 40% of the viewport. The
- * top spacer never shrinks below the mode bar, which floats over it. Both
- * slots float too, so they never move the anchored content; `below` comes
- * first in the DOM, so Shift+Tab from the typing area reaches it.
+ * top spacer never shrinks below the mode bar (or the book header in its
+ * place), which floats over it. `below` floats too, so it never moves the
+ * anchored content, and comes first in the DOM, so Shift+Tab from the typing
+ * area reaches it.
  */
-function Stage(
-	props: ParentProps<{ above?: JSX.Element; below?: JSX.Element }>,
-) {
+function Stage(props: ParentProps<{ below?: JSX.Element }>) {
 	return (
 		<div class="flex w-full flex-1 flex-col">
 			<div class="min-h-[clamp(6.5rem,20vh,8.5rem)] flex-[1_1_0]" />
 			<div class="relative w-full">
-				<Show when={props.above}>
-					{(above) => (
-						<div class="absolute inset-x-0 bottom-full">{above()}</div>
-					)}
-				</Show>
 				<Show when={props.below}>
 					{(below) => (
 						<div class="absolute inset-x-0 top-full pt-[clamp(2rem,8vh,4.5rem)]">
@@ -122,6 +116,18 @@ export default function Home() {
 
 	return (
 		<main class="relative flex flex-1 flex-col items-center px-4 sm:px-8">
+			<Show when={!session.result() && inBook() && session.activeBook()}>
+				{(book) => (
+					<BookHeader
+						book={book().meta}
+						chapterIndex={session.bookReader()?.position.chapterIndex ?? 0}
+						chapterTitle={session.bookReader()?.chapterTitle}
+						progressPercent={session.bookProgressPercent()}
+						position={session.bookReader()?.position}
+						onClose={() => void session.startWithMode({ ...DEFAULT_MODE })}
+					/>
+				)}
+			</Show>
 			<Show when={!session.result() && !inBook()}>
 				<ModeSelector
 					mode={session.mode()}
@@ -191,21 +197,6 @@ export default function Home() {
 				<Match when={loadedTest()} keyed>
 					{(test) => (
 						<Stage
-							above={
-								session.mode().type === "book" && session.activeBook() ? (
-									<BookHeader
-										book={session.activeBook()!.meta}
-										chapterIndex={
-											session.bookReader()?.position.chapterIndex ?? 0
-										}
-										chapterTitle={session.bookReader()?.chapterTitle}
-										progressPercent={session.bookProgressPercent()}
-										onClose={() =>
-											void session.startWithMode({ ...DEFAULT_MODE })
-										}
-									/>
-								) : undefined
-							}
 							below={
 								inBook() ? undefined : (
 									<ContinueCard

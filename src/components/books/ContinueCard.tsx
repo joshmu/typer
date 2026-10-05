@@ -1,10 +1,7 @@
 import { type JSX, Show } from "solid-js";
-import {
-	chapterLabel,
-	coverToneBackground,
-	formatBookPercent,
-} from "@/lib/book-format";
+import { chapterLabel, formatBookPercent } from "@/lib/book-format";
 import type { ResumableBook } from "@/lib/book-progress";
+import BookThumb from "./BookThumb";
 import { BOOK_SERIF } from "./typography";
 
 interface ContinueCardProps {
@@ -79,21 +76,7 @@ function ContinueButton(props: {
 					: `Continue reading ${meta().title}, ${chapter()}, ${percent()}`
 			}
 		>
-			<div
-				class="relative aspect-[2/3] w-8 shrink-0 overflow-hidden rounded-[3px] shadow-sm ring-1 ring-text/10"
-				style={{ background: coverToneBackground(meta().id) }}
-				aria-hidden="true"
-			>
-				<Show when={meta().coverUrl}>
-					<img
-						src={meta().coverUrl}
-						alt=""
-						decoding="async"
-						class="absolute inset-0 h-full w-full object-cover"
-						onError={(e) => e.currentTarget.remove()}
-					/>
-				</Show>
-			</div>
+			<BookThumb book={meta()} />
 			<div class="min-w-0 flex-1">
 				<p class={EYEBROW}>{fresh() ? "Start reading" : "Continue reading"}</p>
 				<p class="mt-0.5 flex min-w-0 items-baseline gap-1.5 text-sm text-text">
