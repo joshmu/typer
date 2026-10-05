@@ -1,4 +1,5 @@
 import type { Camera } from "@babylonjs/core/Cameras/camera";
+import type { Engine } from "@babylonjs/core/Engines/engine";
 import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imageProcessingConfiguration";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
@@ -25,11 +26,14 @@ const TINT_FOV = 1.1;
 const TINT_WEIGHT = 2.6;
 const FREEZE = new Color3(0.45, 0.8, 1.35);
 const SLOW = new Color3(1.3, 0.85, 0.35);
+// renderer strings of software GL (e.g. headless CI): no post there
+const SOFTWARE_GL = /swiftshader|llvmpipe|softpipe|software/i;
 
 /**
  * Bloom, chromatic aberration and the freeze/slow grade. Built once with every
  * stage it will ever use already on, so nothing recompiles mid-run; per frame
- * only uniforms change. Reduced motion leaves aberration out entirely.
+ * only uniforms change. Reduced motion leaves aberration out entirely. Without
+ * WebGL2, or on a software rasteriser, the scene renders with no post.
  */
 export function createPost(
 	scene: Scene,
@@ -40,6 +44,11 @@ export function createPost(
 	try {
 		const engine = scene.getEngine();
 		if (!engine.isWebGPU && engine.version < 2) throw new Error("webgl1");
+		// a software rasteriser can't afford full-screen passes every frame
+		const gl = (engine as Engine).getGlInfo?.();
+		if (gl && SOFTWARE_GL.test(gl.renderer)) {
+			throw new Error("software renderer");
+		}
 		const hdr = engine.getCaps().textureHalfFloatRender;
 		pipeline = new DefaultRenderingPipeline("horde-post", hdr, scene, [camera]);
 		// the canvas drew with MSAA before the pipeline; keep edges smooth
