@@ -80,7 +80,7 @@ export default function RootLayout(props: ParentProps) {
 			</header>
 			{props.children}
 			<footer
-				class="flex justify-center px-4 pt-2 pb-5 transition-opacity duration-500"
+				class="flex justify-center px-4 pt-2 pb-5 motion-safe:transition-opacity motion-safe:duration-500"
 				classList={{
 					hidden: isGame(),
 					"opacity-0 pointer-events-none": isTypingActive(),
