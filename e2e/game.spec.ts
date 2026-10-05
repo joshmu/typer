@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures/se-stub";
 
 test.describe("horde game mode", () => {
 	test("loads arena and kills first enemy by typing", async ({ page }) => {

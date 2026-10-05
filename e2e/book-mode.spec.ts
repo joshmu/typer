@@ -1,36 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
-import {
-	bookDetailXhtml,
-	catalogXhtml,
-	chapter1Xhtml,
-	chapter2Xhtml,
-	SE_BOOK_ID,
-	tocXhtml,
-} from "./fixtures/standardebooks";
-
-async function stubStandardEbooks(page: Page): Promise<void> {
-	await page.route("https://standardebooks.org/**", async (route) => {
-		const url = new URL(route.request().url());
-		const path = url.pathname;
-		const xhtml = (() => {
-			if (path === "/ebooks") return catalogXhtml;
-			if (path === `/ebooks/${SE_BOOK_ID}`) return bookDetailXhtml;
-			if (path === `/ebooks/${SE_BOOK_ID}/text`) return tocXhtml;
-			if (path === `/ebooks/${SE_BOOK_ID}/text/chapter-1`) return chapter1Xhtml;
-			if (path === `/ebooks/${SE_BOOK_ID}/text/chapter-2`) return chapter2Xhtml;
-			return null;
-		})();
-		if (xhtml === null) {
-			await route.fulfill({ status: 404, body: "not found" });
-			return;
-		}
-		await route.fulfill({
-			status: 200,
-			contentType: "application/xhtml+xml",
-			body: xhtml,
-		});
-	});
-}
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures/se-stub";
 
 async function clearIndexedDb(page: Page): Promise<void> {
 	await page.evaluate(async () => {
@@ -45,7 +14,6 @@ async function clearIndexedDb(page: Page): Promise<void> {
 
 test.describe("book mode", () => {
 	test.beforeEach(async ({ page }) => {
-		await stubStandardEbooks(page);
 		// Ensure each test starts from a clean DB so resume state is deterministic.
 		await page.goto("/");
 		await clearIndexedDb(page);

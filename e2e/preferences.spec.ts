@@ -1,5 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { keySoundRecord, watchKeySound } from "./fixtures/key-sound";
+import { expect, test } from "./fixtures/se-stub";
 
 const TEXT = "the quick brown fox";
 

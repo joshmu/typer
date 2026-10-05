@@ -6,8 +6,11 @@ import {
 	onMount,
 	Show,
 } from "solid-js";
+import { describeBookError } from "@/lib/book-errors";
+import { formatAge } from "@/lib/book-format";
 import { useBookPercents } from "@/lib/book-progress";
 import { browseCatalog, searchBooks } from "@/lib/book-service";
+import { readSavedCatalogue } from "@/lib/catalogue-cache";
 import type { BookMeta, BookProgress } from "@/lib/core/types/book";
 import BookCard from "./BookCard";
 import BookDetail from "./BookDetail";
@@ -16,8 +19,11 @@ import { LABEL_FACE } from "./typography";
 interface BookBrowserProps {
 	/** All book progress records (from IndexedDB) */
 	allProgress: BookProgress[];
-	/** Called when user wants to start/continue a book */
-	onSelectBook: (bookId: string, progress?: BookProgress) => void;
+	/** Called when user wants to start/continue a book; a rejection is shown in the sheet. */
+	onSelectBook: (
+		bookId: string,
+		progress?: BookProgress,
+	) => void | Promise<void>;
 	/** Whether a book is currently loading */
 	loading?: boolean;
 }
@@ -29,16 +35,35 @@ const SEARCH_DEBOUNCE_MS = 350;
 const GRID =
 	"grid grid-cols-2 gap-x-4 gap-y-7 min-[480px]:grid-cols-3 sm:grid-cols-4 sm:gap-x-5 md:grid-cols-5 lg:grid-cols-6";
 
+type LoadMode = "replace" | "append" | "background";
+
+interface Failure {
+	/** What failed: the browse page, a search, or the next page. */
+	op: "browse" | "search" | "more";
+	error: unknown;
+	retry: () => void;
+}
+
 export default function BookBrowser(props: BookBrowserProps) {
-	const [books, setBooks] = createSignal<BookMeta[]>([]);
+	// The last good catalogue page shows at once; a fresh one replaces it.
+	const saved = readSavedCatalogue();
+	const [books, setBooks] = createSignal<BookMeta[]>(saved?.books ?? []);
+	/** When the grid is the saved copy, the time it was fetched. */
+	const [savedAt, setSavedAt] = createSignal<number | null>(
+		saved?.savedAt ?? null,
+	);
 	const [searchQuery, setSearchQuery] = createSignal("");
 	const [activeQuery, setActiveQuery] = createSignal("");
 	const [page, setPage] = createSignal(1);
 	const [fetching, setFetching] = createSignal(false);
 	const [appending, setAppending] = createSignal(false);
-	const [failed, setFailed] = createSignal(false);
-	const [hasMore, setHasMore] = createSignal(true);
+	const [background, setBackground] = createSignal(false);
+	const [failure, setFailure] = createSignal<Failure | null>(null);
+	const [hasMore, setHasMore] = createSignal(
+		saved ? saved.books.length >= PAGE_SIZE : true,
+	);
 	const [selectedBook, setSelectedBook] = createSignal<BookMeta | null>(null);
+	const [startError, setStartError] = createSignal<unknown>(null);
 	const bookPercents = useBookPercents();
 	const compact = useMediaQuery("(max-width: 639px)");
 
@@ -47,11 +72,22 @@ export default function BookBrowser(props: BookBrowserProps) {
 	let searchInput: HTMLInputElement | undefined;
 	let lastTrigger: HTMLElement | undefined;
 
-	async function loadBooks(query: string, pageNum: number, append = false) {
+	/**
+	 * Fetches a catalogue page. A background load refreshes the saved copy
+	 * without dimming it; a retry keeps its failure on screen until it lands.
+	 */
+	async function loadBooks(
+		query: string,
+		pageNum: number,
+		mode: LoadMode = "replace",
+		retrying = false,
+	) {
 		const id = ++requestId;
+		const append = mode === "append";
 		setFetching(true);
 		setAppending(append);
-		setFailed(false);
+		setBackground(mode === "background");
+		if (!retrying) setFailure(null);
 		try {
 			const results = query
 				? await searchBooks(query, pageNum)
@@ -60,19 +96,26 @@ export default function BookBrowser(props: BookBrowserProps) {
 			setBooks((prev) => (append ? [...prev, ...results] : results));
 			setActiveQuery(query);
 			setHasMore(results.length >= PAGE_SIZE);
+			if (!append) setSavedAt(null);
+			setFailure(null);
 		} catch (err) {
 			if (id !== requestId) return;
 			console.error("Failed to fetch books:", err);
-			setFailed(true);
+			setFailure({
+				op: append ? "more" : query ? "search" : "browse",
+				error: err,
+				retry: () => loadBooks(query, pageNum, mode, true),
+			});
 		} finally {
 			if (id === requestId) {
 				setFetching(false);
 				setAppending(false);
+				setBackground(false);
 			}
 		}
 	}
 
-	onMount(() => loadBooks("", 1));
+	onMount(() => loadBooks("", 1, saved ? "background" : "replace"));
 
 	function handleSearch(value: string) {
 		setSearchQuery(value);
@@ -92,13 +135,15 @@ export default function BookBrowser(props: BookBrowserProps) {
 	}
 
 	function retry() {
-		loadBooks(activeQuery() || searchQuery().trim(), page(), page() > 1);
+		const failed = failure();
+		if (failed) failed.retry();
+		else loadBooks(activeQuery(), 1);
 	}
 
 	function loadMore() {
 		const nextPage = page() + 1;
 		setPage(nextPage);
-		loadBooks(activeQuery(), nextPage, true);
+		loadBooks(activeQuery(), nextPage, "append");
 	}
 
 	function getProgress(bookId: string): BookProgress | undefined {
@@ -111,20 +156,28 @@ export default function BookBrowser(props: BookBrowserProps) {
 
 	function handleBookClick(book: BookMeta, trigger: HTMLElement) {
 		lastTrigger = trigger;
+		setStartError(null);
 		setSelectedBook(book);
 	}
 
 	function closeDetail() {
 		setSelectedBook(null);
+		setStartError(null);
 		lastTrigger?.focus({ preventScroll: true });
 	}
 
-	function handleStart() {
+	/** The sheet stays open until the book opens, and shows why it didn't. */
+	async function handleStart() {
 		const book = selectedBook();
 		if (!book) return;
-		const progress = getProgress(book.id);
-		props.onSelectBook(book.id, progress);
-		setSelectedBook(null);
+		setStartError(null);
+		try {
+			await props.onSelectBook(book.id, getProgress(book.id));
+		} catch (err) {
+			if (selectedBook() === book) setStartError(err);
+			return;
+		}
+		if (selectedBook() === book) setSelectedBook(null);
 	}
 
 	onCleanup(() => clearTimeout(debounceTimer));
@@ -135,12 +188,29 @@ export default function BookBrowser(props: BookBrowserProps) {
 			.map((p) => p.bookMeta)
 			.filter(Boolean);
 
-	const initialLoad = () => fetching() && books().length === 0;
-	const refreshing = () => fetching() && !appending() && books().length > 0;
-	const showEmpty = () => !fetching() && !failed() && books().length === 0;
+	const initialLoad = () => fetching() && !failure() && books().length === 0;
+	const refreshing = () =>
+		fetching() && !appending() && !background() && books().length > 0;
+	const showEmpty = () => !fetching() && !failure() && books().length === 0;
+	const retrying = () => fetching() && failure() !== null;
+	const blockingFailure = () =>
+		books().length === 0 ? (failure() ?? null) : null;
+	const gridNote = () => {
+		const f = failure();
+		return f && f.op !== "more" && books().length > 0 ? f : null;
+	};
+	/** A short headline, and detail shown where there is room. */
+	const gridNoteText = (f: Failure): [string, string] => {
+		if (f.op === "search") return ["Search didn't go through", ""];
+		const at = savedAt();
+		return [
+			"Couldn't refresh",
+			at === null ? "" : ` · showing the copy from ${formatAge(at)}`,
+		];
+	};
 
 	const countLabel = () => {
-		if (initialLoad()) return "";
+		if (initialLoad() || blockingFailure()) return "";
 		const n = books().length;
 		if (activeQuery()) {
 			if (n === 0) return "No results";
@@ -229,18 +299,33 @@ export default function BookBrowser(props: BookBrowserProps) {
 				<SectionHeading
 					title={activeQuery() ? "Search results" : "All books"}
 					aside={
-						<Show when={refreshing()} fallback={countLabel()}>
-							Searching…
+						<Show
+							when={gridNote()}
+							fallback={
+								<Show when={refreshing()} fallback={countLabel()}>
+									Searching…
+								</Show>
+							}
+						>
+							{(f) => (
+								<HeaderNotice
+									text={gridNoteText(f())}
+									retrying={retrying()}
+									onRetry={retry}
+								/>
+							)}
 						</Show>
 					}
 				/>
 
-				<Show when={failed() && books().length === 0}>
-					<EmptyState
-						title="Couldn't reach the library"
-						body="Standard Ebooks didn't answer. Check your connection and try again."
-						action={{ label: "Try again", onClick: retry }}
-					/>
+				<Show when={blockingFailure()}>
+					{(f) => (
+						<ErrorState
+							error={f().error}
+							retrying={retrying()}
+							onRetry={retry}
+						/>
+					)}
 				</Show>
 
 				<Show when={showEmpty()}>
@@ -286,21 +371,17 @@ export default function BookBrowser(props: BookBrowserProps) {
 					</div>
 				</Show>
 
-				<Show when={failed() && books().length > 0}>
-					<p class="mt-8 text-center text-sm text-text-sub">
-						Couldn't load more books.{" "}
-						<button
-							type="button"
-							class="text-primary underline-offset-4 hover:underline"
-							onClick={retry}
-						>
-							Try again
-						</button>
-					</p>
+				<Show when={failure()?.op === "more"}>
+					<InlineNotice
+						text="Couldn't load more books."
+						retrying={retrying()}
+						onRetry={retry}
+						class="mt-8"
+					/>
 				</Show>
 
 				<Show
-					when={hasMore() && !fetching() && !failed() && books().length > 0}
+					when={hasMore() && !fetching() && !failure() && books().length > 0}
 				>
 					<div class="mt-10 flex justify-center">
 						<button
@@ -321,6 +402,7 @@ export default function BookBrowser(props: BookBrowserProps) {
 						progress={getProgress(book().id)}
 						percent={getPercent(book().id)}
 						loading={props.loading}
+						error={startError() ? describeBookError(startError()) : null}
 						onStart={handleStart}
 						onClose={closeDetail}
 					/>
@@ -404,6 +486,139 @@ function EmptyState(props: {
 				onClick={props.action.onClick}
 			>
 				{props.action.label}
+			</button>
+		</div>
+	);
+}
+
+function RetryIcon(props: { spinning?: boolean; small?: boolean }) {
+	return (
+		<svg
+			viewBox="0 0 24 24"
+			class={`${props.small ? "size-3" : "size-4"} ${props.spinning ? "motion-safe:animate-spin" : ""}`}
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M20 12a8 8 0 1 1-2.34-5.66" />
+			<path d="M20 4v4.5h-4.5" />
+		</svg>
+	);
+}
+
+/** The catalogue could not load and there is nothing saved to show. */
+function ErrorState(props: {
+	error: unknown;
+	retrying: boolean;
+	onRetry: () => void;
+}) {
+	const copy = () => describeBookError(props.error);
+	return (
+		<div
+			role="alert"
+			class="relative flex flex-col items-center overflow-hidden rounded-xl bg-bg-secondary/40 px-6 py-16 text-center ring-1 ring-text/10 ring-inset sm:py-20"
+		>
+			<div class="relative mb-6 grid size-14 place-items-center">
+				<span class="absolute inset-0 rounded-full bg-error/10 ring-1 ring-error/25" />
+				<svg
+					viewBox="0 0 24 24"
+					class="relative size-6 text-error"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.75"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2zm0 0A2 2 0 0 0 6 22h13" />
+					<path d="M10 8.5l4 4M14 8.5l-4 4" />
+				</svg>
+			</div>
+			<p class={`${LABEL_FACE} text-lg font-semibold text-text`}>
+				{copy().title}
+			</p>
+			<p class="mt-2 max-w-sm text-sm text-pretty text-text-sub">
+				{copy().body}
+			</p>
+			<button
+				type="button"
+				class={`${LABEL_FACE} mt-7 inline-flex h-11 items-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-bg outline-none transition-[filter,transform] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-bg active:scale-[0.98] disabled:opacity-70`}
+				onClick={props.onRetry}
+				disabled={props.retrying}
+				aria-busy={props.retrying}
+			>
+				<RetryIcon spinning={props.retrying} />
+				{props.retrying ? "Trying again" : "Try again"}
+			</button>
+			<p class="mt-6 text-xs text-text-sub/70">
+				Books come from Standard Ebooks, a free public-domain library.
+			</p>
+		</div>
+	);
+}
+
+/**
+ * A failed refresh, said in the section header in place of the count, so
+ * the grid below never moves.
+ */
+function HeaderNotice(props: {
+	text: [string, string];
+	retrying: boolean;
+	onRetry: () => void;
+}) {
+	return (
+		<span data-testid="library-stale" class="flex h-4 items-center gap-2">
+			<span
+				class="size-1.5 shrink-0 rounded-full bg-error"
+				aria-hidden="true"
+			/>
+			<span class="text-text-sub">
+				{props.text[0]}
+				<span class="hidden md:inline">{props.text[1]}</span>
+			</span>
+			<button
+				type="button"
+				class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-primary outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-70"
+				onClick={props.onRetry}
+				disabled={props.retrying}
+				aria-busy={props.retrying}
+			>
+				<RetryIcon spinning={props.retrying} small />
+				{props.retrying ? "Retrying" : "Retry"}
+			</button>
+		</span>
+	);
+}
+
+/** A quiet one-line failure below a grid that still has books. */
+function InlineNotice(props: {
+	text: string;
+	retrying: boolean;
+	onRetry: () => void;
+	class?: string;
+}) {
+	return (
+		<div
+			role="status"
+			class={`flex items-center gap-3 rounded-lg bg-bg-secondary/60 py-2 pr-2 pl-4 text-sm text-text-sub ring-1 ring-text/10 ring-inset ${props.class ?? ""}`}
+		>
+			<span
+				class="size-1.5 shrink-0 rounded-full bg-error"
+				aria-hidden="true"
+			/>
+			<span class="min-w-0 flex-1 text-pretty">{props.text}</span>
+			<button
+				type="button"
+				class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-primary outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-70"
+				onClick={props.onRetry}
+				disabled={props.retrying}
+				aria-busy={props.retrying}
+			>
+				<RetryIcon spinning={props.retrying} />
+				{props.retrying ? "Retrying" : "Retry"}
 			</button>
 		</div>
 	);

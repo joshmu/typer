@@ -323,6 +323,21 @@ describe("useTestSession", () => {
 		);
 	});
 
+	it("selectBook rejects with the load error so the library can show it", async () => {
+		const failure = new Error("offline");
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { fetchAndCacheBook: vi.fn().mockRejectedValue(failure) },
+			});
+			await expect(session.selectBook("author/book")).rejects.toBe(failure);
+			expect(session.bookLoading()).toBe(false);
+			expect(session.activeBook()).toBeNull();
+			dispose();
+		});
+	});
+
 	it("selectBook resumes from prior progress", async () => {
 		const book = makeBook([
 			makeChapter(0, ["a", "b", "c"]),

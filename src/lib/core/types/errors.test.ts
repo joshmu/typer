@@ -4,6 +4,7 @@ import {
 	BookCacheError,
 	BookNotFoundError,
 	BookServiceError,
+	BookUnsupportedError,
 	DatabaseError,
 	isAppError,
 	NetworkError,
@@ -66,6 +67,7 @@ describe("AppError hierarchy", () => {
 		const errors: AppError[] = [
 			new BookNotFoundError("a"),
 			new BookServiceError("a", 500),
+			new BookUnsupportedError("a"),
 			new NetworkError("a"),
 			new DatabaseError("a"),
 			new BookCacheError("a"),
@@ -76,6 +78,7 @@ describe("AppError hierarchy", () => {
 			switch (err.kind) {
 				case "book-not-found":
 				case "book-service":
+				case "book-unsupported":
 				case "network":
 				case "database":
 				case "book-cache":
