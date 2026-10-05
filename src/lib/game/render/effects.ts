@@ -445,6 +445,9 @@ export function createEffects(
 			true,
 		);
 		tex.hasAlpha = true;
+		// upload once (blank) so the scene counts the label ready before its
+		// first kill
+		tex.update();
 		const mat = new StandardMaterial(`fx-score-mat-${i}`, scene);
 		mat.disableLighting = true;
 		mat.emissiveTexture = tex;
