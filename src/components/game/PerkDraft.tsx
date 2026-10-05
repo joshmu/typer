@@ -1,6 +1,8 @@
-import { For, Show } from "solid-js";
+import { animate, spring, stagger } from "motion";
+import { For, onMount, Show } from "solid-js";
 import { perkGlyph } from "@/lib/game/hud-view";
 import { PERK_DEFS, type PerkId } from "@/lib/game/sim/perks";
+import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
 import { rarityText } from "./Hud";
 import { VEIL } from "./veil";
 
@@ -16,13 +18,51 @@ interface PerkDraftProps {
  * a --primary to --error gradient frame with a glow.
  */
 export default function PerkDraft(props: PerkDraftProps) {
+	let title: HTMLDivElement | undefined;
+	const cards: HTMLButtonElement[] = [];
+	// the cards are dealt in one after another, flipping up onto the table
+	onMount(() => {
+		const reduced = prefersReducedMotion();
+		if (title) {
+			animate(
+				title,
+				reduced ? { opacity: [0, 1] } : { opacity: [0, 1], y: [-12, 0] },
+				{ duration: 0.3, ease: [0.16, 1, 0.3, 1] },
+			);
+		}
+		const dealt = cards.filter(Boolean);
+		if (reduced) {
+			animate(
+				dealt,
+				{ opacity: [0, 1] },
+				{ duration: 0.25, delay: stagger(0.06) },
+			);
+			return;
+		}
+		animate(
+			dealt,
+			{
+				opacity: [0, 1],
+				y: [48, 0],
+				rotateX: [55, 0],
+				rotateZ: [-4, 0],
+				scale: [0.88, 1],
+			},
+			{
+				type: spring,
+				bounce: 0.3,
+				visualDuration: 0.42,
+				delay: stagger(0.06, { startDelay: 0.08 }),
+			},
+		);
+	});
 	return (
 		<div
 			data-testid="perk-overlay"
 			class={`absolute inset-0 z-10 grid place-items-center overflow-y-auto py-8 ${VEIL}`}
 		>
 			<div class="flex flex-col items-center gap-8 px-4">
-				<div class="flex flex-col items-center gap-2 text-center">
+				<div ref={title} class="flex flex-col items-center gap-2 text-center">
 					<span class="font-display text-xs font-semibold uppercase tracking-[0.45em] text-text-sub">
 						Wave {props.wave} cleared
 					</span>
@@ -30,17 +70,20 @@ export default function PerkDraft(props: PerkDraftProps) {
 						Choose an upgrade
 					</h2>
 				</div>
-				<div class="flex flex-wrap justify-center gap-5">
+				<div class="flex flex-wrap justify-center gap-5 [perspective:900px]">
 					<For each={props.offer}>
 						{(id, i) => {
 							const def = PERK_DEFS[id];
 							const epic = def.rarity === "epic";
 							return (
 								<button
+									ref={(el) => {
+										cards[i()] = el;
+									}}
 									type="button"
 									data-testid={`perk-card-${i()}`}
 									onClick={() => props.onPick(i())}
-									class="group w-64 rounded-xl text-left outline-none transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-primary motion-safe:hover:-translate-y-1"
+									class="group w-64 rounded-xl text-left outline-none transition-[translate] duration-150 focus-visible:ring-2 focus-visible:ring-primary motion-safe:hover:-translate-y-1"
 									classList={{
 										"bg-linear-to-br from-primary via-error to-primary p-[2px] shadow-[0_0_36px_color-mix(in_srgb,var(--primary)_40%,transparent)]":
 											epic,
