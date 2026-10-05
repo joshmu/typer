@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	browseCatalog,
 	FETCH_TIMEOUT_MS,
 	fetchAndCacheBook,
 	fetchBookDetail,
@@ -8,6 +9,7 @@ import {
 	loadBookDetail,
 	searchBooks,
 } from "./book-service";
+import { readSavedCatalogue } from "./catalogue-cache";
 import {
 	BookNotFoundError,
 	BookServiceError,
@@ -346,5 +348,55 @@ describe("fetchBookDetail timing", () => {
 		await settle();
 		expect(await result).toBeInstanceOf(BookServiceError);
 		expect(await db.cachedBooks.get("p/empty")).toBeUndefined();
+	});
+});
+
+describe("catalogue read-through", () => {
+	const originalFetch = globalThis.fetch;
+	const page = `<li typeof="schema:Book" about="/ebooks/a/one"><a href="/ebooks/a/one"><span property="schema:name">One</span></a></li>`;
+
+	beforeEach(() => localStorage.clear());
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+		vi.useRealTimers();
+	});
+
+	it("saves the first browse page for the next visit", async () => {
+		globalThis.fetch = vi.fn(
+			async () => new Response(page, { status: 200 }),
+		) as never;
+
+		const books = await browseCatalog(1);
+
+		expect(books.length).toBeGreaterThan(0);
+		expect(readSavedCatalogue()?.books).toEqual(books);
+	});
+
+	it("keeps the saved copy when a refresh fails", async () => {
+		useRetryClock();
+		globalThis.fetch = vi.fn(
+			async () => new Response(page, { status: 200 }),
+		) as never;
+		const saved = await browseCatalog(1);
+		globalThis.fetch = vi.fn(
+			async () => new Response("down", { status: 503 }),
+		) as never;
+
+		const result = browseCatalog(1).catch((e) => e);
+		await settle();
+
+		expect(await result).toBeInstanceOf(BookServiceError);
+		expect(readSavedCatalogue()?.books).toEqual(saved);
+	});
+
+	it("does not save searches or later pages", async () => {
+		globalThis.fetch = vi.fn(
+			async () => new Response(page, { status: 200 }),
+		) as never;
+
+		await searchBooks("one");
+		await browseCatalog(2);
+
+		expect(readSavedCatalogue()).toBeNull();
 	});
 });

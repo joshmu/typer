@@ -1,3 +1,4 @@
+import { saveCatalogue } from "./catalogue-cache";
 import {
 	parseBookDetail,
 	parseCatalogPage,
@@ -90,10 +91,13 @@ export async function searchBooks(
 }
 
 /**
- * Browse the Standard Ebooks catalog (paginated, no search query).
+ * Browse the Standard Ebooks catalog (paginated, no search query). A good
+ * first page is saved so the next visit can show it at once.
  */
 export async function browseCatalog(page = 1): Promise<BookMeta[]> {
-	return searchBooks("", page);
+	const books = await searchBooks("", page);
+	if (page === 1) saveCatalogue(books);
+	return books;
 }
 
 /**
