@@ -15,7 +15,7 @@ import { keySoundFor } from "@/lib/key-sound";
 import { usePreferences } from "@/lib/preferences-context";
 import { setTypingActive } from "@/lib/typing-focus";
 import StatsBar from "./StatsBar";
-import TextDisplay from "./TextDisplay";
+import TextDisplay, { type TextDisplayHandle } from "./TextDisplay";
 
 interface TypingTestProps {
 	text: string;
@@ -39,6 +39,7 @@ export default function TypingTest(props: TypingTestProps) {
 	const [elapsed, setElapsed] = createSignal(0);
 	const [capsLock, setCapsLock] = createSignal(false);
 	let containerRef: HTMLDivElement | undefined;
+	let display: TextDisplayHandle | undefined;
 	let timerInterval: ReturnType<typeof setInterval> | undefined;
 	let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -121,8 +122,10 @@ export default function TypingTest(props: TypingTestProps) {
 		}
 
 		const wasStarted = state.startTime !== null;
+		const wordIndex = state.currentWordIndex;
 		const outcome = session.key(key, Date.now());
 		if (outcome) keySound.play(outcome !== "incorrect");
+		if (outcome === "incorrect") display?.miss(wordIndex);
 
 		if (!wasStarted && state.startTime !== null && !complete()) {
 			startTimers();
@@ -169,6 +172,9 @@ export default function TypingTest(props: TypingTestProps) {
 				words={state.words}
 				currentWordIndex={state.currentWordIndex}
 				currentCharIndex={state.currentCharIndex}
+				handle={(h) => {
+					display = h;
+				}}
 			/>
 			{complete() && (
 				<div class="mt-8 text-center">

@@ -5,13 +5,21 @@ import type { WordState } from "@/lib/core/types";
 import { typingFontSize } from "@/lib/preferences";
 import { usePreferences } from "@/lib/preferences-context";
 import Caret from "./Caret";
+import { pulseClass } from "./pulse-class";
 import { domMeasurer, useLayoutCache } from "./use-layout-cache";
 import Word from "./Word";
+
+/** Imperative feedback the typing test triggers from its key handler. */
+export interface TextDisplayHandle {
+	/** Flash the caret and shake the word that took a wrong keystroke. */
+	miss: (wordIndex: number) => void;
+}
 
 interface TextDisplayProps {
 	words: WordState[];
 	currentWordIndex: number;
 	currentCharIndex: number;
+	handle?: (handle: TextDisplayHandle) => void;
 }
 
 export default function TextDisplay(props: TextDisplayProps) {
@@ -21,6 +29,22 @@ export default function TextDisplay(props: TextDisplayProps) {
 	const [translateY, setTranslateY] = createSignal(0);
 	const lineHeight = () => typingFontSize(prefs.fontSize) * 2;
 	const visibleLines = 3;
+
+	// Words are only ever appended, so an index-keyed array stays valid.
+	const wordEls: HTMLElement[] = [];
+	let caretEl: HTMLElement | undefined;
+	const reducedMotion =
+		typeof window === "undefined"
+			? null
+			: window.matchMedia("(prefers-reduced-motion: reduce)");
+	props.handle?.({
+		miss: (wordIndex) => {
+			pulseClass(caretEl, "caret-miss", "caret-miss");
+			if (!reducedMotion?.matches) {
+				pulseClass(wordEls[wordIndex], "word-miss", "word-shake");
+			}
+		},
+	});
 
 	const layoutCache = useLayoutCache(
 		() => innerRef,
@@ -63,10 +87,16 @@ export default function TextDisplay(props: TextDisplayProps) {
 					currentCharIndex={props.currentCharIndex}
 					style={prefs.caretStyle}
 					smooth={prefs.smoothCaret}
+					ref={(el) => {
+						caretEl = el;
+					}}
 				/>
 				<For each={props.words}>
 					{(word, index) => (
 						<Word
+							ref={(el) => {
+								wordEls[index()] = el;
+							}}
 							word={word}
 							isActive={index() === props.currentWordIndex}
 							activeCharIndex={

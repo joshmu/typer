@@ -29,19 +29,79 @@
 	--font-display: "Urbanist", system-ui, sans-serif;
 }
 
-/* Caret blink animation */
-@keyframes blink {
+/* Caret: glides on transform, breathes while idle, flashes on a miss */
+.caret {
+	border-radius: 1px;
+	background-color: var(--caret);
+	box-shadow: 0 0 10px color-mix(in srgb, var(--caret) 35%, transparent);
+}
+.caret-block {
+	background-color: color-mix(in srgb, var(--caret) 45%, transparent);
+	box-shadow: none;
+}
+.caret-glide {
+	transition-duration: 100ms;
+	transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.caret-idle {
+	animation: caret-blink 1s ease-in-out infinite;
+}
+.caret-miss {
+	animation: caret-miss 120ms ease-out;
+}
+@keyframes caret-blink {
 	0%,
 	100% {
 		opacity: 1;
 	}
 	50% {
-		opacity: 0;
+		opacity: 0.15;
+	}
+}
+@keyframes caret-miss {
+	0%,
+	60% {
+		background-color: var(--error);
+		box-shadow: 0 0 12px color-mix(in srgb, var(--error) 60%, transparent);
 	}
 }
 
-.animate-blink {
-	animation: blink 1s step-end infinite;
+/* Shake the word that took a miss. Words are inline (transform does not
+   apply), so this nudges the relative offset for 180ms. */
+.word-miss {
+	position: relative;
+	animation: word-shake 180ms ease-in-out;
+}
+@keyframes word-shake {
+	0%,
+	100% {
+		left: 0;
+	}
+	17% {
+		left: -2px;
+	}
+	33% {
+		left: 2px;
+	}
+	50% {
+		left: -2px;
+	}
+	67% {
+		left: 2px;
+	}
+	83% {
+		left: -1px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.caret-glide {
+		transition: none;
+	}
+	.caret-idle,
+	.word-miss {
+		animation: none;
+	}
 }
 
 /* Typed character states. Wrong chars are solid --error; a faint wash keeps
