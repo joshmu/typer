@@ -32,6 +32,19 @@ export function chapterLabel(index: number, title?: string): string {
 }
 
 /**
+ * The book percent as shown: "<1%" once anything is typed, so a started
+ * book never reads as untouched.
+ */
+export function formatBookPercent(
+	percent: number,
+	position?: { chapterIndex: number; wordOffset: number },
+): string {
+	const started =
+		!!position && (position.chapterIndex > 0 || position.wordOffset > 0);
+	return percent === 0 && started ? "<1%" : `${percent}%`;
+}
+
+/**
  * How much of each chapter the committed position covers, 0 to 1.
  */
 export function chapterFills(

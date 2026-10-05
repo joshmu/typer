@@ -1,5 +1,9 @@
 import { type JSX, Show } from "solid-js";
-import { chapterLabel, coverToneBackground } from "@/lib/book-format";
+import {
+	chapterLabel,
+	coverToneBackground,
+	formatBookPercent,
+} from "@/lib/book-format";
 import type { ResumableBook } from "@/lib/book-progress";
 import { BOOK_SERIF } from "./typography";
 
@@ -58,6 +62,8 @@ function ContinueButton(props: {
 	onContinue: (resumable: ResumableBook) => void;
 }): JSX.Element {
 	const meta = () => props.resumable.book.meta;
+	const percent = () =>
+		formatBookPercent(props.resumable.percent, props.resumable.progress);
 	const chapter = () =>
 		chapterLabel(props.resumable.chapterIndex, props.resumable.chapterTitle);
 	return (
@@ -65,7 +71,7 @@ function ContinueButton(props: {
 			type="button"
 			class={SHELL}
 			onClick={() => props.onContinue(props.resumable)}
-			aria-label={`Continue reading ${meta().title}, ${chapter()}, ${props.resumable.percent}%`}
+			aria-label={`Continue reading ${meta().title}, ${chapter()}, ${percent()}`}
 		>
 			<div
 				class="relative aspect-[2/3] w-8 shrink-0 overflow-hidden rounded-[3px] shadow-sm ring-1 ring-text/10"
@@ -91,9 +97,7 @@ function ContinueButton(props: {
 					<span class="shrink-0 text-text-sub">·</span>
 					<span class="truncate text-text-sub">{chapter()}</span>
 					<span class="shrink-0 text-text-sub">·</span>
-					<span class="shrink-0 tabular-nums text-primary">
-						{props.resumable.percent}%
-					</span>
+					<span class="shrink-0 tabular-nums text-primary">{percent()}</span>
 				</p>
 				<div class="mt-2 h-0.5 overflow-hidden rounded-full bg-text/10">
 					<div

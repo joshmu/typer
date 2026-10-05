@@ -17,7 +17,7 @@ import ContinueCard from "@/components/books/ContinueCard";
 import ModeSelector from "@/components/typing/ModeSelector";
 import TextInputModal from "@/components/typing/TextInputModal";
 import TypingTest from "@/components/typing/TypingTest";
-import { chapterLabel } from "@/lib/book-format";
+import { chapterLabel, formatBookPercent } from "@/lib/book-format";
 import { loadResumableBook, useResumableBook } from "@/lib/book-progress";
 import { loadExpandedQuotes } from "@/lib/core/text/quotes";
 import type { TestMode } from "@/lib/core/types";
@@ -166,7 +166,11 @@ export default function Home() {
 												/>
 											</div>
 											<p class="text-xs text-text-sub mt-1">
-												{session.bookProgressPercent()}% complete
+												{formatBookPercent(
+													session.bookProgressPercent(),
+													session.bookReader()?.position,
+												)}{" "}
+												complete
 											</p>
 										</div>
 									) : undefined
