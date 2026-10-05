@@ -1,36 +1,61 @@
-import type { CharacterState } from "../types";
+import type { TypingState } from "../types";
 
 export interface CharBreakdown {
 	correct: number;
 	incorrect: number;
+	/** Characters the user skipped: left untyped in text behind the cursor. */
 	missed: number;
 	extra: number;
+	/** Characters the test covered: the four counts above, not untyped text ahead. */
 	total: number;
 }
 
-export function calculateCharBreakdown(chars: CharacterState[]): CharBreakdown {
+type Cursor = Pick<
+	TypingState,
+	"words" | "currentWordIndex" | "currentCharIndex"
+>;
+
+export function calculateCharBreakdown({
+	words,
+	currentWordIndex,
+	currentCharIndex,
+}: Cursor): CharBreakdown {
 	let correct = 0;
 	let incorrect = 0;
 	let missed = 0;
 	let extra = 0;
 
-	for (const char of chars) {
-		switch (char.status) {
-			case "correct":
-				correct++;
-				break;
-			case "incorrect":
-				incorrect++;
-				break;
-			case "extra":
-				extra++;
-				break;
-			case "pending":
-			case "missed":
-				missed++;
-				break;
-		}
-	}
+	words.forEach((word, w) => {
+		word.characters.forEach((char, c) => {
+			switch (char.status) {
+				case "correct":
+					correct++;
+					break;
+				case "incorrect":
+					incorrect++;
+					break;
+				case "extra":
+					extra++;
+					break;
+				case "missed":
+					missed++;
+					break;
+				case "pending": {
+					const passed =
+						w < currentWordIndex ||
+						(w === currentWordIndex && c < currentCharIndex);
+					if (passed) missed++;
+					break;
+				}
+			}
+		});
+	});
 
-	return { correct, incorrect, missed, extra, total: chars.length };
+	return {
+		correct,
+		incorrect,
+		missed,
+		extra,
+		total: correct + incorrect + missed + extra,
+	};
 }

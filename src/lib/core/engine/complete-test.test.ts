@@ -46,6 +46,7 @@ describe("completeTest", () => {
 		expect(out.result.rawWpm).toBe(0);
 		expect(out.result.accuracy).toBe(100); // accuracy defaults to 100 when nothing typed
 		expect(out.result.elapsed).toBe(0);
+		expect(out.charCount).toBe(0);
 		expect(out.errorCount).toBe(0);
 	});
 
@@ -79,6 +80,22 @@ describe("completeTest", () => {
 		expect(out.result.accuracy).toBe(71); // 5 correct of 7 character keys
 		expect(out.result.rawWpm).toBe(8); // 7 keys / 5 / (10s / 60)
 		expect(out.result.wpm).toBe(6); // 5 correct chars / 5 / (10s / 60)
+	});
+
+	it("does not count text the user never reached as missed", () => {
+		const state = createTypingState("the quick brown fox jumps over", {
+			mode: { type: "time", seconds: 15 },
+		});
+		typeThenEnd(state, ["t", "h", "e", " ", "q", "x"], 15_000);
+		const out = completeTest(state);
+		expect(out.result.breakdown).toEqual({
+			correct: 5,
+			incorrect: 1,
+			missed: 0,
+			extra: 0,
+			total: 6,
+		});
+		expect(out.charCount).toBe(6);
 	});
 
 	it("populates breakdown counts", () => {

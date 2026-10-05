@@ -35,7 +35,7 @@ export function completeTest(state: TypingState): CompletedTestPayload {
 	const accuracy = calculateAccuracy(state.keystrokes);
 	const wpmPerSecond = collectPerSecondWPM(chars, state.startTime ?? 0);
 	const consistency = calculateConsistency(wpmPerSecond);
-	const breakdown = calculateCharBreakdown(chars);
+	const breakdown = calculateCharBreakdown(state);
 
 	return {
 		result: {
