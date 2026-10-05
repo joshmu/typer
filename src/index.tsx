@@ -10,6 +10,7 @@ const Home = lazy(() => import("./routes/Home"));
 const About = lazy(() => import("./routes/About"));
 const Settings = lazy(() => import("./routes/Settings"));
 const Game = lazy(() => import("./routes/Game"));
+const Library = lazy(() => import("./routes/Library"));
 
 const root = document.getElementById("root");
 
@@ -25,6 +26,7 @@ render(
 			<Route path="/" component={Home} />
 			<Route path="/about" component={About} />
 			<Route path="/settings" component={Settings} />
+			<Route path="/library" component={Library} />
 			<Route path="/game" component={Game} />
 		</Router>
 	),
