@@ -297,6 +297,10 @@ All data stays in the browser. No backend, no accounts, no sync.
 
 `PreferencesProvider` (src/lib/preferences-context.tsx) is the only place preferences reach the document: one effect applies the theme and sets `--typing-font-size`. Typing components read caret style, smooth caret, live WPM and font size through `usePreferences()`, and a font size change re-measures the layout cache.
 
+### Book Source
+
+Book mode fetches catalogue, book and chapter documents straight from `https://standardebooks.org` (`SE_ORIGIN` in src/lib/core/text/se-source.ts), which allows any origin. Each fetch retries network errors, 429 and 5xx within its time limit (src/lib/http-retry.ts), and the last good catalogue is kept for when a refresh fails. There is no same-origin proxy: Standard Ebooks answers Vercel's egress with 403 (verified 2026-10-05).
+
 ### Error Recovery
 
 All Dexie reactive queries use `safeFrom()` (src/lib/safe-query.ts) which catches liveQuery errors and returns fallback values instead of crashing the SolidJS render tree. All DB mutations are wrapped in try-catch. If the DB fails to open (corrupted state, blocked upgrade), it auto-deletes and reloads — a one-time recovery for users with incompatible IndexedDB state.

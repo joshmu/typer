@@ -205,21 +205,45 @@ describe("loadBookDetail", () => {
 	});
 });
 
-describe("same-origin proxy", () => {
+describe("Standard Ebooks requests", () => {
 	const originalFetch = globalThis.fetch;
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
 	});
 
-	it("requests the catalogue through /se on this origin", async () => {
+	it("requests the catalogue from standardebooks.org directly", async () => {
 		const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
 		globalThis.fetch = fetchMock as never;
 
 		await searchBooks("dickens", 2);
 
 		const [url] = fetchMock.mock.calls[0] as unknown as [string];
-		expect(url).toBe("/se/ebooks?query=dickens&per-page=48&page=2");
+		expect(url).toBe(
+			"https://standardebooks.org/ebooks?query=dickens&per-page=48&page=2",
+		);
+	});
+
+	it("never fetches a same-origin /se/ path", async () => {
+		const toc = `<a href="text/chapter-1">I</a>`;
+		const fetchMock = vi.fn(async (url: string) =>
+			url.endsWith("/text")
+				? new Response(toc, { status: 200 })
+				: new Response("<p>Text</p>", { status: 200 }),
+		);
+		globalThis.fetch = fetchMock as never;
+
+		await searchBooks("austen");
+		await browseCatalog();
+		await fetchBookDetail("a/direct");
+		await fetchChapter("a/direct", "chapter-1", 0);
+
+		const urls = fetchMock.mock.calls.map(([url]) => url);
+		expect(urls.length).toBeGreaterThanOrEqual(5);
+		for (const url of urls) {
+			expect(url).toMatch(/^https:\/\/standardebooks\.org\/ebooks/);
+			expect(url).not.toMatch(/^\/se\//);
+		}
 	});
 
 	it("does not retry a 404 for a book", async () => {
@@ -263,8 +287,8 @@ describe("fetchBookDetail timing", () => {
 		await Promise.resolve();
 
 		expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-			"/se/ebooks/p/parallel",
-			"/se/ebooks/p/parallel/text",
+			"https://standardebooks.org/ebooks/p/parallel",
+			"https://standardebooks.org/ebooks/p/parallel/text",
 		]);
 	});
 
@@ -310,7 +334,9 @@ describe("fetchBookDetail timing", () => {
 		const urls = fetchMock.mock.calls.map(([url]) => url);
 		expect(urls.filter((u) => u.endsWith("/ebooks/p/reuse"))).toHaveLength(1);
 		expect(urls.filter((u) => u.endsWith("/p/reuse/text"))).toHaveLength(1);
-		expect(urls).toContain("/se/ebooks/p/reuse/text/chapter-1");
+		expect(urls).toContain(
+			"https://standardebooks.org/ebooks/p/reuse/text/chapter-1",
+		);
 	});
 
 	it("does not remember a detail that came back without chapters", async () => {

@@ -17,27 +17,23 @@ const DOCUMENTS: Record<string, string> = {
 };
 
 /**
- * Serves the /se proxy from fixtures and 404s direct Standard Ebooks
- * requests (covers), so no spec ever reaches the live site.
+ * Serves Standard Ebooks documents from fixtures and 404s everything else
+ * on the host (covers), so no spec ever reaches the live site.
  */
 export async function stubStandardEbooks(context: BrowserContext) {
-	await context.route("https://standardebooks.org/**", (route) =>
-		route.fulfill({ status: 404, body: "not found" }),
-	);
-	await context.route(
-		(url) => url.pathname.startsWith("/se/"),
-		(route) => {
-			const path = new URL(route.request().url()).pathname.slice(3);
-			const xhtml = DOCUMENTS[path];
-			return xhtml === undefined
-				? route.fulfill({ status: 404, body: "not found" })
-				: route.fulfill({
-						status: 200,
-						contentType: "application/xhtml+xml",
-						body: xhtml,
-					});
-		},
-	);
+	await context.route("https://standardebooks.org/**", (route) => {
+		const xhtml = DOCUMENTS[new URL(route.request().url()).pathname];
+		// Standard Ebooks allows any origin, on 200s and 404s alike.
+		const headers = { "access-control-allow-origin": "*" };
+		return xhtml === undefined
+			? route.fulfill({ status: 404, headers, body: "not found" })
+			: route.fulfill({
+					status: 200,
+					contentType: "application/xhtml+xml",
+					headers,
+					body: xhtml,
+				});
+	});
 }
 
 /** Playwright's `test`, with Standard Ebooks stubbed for every page. */
