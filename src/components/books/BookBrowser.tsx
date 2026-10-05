@@ -199,12 +199,14 @@ export default function BookBrowser(props: BookBrowserProps) {
 		const f = failure();
 		return f && f.op !== "more" && books().length > 0 ? f : null;
 	};
-	const gridNoteText = (f: Failure) => {
-		if (f.op === "search") return "That search didn't go through.";
+	/** A short headline, and detail shown where there is room. */
+	const gridNoteText = (f: Failure): [string, string] => {
+		if (f.op === "search") return ["Search didn't go through", ""];
 		const at = savedAt();
-		return at === null
-			? "Couldn't refresh the library."
-			: `Couldn't refresh the library. Showing the copy from ${formatAge(at)}.`;
+		return [
+			"Couldn't refresh",
+			at === null ? "" : ` · showing the copy from ${formatAge(at)}`,
+		];
 	};
 
 	const countLabel = () => {
@@ -297,8 +299,21 @@ export default function BookBrowser(props: BookBrowserProps) {
 				<SectionHeading
 					title={activeQuery() ? "Search results" : "All books"}
 					aside={
-						<Show when={refreshing()} fallback={countLabel()}>
-							Searching…
+						<Show
+							when={gridNote()}
+							fallback={
+								<Show when={refreshing()} fallback={countLabel()}>
+									Searching…
+								</Show>
+							}
+						>
+							{(f) => (
+								<HeaderNotice
+									text={gridNoteText(f())}
+									retrying={retrying()}
+									onRetry={retry}
+								/>
+							)}
 						</Show>
 					}
 				/>
@@ -309,18 +324,6 @@ export default function BookBrowser(props: BookBrowserProps) {
 							error={f().error}
 							retrying={retrying()}
 							onRetry={retry}
-						/>
-					)}
-				</Show>
-
-				<Show when={gridNote()}>
-					{(f) => (
-						<InlineNotice
-							testId="library-stale"
-							text={gridNoteText(f())}
-							retrying={retrying()}
-							onRetry={retry}
-							class="mb-6"
 						/>
 					)}
 				</Show>
@@ -488,11 +491,11 @@ function EmptyState(props: {
 	);
 }
 
-function RetryIcon(props: { spinning?: boolean }) {
+function RetryIcon(props: { spinning?: boolean; small?: boolean }) {
 	return (
 		<svg
 			viewBox="0 0 24 24"
-			class={`size-4 ${props.spinning ? "motion-safe:animate-spin" : ""}`}
+			class={`${props.small ? "size-3" : "size-4"} ${props.spinning ? "motion-safe:animate-spin" : ""}`}
 			fill="none"
 			stroke="currentColor"
 			stroke-width="2"
@@ -557,18 +560,49 @@ function ErrorState(props: {
 	);
 }
 
-/** A quiet one-line failure above or below a grid that still has books. */
+/**
+ * A failed refresh, said in the section header in place of the count, so
+ * the grid below never moves.
+ */
+function HeaderNotice(props: {
+	text: [string, string];
+	retrying: boolean;
+	onRetry: () => void;
+}) {
+	return (
+		<span data-testid="library-stale" class="inline-flex items-center gap-2">
+			<span
+				class="size-1.5 shrink-0 rounded-full bg-error"
+				aria-hidden="true"
+			/>
+			<span class="text-text-sub">
+				{props.text[0]}
+				<span class="hidden md:inline">{props.text[1]}</span>
+			</span>
+			<button
+				type="button"
+				class="-my-1 inline-flex items-center gap-1 rounded-full px-2 py-1 text-primary outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-70"
+				onClick={props.onRetry}
+				disabled={props.retrying}
+				aria-busy={props.retrying}
+			>
+				<RetryIcon spinning={props.retrying} small />
+				{props.retrying ? "Retrying" : "Retry"}
+			</button>
+		</span>
+	);
+}
+
+/** A quiet one-line failure below a grid that still has books. */
 function InlineNotice(props: {
 	text: string;
 	retrying: boolean;
 	onRetry: () => void;
 	class?: string;
-	testId?: string;
 }) {
 	return (
 		<div
 			role="status"
-			data-testid={props.testId}
 			class={`flex items-center gap-3 rounded-lg bg-bg-secondary/60 py-2 pr-2 pl-4 text-sm text-text-sub ring-1 ring-text/10 ring-inset ${props.class ?? ""}`}
 		>
 			<span
