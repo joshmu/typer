@@ -1,3 +1,4 @@
+import { chapterLabel } from "@/lib/book-format";
 import type { BookMeta } from "@/lib/core/types/book";
 
 interface BookHeaderProps {
@@ -13,7 +14,7 @@ export default function BookHeader(props: BookHeaderProps) {
 			<div class="flex items-center justify-between text-sm text-text-sub">
 				<span class="truncate max-w-[60%]">
 					{props.book.title} ·{" "}
-					{props.chapterTitle ?? `Chapter ${props.chapterIndex + 1}`}
+					{chapterLabel(props.chapterIndex, props.chapterTitle)}
 				</span>
 				<span>{props.progressPercent}%</span>
 			</div>
