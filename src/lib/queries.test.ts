@@ -69,4 +69,15 @@ describe("findPreviousBest", () => {
 	it("is null with no earlier result", async () => {
 		expect(await findPreviousBest({ mode: "time", before: 10 }, db)).toBeNull();
 	});
+
+	it("compares words tests of the same count only", async () => {
+		await db.results.bulkAdd([
+			result({ mode: "words", wpm: 130, option: "10", timestamp: 1 }),
+			result({ mode: "words", wpm: 90, option: "50", timestamp: 2 }),
+			result({ mode: "words", wpm: 140, timestamp: 3 }),
+		]);
+		expect(
+			await findPreviousBest({ mode: "words", option: "50", before: 10 }, db),
+		).toBe(90);
+	});
 });

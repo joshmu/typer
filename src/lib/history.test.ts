@@ -171,4 +171,19 @@ describe("toTypingResult", () => {
 
 		expect(record).not.toHaveProperty("afk");
 	});
+
+	it("stores the word count or quote length a best is keyed by", () => {
+		const words = createTypingState("the quick", {
+			mode: { type: "words", count: 25 },
+		});
+		expect(
+			toTypingResult(words, completeTest(words), undefined, 0).option,
+		).toBe("25");
+		const quote = createTypingState("the quick", {
+			mode: { type: "quote", length: "long" },
+		});
+		expect(
+			toTypingResult(quote, completeTest(quote), undefined, 0).option,
+		).toBe("long");
+	});
 });

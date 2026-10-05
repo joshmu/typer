@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comparePersonalBest } from "./personal-best";
+import { bestScope, comparePersonalBest } from "./personal-best";
 
 describe("comparePersonalBest", () => {
 	it("reports a new best and the margin over the old one", () => {
@@ -31,5 +31,33 @@ describe("comparePersonalBest", () => {
 
 	it("has nothing to say about a zero result with no history", () => {
 		expect(comparePersonalBest(0, null, false)).toEqual({ kind: "none" });
+	});
+});
+
+describe("bestScope", () => {
+	it("compares time tests of the same length", () => {
+		expect(bestScope({ type: "time", seconds: 30 })).toEqual({
+			mode: "time",
+			duration: 30,
+		});
+	});
+
+	it("compares words tests of the same count and quotes of the same length", () => {
+		expect(bestScope({ type: "words", count: 25 })).toEqual({
+			mode: "words",
+			option: "25",
+		});
+		expect(bestScope({ type: "quote", length: "short" })).toEqual({
+			mode: "quote",
+			option: "short",
+		});
+	});
+
+	it("has no best for book, custom and zen", () => {
+		expect(bestScope({ type: "book", bookId: "a/b", chapterIndex: 0 })).toBe(
+			null,
+		);
+		expect(bestScope({ type: "custom" })).toBeNull();
+		expect(bestScope({ type: "zen" })).toBeNull();
 	});
 });
