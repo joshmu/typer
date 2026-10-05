@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	loadAverageWpm,
 	loadBookPercents,
@@ -8,6 +8,7 @@ import {
 import { openBookReader } from "./core/engine/book-reader";
 import type { BookProgress, CachedBook } from "./core/types/book";
 import { TyperDB, type TypingResult } from "./db";
+import { keepUnsavedBook } from "./unsaved-books";
 
 function makeBook(bookId: string, chapterWords: number[]): CachedBook {
 	const chapters = chapterWords.map((count, index) => ({
@@ -213,6 +214,21 @@ describe("loadResumableBook", () => {
 		expect(found?.book.bookId).toBe("a/picked");
 		expect(found?.progress).toBeUndefined();
 		expect(found?.percent).toBe(0);
+	});
+
+	it("still opens the given in-memory book when IndexedDB reads fail", async () => {
+		const unsaved = makeBook("a/in-memory", [10]);
+		keepUnsavedBook(unsaved);
+		const down = () => Promise.reject(new Error("IndexedDB unavailable"));
+		vi.spyOn(db.bookProgress, "orderBy").mockImplementation(
+			() => ({ reverse: () => ({ toArray: down }) }) as never,
+		);
+		vi.spyOn(db.cachedBooks, "get").mockImplementation(down as never);
+
+		const found = await loadResumableBook("a/in-memory", db);
+
+		expect(found?.book.bookId).toBe("a/in-memory");
+		expect(found?.progress).toBeUndefined();
 	});
 
 	it("falls back to the most recent book when the given one is not cached", async () => {

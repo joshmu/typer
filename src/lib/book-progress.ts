@@ -59,16 +59,19 @@ export async function loadResumableBook(
 	preferredId?: string,
 	database: TyperDB = db,
 ): Promise<ResumableBook | null> {
+	// IndexedDB may be unavailable; a book held in memory still opens
 	const recent = await database.bookProgress
 		.orderBy("lastAccessedAt")
 		.reverse()
-		.toArray();
+		.toArray()
+		.catch((): BookProgress[] => []);
 	const ids = recent.map((p) => p.bookId);
 	if (preferredId) ids.unshift(preferredId);
 
 	for (const bookId of new Set(ids)) {
 		const book =
-			(await database.cachedBooks.get(bookId)) ?? getUnsavedBook(bookId);
+			(await database.cachedBooks.get(bookId).catch(() => undefined)) ??
+			getUnsavedBook(bookId);
 		if (!book) continue;
 		const progress = recent.find((p) => p.bookId === bookId);
 		const reader = openBookReader(book, progress ?? null);
