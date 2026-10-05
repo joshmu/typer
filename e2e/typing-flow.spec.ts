@@ -110,10 +110,10 @@ test("Tab from a focused link on results moves on as usual", async ({
 	const redo = page.getByRole("button", { name: "Redo" });
 	await expect(redo).toBeVisible({ timeout: 5000 });
 
-	await page.getByRole("link", { name: "Home" }).focus();
+	await page.getByRole("link", { name: "type", exact: true }).focus();
 	await page.keyboard.press("Tab");
 	await expect(redo).not.toBeFocused();
-	await expect(page.getByRole("link", { name: "Game" })).toBeFocused();
+	await expect(page.getByRole("link", { name: "library" })).toBeFocused();
 });
 
 test("time sub-options stay reachable once time text loads", async ({

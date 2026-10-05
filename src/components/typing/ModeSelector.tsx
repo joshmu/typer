@@ -1,4 +1,3 @@
-import { useNavigate } from "@solidjs/router";
 import {
 	createEffect,
 	For,
@@ -8,6 +7,7 @@ import {
 	Show,
 } from "solid-js";
 import type { TestMode } from "@/lib/core/types";
+import { MODE_DEFAULTS } from "@/lib/last-mode";
 import { isTypingActive } from "@/lib/typing-focus";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
 
@@ -20,19 +20,10 @@ interface ModeSelectorProps {
 	onWordListSizeChange: (size: "200" | "1k" | "5k") => void;
 }
 
-const modeTypes = ["time", "words", "quote", "zen", "custom", "book"] as const;
+const modeTypes = ["time", "words", "quote", "zen", "custom"] as const;
 const timeOptions = [15, 30, 60, 120] as const;
 const wordOptions = [10, 25, 50, 100] as const;
 const quoteOptions = ["short", "medium", "long"] as const;
-
-const defaultMode: Record<(typeof modeTypes)[number], TestMode> = {
-	time: { type: "time", seconds: 30 },
-	words: { type: "words", count: 25 },
-	quote: { type: "quote", length: "medium" },
-	zen: { type: "zen" },
-	custom: { type: "custom" },
-	book: { type: "book", bookId: "", chapterIndex: 0 },
-};
 
 const PILL_EASE = "220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
 const TAB_CLASS =
@@ -50,6 +41,7 @@ function OptionButton(props: {
 	return (
 		<button
 			type="button"
+			aria-pressed={props.active}
 			class="rounded-md px-3 py-1 font-display text-sm font-medium tracking-wide tabular-nums transition-colors"
 			classList={{
 				"text-primary bg-primary/10": props.active,
@@ -68,7 +60,6 @@ function OptionButton(props: {
  * never pushes the typing stage and takes no space while hidden in a test.
  */
 export default function ModeSelector(props: ModeSelectorProps) {
-	const navigate = useNavigate();
 	let scrollRef: HTMLDivElement | undefined;
 	let containerRef: HTMLDivElement | undefined;
 	let pillRef: HTMLDivElement | undefined;
@@ -158,6 +149,7 @@ export default function ModeSelector(props: ModeSelectorProps) {
 					<For each={[...modeTypes]}>
 						{(type, index) => (
 							<>
+								{/* custom types your own text, apart from the generated modes */}
 								{index() === modeTypes.length - 1 && <Divider />}
 								<button
 									ref={(el) => {
@@ -169,24 +161,14 @@ export default function ModeSelector(props: ModeSelectorProps) {
 										"text-primary": props.mode.type === type,
 										"text-text-sub hover:text-text": props.mode.type !== type,
 									}}
-									onClick={() => props.onModeChange(defaultMode[type])}
+									aria-pressed={props.mode.type === type}
+									onClick={() => props.onModeChange({ ...MODE_DEFAULTS[type] })}
 								>
 									{type}
 								</button>
 							</>
 						)}
 					</For>
-					{/* The game is a separate arcade mode: it navigates away and is
-					    never the active tab here. */}
-					<Divider />
-					<button
-						type="button"
-						data-testid="mode-horde"
-						class={`${TAB_CLASS} text-text-sub hover:text-text`}
-						onClick={() => navigate("/game")}
-					>
-						game
-					</button>
 				</div>
 			</div>
 

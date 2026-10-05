@@ -1,4 +1,4 @@
-import { chapterLabel } from "@/lib/book-format";
+import { chapterLabel, formatBookPercent } from "@/lib/book-format";
 import type { BookMeta, BookProgress } from "@/lib/core/types/book";
 import BookCover from "./BookCover";
 import { BOOK_SERIF } from "./typography";
@@ -56,7 +56,8 @@ export default function BookCard(props: BookCardProps) {
 				</p>
 				{props.progress ? (
 					<p class="mt-1 truncate text-xs text-primary">
-						{chapterLabel(props.progress.chapterIndex)} · {props.percent}%
+						{chapterLabel(props.progress.chapterIndex)} ·{" "}
+						{formatBookPercent(props.percent, props.progress)}
 					</p>
 				) : (
 					props.book.wordCount > 0 && (

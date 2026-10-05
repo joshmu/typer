@@ -1,5 +1,5 @@
 import { openBookReader } from "./core/engine/book-reader";
-import type { BookProgress } from "./core/types/book";
+import type { BookProgress, CachedBook } from "./core/types/book";
 import { db, type TyperDB } from "./db";
 import { safeFrom } from "./safe-query";
 
@@ -37,6 +37,59 @@ export async function loadBookPercents(
  */
 export function useBookPercents() {
 	return safeFrom<Record<string, number>>(() => loadBookPercents(), {});
+}
+
+/** A cached, unfinished book and where its reader stands. */
+export interface ResumableBook {
+	book: CachedBook;
+	/** Absent for a book picked but not typed yet. */
+	progress?: BookProgress;
+	chapterIndex: number;
+	chapterTitle: string;
+	percent: number;
+}
+
+/**
+ * The book to resume: the given one if its text is cached, otherwise the most
+ * recently read book that is cached and unfinished. Never touches the network.
+ */
+export async function loadResumableBook(
+	preferredId?: string,
+	database: TyperDB = db,
+): Promise<ResumableBook | null> {
+	const recent = await database.bookProgress
+		.orderBy("lastAccessedAt")
+		.reverse()
+		.toArray();
+	const ids = recent.map((p) => p.bookId);
+	if (preferredId) ids.unshift(preferredId);
+
+	for (const bookId of new Set(ids)) {
+		const book = await database.cachedBooks.get(bookId);
+		if (!book) continue;
+		const progress = recent.find((p) => p.bookId === bookId);
+		const reader = openBookReader(book, progress ?? null);
+		if (reader.finished) continue;
+		return {
+			book,
+			progress,
+			chapterIndex: reader.position.chapterIndex,
+			chapterTitle: reader.chapterTitle,
+			percent: reader.percent,
+		};
+	}
+	return null;
+}
+
+/**
+ * Reactive query: the book to resume (the given one first), wrapped so
+ * "none" (null) is distinct from "not read yet" (undefined).
+ */
+export function useResumableBook(preferredId?: string) {
+	return safeFrom<{ book: ResumableBook | null } | undefined>(
+		async () => ({ book: await loadResumableBook(preferredId) }),
+		undefined,
+	);
 }
 
 /**
