@@ -48,6 +48,9 @@ const BOSS_WAVE_MS = 320;
 const BOSS_WAVE_RADIUS = 8;
 const SCORCH_MS = 900;
 const SCORE_MS = 750;
+// the label waits out the white flash, and never overlaps an older neighbour
+const SCORE_DELAY_MS = 100;
+const SCORE_NEAR_X = 7;
 // score labels: on-screen glyph height in CSS px
 const SCORE_PX = 22;
 const SCORE_TEX_W = 256;
@@ -61,6 +64,9 @@ const FX_Y = 1.7;
 const SCORE_Y = 3;
 const SCORCH_Y = 0.03;
 const LIGHT_Y = 0.04;
+// embers drift just under the sprites
+const EMBER_Y = 1;
+const EMBER_RATE = 9;
 // the deck is dark: a warm pool at this level reads without flattening it
 const LIGHT_LEVEL = 0.42;
 
@@ -97,6 +103,8 @@ export type Effects = {
 	): void;
 	/** An enemy broke through at (x, y): a red burst against the core. */
 	breach(x: number, y: number, now: number): void;
+	/** The core fell: a white-red flash and two shockwaves from the turret. */
+	collapse(now: number): void;
 	/** A dull spark where non-typed damage clanged off an enemy. */
 	spark(x: number, y: number, now: number): void;
 	/** The light pool around the core: radius in world units, gain 0..1. */
@@ -179,6 +187,7 @@ export function createEffects(
 	glow: GlowLayer,
 	view: SceneView,
 	theme: EffectsTheme,
+	{ reducedMotion, ambient }: { reducedMotion: boolean; ambient: boolean },
 ): Effects {
 	const white = new Color3(1, 1, 1);
 	const hot = Color3.Lerp(theme.primary, white, 0.55);
@@ -342,6 +351,37 @@ export function createEffects(
 	light.material = lightMat;
 	glow.addExcludedMesh(light);
 
+	// ambient embers drifting in the light: render-only life on a quiet field
+	const emberTex = radialTexture(scene, "fx-ember-tex", 16, [
+		[0, "rgba(255,255,255,1)"],
+		[0.5, "rgba(255,255,255,0.5)"],
+		[1, "rgba(255,255,255,0)"],
+	]);
+	const embers = new ParticleSystem("fx-embers", 48, scene);
+	embers.particleTexture = emberTex;
+	embers.emitter = new Vector3(0, EMBER_Y, 0);
+	const emberDisc = embers.createCylinderEmitter(1, 0, 1, 1);
+	embers.renderingGroupId = FIELD_GROUP;
+	embers.blendMode = ParticleSystem.BLENDMODE_ADD;
+	embers.minSize = 0.12;
+	embers.maxSize = 0.26;
+	embers.minLifeTime = 1.6;
+	embers.maxLifeTime = 3.2;
+	embers.minEmitPower = 0.2;
+	embers.maxEmitPower = 0.7;
+	embers.gravity = Vector3.Zero();
+	// ambient life is random, so never in a reproducible (test-mode) frame
+	const embersOn = ambient && !reducedMotion;
+	embers.emitRate = embersOn ? EMBER_RATE : 0;
+	embers.updateSpeed = 1 / 60;
+	embers.addColorGradient(0, new Color4(0, 0, 0, 0));
+	embers.addColorGradient(
+		0.2,
+		new Color4(theme.primary.r, theme.primary.g, theme.primary.b, 0.85),
+	);
+	embers.addColorGradient(1, new Color4(0.3, 0.1, 0, 0));
+	if (embersOn) embers.start();
+
 	// ---- kill bursts: additive spark streaks plus a few pixel gibs. One
 	// pair per kill, pooled, so two kills in a frame burst at their own spots
 	const streakTex = radialTexture(scene, "fx-streak-tex", 32, [
@@ -427,6 +467,8 @@ export function createEffects(
 		tex: DynamicTexture;
 		x: number;
 		z: number;
+		// where it drew this frame (screen-up), so a newer label can clear it
+		drawnZ: number;
 		big: boolean;
 	};
 	const scores: Score[] = [];
@@ -465,6 +507,7 @@ export function createEffects(
 			tex,
 			x: 0,
 			z: 0,
+			drawnZ: 0,
 			big: false,
 			start: 0,
 			dur: SCORE_MS,
@@ -507,6 +550,27 @@ export function createEffects(
 	}
 
 	const waveColor = new Color3();
+	function wave(
+		x: number,
+		z: number,
+		radius: number,
+		ms: number,
+		color: Color3,
+		now: number,
+	): void {
+		const w = acquire(waves, now);
+		w.start = now;
+		w.dur = ms;
+		w.radius = radius;
+		w.color.copyFrom(color);
+		w.mat.emissiveColor.copyFrom(color);
+		w.live = true;
+		w.mesh.position.x = x;
+		w.mesh.position.z = z;
+		w.mesh.scaling.setAll(0.05);
+		w.mesh.visibility = 1;
+		w.mesh.setEnabled(true);
+	}
 	// kills waiting for their shot to arrive
 	type Impact = {
 		at: number;
@@ -579,13 +643,14 @@ export function createEffects(
 		if (credit && credit.points > 0) {
 			const l = acquire(scores, now);
 			drawScore(l, credit.points, credit.mult);
-			l.start = now;
+			// it appears once the flash has had its moment
+			l.start = now + SCORE_DELAY_MS;
 			l.live = true;
 			l.x = x;
 			l.z = y;
 			l.big = boss || credit.mult >= 3;
-			l.mat.alpha = 1;
-			l.root.setEnabled(true);
+			l.mat.alpha = 0;
+			l.root.setEnabled(false);
 		}
 	}
 
@@ -615,20 +680,16 @@ export function createEffects(
 		kill(x, y, color, boss, now, credit) {
 			pending.push({ at: now + SHOT_TRAVEL_MS, x, y, color, boss, credit });
 		},
+		collapse(now) {
+			flash(0, 0, 9, 320, white, now);
+			flash(0, 0, 6, 520, theme.error, now);
+			wave(0, 0, 18, 620, theme.error, now);
+			wave(0, 0, 9, 360, white, now);
+			embers.stop();
+		},
 		breach(x, y, now) {
 			flash(x, y, 3, 140, theme.error, now);
-			const w = acquire(waves, now);
-			w.start = now;
-			w.dur = 260;
-			w.radius = 6;
-			w.color.copyFrom(theme.error);
-			w.mat.emissiveColor.copyFrom(w.color);
-			w.live = true;
-			w.mesh.position.x = x;
-			w.mesh.position.z = y;
-			w.mesh.scaling.setAll(0.05);
-			w.mesh.visibility = 1;
-			w.mesh.setEnabled(true);
+			wave(x, y, 6, 260, theme.error, now);
 		},
 		spark(x, y, now) {
 			const p = acquire(sparks, now);
@@ -641,6 +702,9 @@ export function createEffects(
 		},
 		setLight(radius, gain) {
 			light.scaling.setAll(radius);
+			// embers rise where the light falls
+			emberDisc.radius = radius * 0.7;
+			if (embersOn) embers.emitRate = EMBER_RATE * Math.min(1.6, gain * 1.6);
 			theme.primary.scaleToRef(gain * LIGHT_LEVEL, lightMat.emissiveColor);
 		},
 		update(now) {
@@ -719,23 +783,46 @@ export function createEffects(
 			for (const b of bursts) {
 				if (b.live && now - b.start > b.dur) b.live = false;
 			}
-			// score labels pop in, rise and fade, at a fixed on-screen size
+			// score labels pop in above the burst, rise and fade, at a fixed
+			// on-screen size; reduced motion fades them in place
 			const unit = SCORE_PX / view.ppu / SCORE_GLYPH;
+			// oldest first, so each label can sit clear above older neighbours
+			scores.sort((a, b) => a.start - b.start);
 			for (const s of scores) {
 				if (!s.live) continue;
 				const k = (now - s.start) / s.dur;
+				if (k < 0) continue;
 				if (k >= 1) {
 					s.live = false;
 					s.root.setEnabled(false);
 					continue;
 				}
-				const pop =
-					k < 0.15
+				s.root.setEnabled(true);
+				const pop = reducedMotion
+					? 1
+					: k < 0.15
 						? 0.5 + 0.7 * easeOut(k / 0.15)
 						: 1.2 - 0.2 * Math.min(1, (k - 0.15) / 0.2);
-				s.root.scaling.setAll(unit * pop * (s.big ? 1.35 : 1));
-				s.root.position.set(s.x, SCORE_Y, s.z + 1.5 + 2.5 * easeOut(k));
-				s.mat.alpha = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+				const rise = reducedMotion ? 0 : 2.5 * easeOut(k);
+				const size = unit * (s.big ? 1.35 : 1);
+				s.root.scaling.setAll(size * pop);
+				let z = s.z + 2.2 + rise;
+				for (const o of scores) {
+					if (o === s) break;
+					if (!o.live || now < o.start) continue;
+					if (Math.abs(o.x - s.x) > SCORE_NEAR_X) continue;
+					// one glyph line apart, measured at the larger of the two
+					const gap = Math.max(size, unit * (o.big ? 1.35 : 1)) * 0.72;
+					if (z < o.drawnZ + gap && z > o.drawnZ - gap) z = o.drawnZ + gap;
+				}
+				s.drawnZ = z;
+				s.root.position.set(s.x, SCORE_Y, z);
+				s.mat.alpha =
+					k < 0.1 && reducedMotion
+						? k / 0.1
+						: k < 0.6
+							? 1
+							: 1 - (k - 0.6) / 0.4;
 			}
 		},
 		dispose() {
@@ -759,6 +846,8 @@ export function createEffects(
 			}
 			streakTex.dispose();
 			gibTex.dispose();
+			embers.dispose(false);
+			emberTex.dispose();
 			for (const s of scores) s.root.dispose(false, true);
 		},
 	};

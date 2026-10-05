@@ -1,6 +1,8 @@
 import { Color3, Vector3 } from "@babylonjs/core/Maths/math";
 import { isBoss } from "../content/enemies";
 import type { RunRenderer } from "../session/run-session";
+import { killScoreWithPerks } from "../sim/perks";
+import type { GameState } from "../sim/state";
 import { arenaInk } from "../view";
 import { createEffects, SHOT_TRAVEL_MS } from "./effects";
 import { createEnemyRenderer } from "./enemy-renderer";
@@ -11,8 +13,9 @@ import {
 } from "./frame-effects";
 import { createJuice, type JuiceOutput } from "./juice";
 import { loadLabelFont, refreshLabelTheme } from "./label";
-import { createPost, type StatusTint } from "./post";
+import { createPost } from "./post";
 import { createPowerupRenderer } from "./powerup-renderer";
+import { createQualityWatch } from "./quality";
 import { createGameScene } from "./scene";
 import { createSpriteAtlas } from "./sprite-atlas";
 import { createTurret } from "./turret";
@@ -28,8 +31,6 @@ function toColor3(hex: string, fallback: string): Color3 {
 	return Color3.FromHexString(/^#[0-9a-f]{6}$/i.test(hex) ? hex : fallback);
 }
 
-// the freeze/slow grade washes in and out over about this long
-const TINT_MS = 200;
 const TICK_MS = 1000 / 60;
 
 export function createBabylonRenderer(
@@ -55,6 +56,7 @@ export function createBabylonRenderer(
 		gameScene.glow,
 		atlas.manager,
 		gameScene.view,
+		{ reducedMotion },
 	);
 	const powerups = createPowerupRenderer(
 		gameScene.scene,
@@ -79,6 +81,7 @@ export function createBabylonRenderer(
 			inkCss: ink.ink,
 			plateCss: ink.plate,
 		},
+		{ reducedMotion, ambient: !simClock },
 	);
 	const turret = createTurret(gameScene.scene, atlas.manager, {
 		primary,
@@ -94,7 +97,9 @@ export function createBabylonRenderer(
 	// scratch vectors reused every frame — the hot path allocates nothing
 	const muzzle = new Vector3();
 	const shotTo = new Vector3();
-	const tint: StatusTint = { freeze: 0, slow: 0 };
+	// slow GPUs step quality down, one way, in real time only
+	const quality = createQualityWatch();
+	let wasOver = false;
 
 	// per-draw context the effect commands read
 	let now = 0;
@@ -116,13 +121,20 @@ export function createBabylonRenderer(
 		kill(x, y, id, archetypeId, nth, of) {
 			const { color } = visualFor(archetypeId);
 			const boss = isBoss({ archetypeId });
+			// each kill is scored by its own word when the plate showed it
+			const len = enemies.wordLength(id);
+			const state = current;
+			const scoreFor =
+				len !== undefined && state
+					? (streak: number) => killScoreWithPerks(state, len, streak)
+					: undefined;
 			effects.kill(
 				x,
 				y,
 				color,
 				boss,
 				now,
-				killCredit(of, scoreGain, combo, nth),
+				killCredit(of, scoreGain, combo, nth, scoreFor),
 			);
 			gameScene.ground.stampCorpse(x, y, color, id);
 			// the death lands when the shot does
@@ -140,15 +152,25 @@ export function createBabylonRenderer(
 
 	let lastScore = 0;
 	let lastNow = Number.NaN;
-	function ease(v: number, on: boolean, dt: number): number {
-		return (on ? 1 : 0) + (v - (on ? 1 : 0)) * Math.exp(-dt / (TINT_MS / 3));
-	}
+	// the state this frame's kills are scored against
+	let current: GameState | null = null;
 
 	return {
 		draw(state, events) {
 			now = simClock ? state.tick * TICK_MS : performance.now();
 			const dt = Number.isNaN(lastNow) ? 0 : Math.max(0, now - lastNow);
 			lastNow = now;
+			if (!simClock) {
+				const step = quality.sample(dt, now);
+				if (step === "shed-post") post.shed();
+				if (step === "lower-resolution") {
+					const engine = gameScene.engine;
+					engine.setHardwareScalingLevel(
+						Math.min(1, engine.getHardwareScalingLevel() * 1.5),
+					);
+				}
+			}
+			current = state;
 			combo = state.combo;
 			scoreGain = state.score - lastScore;
 			lastScore = state.score;
@@ -159,21 +181,23 @@ export function createBabylonRenderer(
 			}
 			turret.update(state, now);
 			dispatchEffects(events, fx);
+			// the core falls: a last flash and shockwave while the light dies
+			const over = state.status === "gameover";
+			if (over && !wasOver) {
+				effects.collapse(now);
+				juice.collapse(now);
+			}
+			wasOver = over;
 			// one GPU upload for every corpse/scar stamped this frame
 			gameScene.ground.flush();
 
 			feel = juice.update(now, state.combo);
-			if (feel.tierUp) turret.ringPulse("tier", now);
+			// a wide ring is motion; reduced motion keeps the panel flash only
+			if (feel.tierUp && !reducedMotion) turret.ringPulse("tier", now);
 			effects.setLight(feel.light, feel.lightGain);
 			effects.update(now);
 			gameScene.setCameraFeel(feel.zoom, feel.shakeX, feel.shakeY);
-			tint.freeze = ease(tint.freeze, state.freezeTicksLeft > 0, dt);
-			tint.slow = ease(
-				tint.slow,
-				state.freezeTicksLeft <= 0 && state.slowTicksLeft > 0,
-				dt,
-			);
-			post.update(feel, tint);
+			post.update(feel);
 
 			enemies.sync(state, now);
 			powerups.sync(state);

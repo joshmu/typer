@@ -94,10 +94,19 @@ type EnemyVisual = {
 	popAt: number;
 	// set when a kill event names this enemy: its sprite plays out a death pop
 	killedAt: number;
+	// the label rows last drawn (the front word is the one a kill completes)
+	rows: readonly LabelRow[];
 };
 
 /** A killed enemy's sprite, flashing and swelling before it pops. */
-type Dying = { sprite: Sprite; start: number; size: number; boss: boolean };
+type Dying = {
+	sprite: Sprite;
+	start: number;
+	size: number;
+	boss: boolean;
+	// the spent word plate, held (flashed) until the shot lands
+	label: TransformNode | null;
+};
 
 // how long the front plate rings after an absorbed completion
 const FLASH_MS = 180;
@@ -148,6 +157,7 @@ export function createEnemyRenderer(
 	glow: GlowLayer,
 	manager: SpriteManager,
 	view: SceneView,
+	{ reducedMotion }: { reducedMotion: boolean },
 ) {
 	const visuals = new Map<number, EnemyVisual>();
 
@@ -215,6 +225,7 @@ export function createEnemyRenderer(
 			lastTyped: 0,
 			popAt: -1,
 			killedAt: -1,
+			rows: [],
 		};
 	}
 
@@ -226,12 +237,18 @@ export function createEnemyRenderer(
 			const t = (now - d.start) / ms;
 			// the killing shot is still in flight
 			if (t < 0) continue;
+			if (d.label) {
+				d.label.dispose(false, true);
+				d.label = null;
+			}
 			if (t >= 1) {
 				d.sprite.dispose();
 				dying.splice(i, 1);
 				continue;
 			}
-			const size = d.size * (1 + (DIE_SCALE - 1) * t);
+			// reduced motion: flash and fade in place, no swell
+			const swell = reducedMotion ? 0 : (DIE_SCALE - 1) * t;
+			const size = d.size * (1 + swell);
 			d.sprite.width = size;
 			d.sprite.height = size;
 			const white = t < 0.5 ? 4 : 1 + 3 * (1 - t) * 2;
@@ -247,7 +264,11 @@ export function createEnemyRenderer(
 			const v = visuals.get(id);
 			if (!v) return;
 			v.hitAt = now;
-			v.knock = heavy ? KNOCK_HEAVY : KNOCK_LIGHT;
+			v.knock = reducedMotion ? 0 : heavy ? KNOCK_HEAVY : KNOCK_LIGHT;
+		},
+		/** Length of the word this enemy's plate showed last frame. */
+		wordLength(id: number): number | undefined {
+			return visuals.get(id)?.rows[0]?.word.length;
 		},
 		/** This enemy died: its sprite pops instead of vanishing. */
 		killed(id: number, now: number) {
@@ -271,16 +292,24 @@ export function createEnemyRenderer(
 			for (const [id, v] of visuals) {
 				if (!present.has(id)) {
 					if (v.killedAt >= 0) {
+						// the word reads as spent until the shot lands
+						const front = v.rows[0];
+						if (front) {
+							const spent = v.rows.slice(0, 1);
+							spent[0] = { ...front, typed: front.word.length };
+							drawStackedLabel(v, spent, true, "clang");
+						}
 						dying.push({
 							sprite: v.sprite,
 							start: v.killedAt,
 							size: v.sprite.width,
 							boss: v.isBoss,
+							label: v.labelRoot,
 						});
 					} else {
 						v.sprite.dispose();
+						v.labelRoot.dispose(false, true);
 					}
-					v.labelRoot.dispose(false, true);
 					visuals.delete(id);
 				}
 			}
@@ -308,6 +337,7 @@ export function createEnemyRenderer(
 				v.sprite.position.set(e.pos.x + kx, SPRITE_Y, e.pos.y + ky);
 				v.labelRoot.scaling.setAll(ls);
 				const rows = labelRows(e);
+				v.rows = rows;
 				// natural bottom edge of the label: just above the sprite
 				const natural = e.pos.y + v.spriteHalf + LABEL_GAP;
 				if (e.pos.y - v.spriteHalf < view.halfH) {
@@ -397,7 +427,10 @@ export function createEnemyRenderer(
 				v.labelRoot.dispose(false, true);
 			}
 			visuals.clear();
-			for (const d of dying) d.sprite.dispose();
+			for (const d of dying) {
+				d.sprite.dispose();
+				d.label?.dispose(false, true);
+			}
 			dying.length = 0;
 		},
 	};

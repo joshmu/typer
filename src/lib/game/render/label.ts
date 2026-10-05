@@ -299,20 +299,19 @@ function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
 		c.shadowBlur = fontPx * 0.35;
 		c.fillStyle = theme.primary;
 		if (pop > 0) {
-			// the newest letter swells and flares, then settles into the prefix
+			// the newest letter swells a little from its baseline and flares,
+			// then settles into the prefix
 			const head = typed.slice(0, -1);
 			const last = typed.slice(-1);
 			c.fillText(head, tx, ty);
 			const lx = tx + c.measureText(head).width;
 			const lw = c.measureText(last).width;
-			const s = 1 + 0.45 * pop;
+			const s = 1 + 0.2 * pop;
 			c.save();
-			c.translate(lx + lw / 2, cy);
+			c.translate(lx + lw / 2, ty);
 			c.scale(s, s);
-			c.shadowBlur = fontPx * (0.35 + 0.6 * pop);
-			// it lands white-hot, then cools into the ember prefix
-			c.fillStyle = pop > 0.5 ? theme.ink : theme.primary;
-			c.fillText(last, -lw / 2, ty - cy);
+			c.shadowBlur = fontPx * (0.35 + 0.5 * pop);
+			c.fillText(last, -lw / 2, 0);
 			c.restore();
 		} else {
 			c.fillText(typed, tx, ty);
