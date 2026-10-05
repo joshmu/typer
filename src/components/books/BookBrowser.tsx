@@ -40,6 +40,7 @@ export default function BookBrowser(props: BookBrowserProps) {
 	const [hasMore, setHasMore] = createSignal(true);
 	const [selectedBook, setSelectedBook] = createSignal<BookMeta | null>(null);
 	const bookPercents = useBookPercents();
+	const compact = useMediaQuery("(max-width: 639px)");
 
 	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 	let requestId = 0;
@@ -141,9 +142,11 @@ export default function BookBrowser(props: BookBrowserProps) {
 	const countLabel = () => {
 		if (initialLoad()) return "";
 		const n = books().length;
-		const shown = `${n}${hasMore() ? "+" : ""}`;
-		if (activeQuery()) return `${shown} ${n === 1 ? "result" : "results"}`;
-		return `${shown} books`;
+		if (activeQuery()) {
+			if (n === 0) return "No results";
+			return `${n}${hasMore() ? "+" : ""} ${n === 1 ? "match" : "matches"}`;
+		}
+		return `Showing ${n}`;
 	};
 
 	return (
@@ -165,7 +168,7 @@ export default function BookBrowser(props: BookBrowserProps) {
 					ref={searchInput}
 					type="search"
 					aria-label="Search books"
-					placeholder="Search by title or author"
+					placeholder={compact() ? "Search books" : "Search by title or author"}
 					autocomplete="off"
 					spellcheck={false}
 					class="h-12 w-full rounded-xl bg-bg-secondary pr-11 pl-11 text-text ring-1 ring-text/10 outline-none transition-[box-shadow,background-color] placeholder:text-text-sub/80 focus:ring-2 focus:ring-primary/60 [&::-webkit-search-cancel-button]:appearance-none"
@@ -325,6 +328,16 @@ export default function BookBrowser(props: BookBrowserProps) {
 			</Show>
 		</div>
 	);
+}
+
+function useMediaQuery(query: string) {
+	if (typeof window === "undefined" || !window.matchMedia) return () => false;
+	const mql = window.matchMedia(query);
+	const [matches, setMatches] = createSignal(mql.matches);
+	const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
+	mql.addEventListener("change", onChange);
+	onCleanup(() => mql.removeEventListener("change", onChange));
+	return matches;
 }
 
 function SectionHeading(props: { title: string; aside?: JSX.Element }) {
