@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatSecond, monotonePath, timeTicks, wpmScale } from "./chart-scale";
+import {
+	formatSecond,
+	monotonePath,
+	movingAverage,
+	smoothingWindow,
+	timeTicks,
+	wpmScale,
+} from "./chart-scale";
 
 describe("timeTicks", () => {
 	it("marks every 5 seconds on a short test, ending on its last second", () => {
@@ -64,5 +71,29 @@ describe("monotonePath", () => {
 
 	it("is empty for no points", () => {
 		expect(monotonePath([])).toBe("");
+	});
+});
+
+describe("movingAverage", () => {
+	it("averages each second with its neighbours", () => {
+		expect(movingAverage([60, 120, 60, 120, 60], 3)).toEqual([
+			90, 80, 100, 80, 90,
+		]);
+	});
+
+	it("leaves a steady run steady", () => {
+		expect(movingAverage([80, 80, 80, 80], 5)).toEqual([80, 80, 80, 80]);
+	});
+
+	it("passes short series through", () => {
+		expect(movingAverage([42], 3)).toEqual([42]);
+		expect(movingAverage([], 3)).toEqual([]);
+	});
+});
+
+describe("smoothingWindow", () => {
+	it("widens the window for longer tests", () => {
+		expect(smoothingWindow(15)).toBe(3);
+		expect(smoothingWindow(60)).toBe(5);
 	});
 });

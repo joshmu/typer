@@ -69,3 +69,20 @@ export function monotonePath(points: readonly Point[]): string {
 	}
 	return d;
 }
+
+/** A centred moving average; the ends average what neighbours they have. */
+export function movingAverage(values: number[], window: number): number[] {
+	const half = Math.floor(window / 2);
+	return values.map((_, i) => {
+		const from = Math.max(0, i - half);
+		const to = Math.min(values.length, i + half + 1);
+		let sum = 0;
+		for (let j = from; j < to; j++) sum += values[j];
+		return Math.round(sum / (to - from));
+	});
+}
+
+/** Seconds averaged into each point of the smoothed WPM line. */
+export function smoothingWindow(seconds: number): number {
+	return seconds > 30 ? 5 : 3;
+}

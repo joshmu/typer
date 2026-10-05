@@ -8,9 +8,17 @@ import {
 	onMount,
 	Show,
 } from "solid-js";
-import { formatSecond, monotonePath, timeTicks, wpmScale } from "./chart-scale";
+import {
+	formatSecond,
+	monotonePath,
+	movingAverage,
+	smoothingWindow,
+	timeTicks,
+	wpmScale,
+} from "./chart-scale";
 
 interface WPMChartProps {
+	/** True per-second WPM; the line shows its moving average. */
 	wpm: number[];
 	raw?: number[];
 	errors?: number[];
@@ -51,8 +59,11 @@ export default function WPMChart(props: WPMChartProps) {
 			: PAD.left + chartW() / 2;
 	const y = (v: number) => baseline() - (v / scale().max) * chartH();
 
+	const smoothed = createMemo(() =>
+		movingAverage(props.wpm, smoothingWindow(count())),
+	);
 	const wpmPoints = createMemo(() =>
-		props.wpm.map((v, i) => [x(i), y(v)] as const),
+		smoothed().map((v, i) => [x(i), y(v)] as const),
 	);
 	const wpmPath = createMemo(() => monotonePath(wpmPoints()));
 	const rawPath = createMemo(() =>
@@ -85,29 +96,43 @@ export default function WPMChart(props: WPMChartProps) {
 		const delay = props.drawDelay;
 		if (delay == null) return;
 
+		const running: { stop(): void }[] = [];
+		onCleanup(() => {
+			for (const control of running) control.stop();
+		});
+		const track = (control: { stop(): void }) => running.push(control);
+
 		const lines = rawLine ? [wpmLine, rawLine] : [wpmLine];
-		animate(
-			lines,
-			{ strokeDashoffset: [1, 0] },
-			{ duration: DRAW_S, delay, ease: [0.65, 0, 0.35, 1] },
+		track(
+			animate(
+				lines,
+				{ strokeDashoffset: [1, 0] },
+				{ duration: DRAW_S, delay, ease: [0.65, 0, 0.35, 1] },
+			),
 		);
-		animate(
-			areaRef,
-			{ opacity: [0, 1] },
-			{ duration: 0.4, delay: delay + DRAW_S * 0.6 },
+		track(
+			animate(
+				areaRef,
+				{ opacity: [0, 1] },
+				{ duration: 0.4, delay: delay + DRAW_S * 0.6 },
+			),
 		);
-		animate(
-			endDot,
-			{ opacity: [0, 1], transform: ["scale(0)", "scale(1)"] },
-			{ duration: 0.25, delay: delay + DRAW_S, ease: [0.34, 1.56, 0.64, 1] },
+		track(
+			animate(
+				endDot,
+				{ opacity: [0, 1], transform: ["scale(0)", "scale(1)"] },
+				{ duration: 0.25, delay: delay + DRAW_S, ease: [0.34, 1.56, 0.64, 1] },
+			),
 		);
 		// Each error mark appears as the line passes its second.
 		for (const mark of markersRef.querySelectorAll("rect")) {
 			const at = Number(mark.dataset.at ?? 0);
-			animate(
-				mark,
-				{ opacity: [0, 1], transform: ["scaleY(0)", "scaleY(1)"] },
-				{ duration: 0.2, delay: delay + at * DRAW_S },
+			track(
+				animate(
+					mark,
+					{ opacity: [0, 1], transform: ["scaleY(0)", "scaleY(1)"] },
+					{ duration: 0.2, delay: delay + at * DRAW_S },
+				),
 			);
 		}
 	});
@@ -291,7 +316,7 @@ export default function WPMChart(props: WPMChartProps) {
 					</Show>
 					<circle
 						cx={x(hovered()!)}
-						cy={y(props.wpm[hovered()!])}
+						cy={y(smoothed()[hovered()!])}
 						r="4.5"
 						fill="var(--bg)"
 						stroke="var(--primary)"
@@ -306,7 +331,10 @@ export default function WPMChart(props: WPMChartProps) {
 					style={{ left: `${tooltipLeft()}px` }}
 					data-testid="chart-readout"
 				>
-					<div class="mb-1 text-text-sub">{formatSecond(hovered()! + 1)}</div>
+					<div class="mb-1 text-text-sub">
+						{formatSecond(hovered()! + 1)} · {smoothingWindow(count())}s avg{" "}
+						{smoothed()[hovered()!]}
+					</div>
 					<div class="flex items-center gap-3">
 						<span class="text-primary font-semibold">
 							{props.wpm[hovered()!]} wpm
