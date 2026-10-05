@@ -48,6 +48,7 @@ export function initTypingState(
 		currentCharIndex: 0,
 		startTime: null,
 		endTime: null,
+		keystrokes: { correct: 0, incorrect: 0 },
 		mode,
 		config: {
 			punctuation: false,

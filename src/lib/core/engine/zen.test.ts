@@ -14,6 +14,7 @@ function createZenState(text: string, currentWordIndex: number): TypingState {
 		currentCharIndex: 0,
 		startTime: Date.now(),
 		endTime: null,
+		keystrokes: { correct: 0, incorrect: 0 },
 		mode: { type: "zen" },
 		config: createTestConfig(),
 	};
