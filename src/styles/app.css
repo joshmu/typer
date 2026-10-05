@@ -26,41 +26,119 @@
 	--color-error-extra: var(--error-extra);
 	--color-caret: var(--caret);
 	--color-correct: var(--correct);
-	--font-family-display: "Urbanist", system-ui, sans-serif;
+	--font-display: "Urbanist", system-ui, sans-serif;
 }
 
-/* Caret blink animation */
-@keyframes blink {
+/* Caret: glides on transform, breathes while idle, flashes on a miss */
+.caret {
+	border-radius: 1px;
+	background-color: var(--caret);
+	box-shadow: 0 0 10px color-mix(in srgb, var(--caret) 35%, transparent);
+}
+.caret-block {
+	background-color: color-mix(in srgb, var(--caret) 45%, transparent);
+	box-shadow: none;
+}
+.caret-glide {
+	transition-duration: 100ms;
+	transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.caret-idle {
+	animation: caret-blink 1s ease-in-out infinite;
+}
+/* The miss flash is an --error overlay fading out on opacity alone */
+.caret::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background-color: var(--error);
+	opacity: 0;
+	pointer-events: none;
+}
+.caret-miss::after {
+	animation: caret-miss 120ms ease-out;
+}
+@keyframes caret-blink {
 	0%,
 	100% {
 		opacity: 1;
 	}
 	50% {
+		opacity: 0.15;
+	}
+}
+@keyframes caret-miss {
+	0%,
+	50% {
+		opacity: 1;
+	}
+	100% {
 		opacity: 0;
 	}
 }
 
-.animate-blink {
-	animation: blink 1s step-end infinite;
+/* Shake the word that took a miss. Words are inline (transform does not
+   apply), so this nudges the relative offset for 180ms. */
+.word-miss {
+	position: relative;
+	animation: word-shake 180ms ease-in-out;
+}
+@keyframes word-shake {
+	0%,
+	100% {
+		left: 0;
+	}
+	17% {
+		left: -2px;
+	}
+	33% {
+		left: 2px;
+	}
+	50% {
+		left: -2px;
+	}
+	67% {
+		left: 2px;
+	}
+	83% {
+		left: -1px;
+	}
 }
 
-/* Progressive error tiers — warning (amber) → error (red) */
-.text-error-1 {
-	color: var(--warning);
-}
-.text-error-2 {
-	color: color-mix(in srgb, var(--error) 50%, var(--warning));
-}
-.text-error-3 {
-	color: var(--error);
+@media (prefers-reduced-motion: reduce) {
+	.caret-glide {
+		transition: none;
+	}
+	.caret-idle,
+	.word-miss {
+		animation: none;
+	}
 }
 
-/* Correct characters with prior mistakes — warning-tinted */
-.text-correct-tint {
-	color: color-mix(in srgb, var(--correct) 70%, var(--warning));
+/* Typed character states. Wrong chars are solid --error on a faint wash, a
+   shape cue that does not rely on hue and keeps a mistyped space visible. Corrected chars keep their colour and carry an
+   error underline. Extra chars are struck through. */
+.char-wrong {
+	background-color: color-mix(in srgb, var(--error) 16%, transparent);
 }
-.text-correct-tint-heavy {
-	color: color-mix(in srgb, var(--correct) 50%, var(--warning));
+.char-corrected {
+	text-decoration-line: underline;
+	text-decoration-thickness: 2px;
+	text-decoration-color: color-mix(in srgb, var(--error) 60%, transparent);
+	text-underline-offset: 0.3em;
+	text-decoration-skip-ink: none;
+}
+.char-extra {
+	opacity: 0.75;
+	text-decoration-line: line-through;
+	text-decoration-thickness: 2px;
+	text-decoration-color: color-mix(in srgb, var(--error) 70%, transparent);
+}
+
+/* Display numerals line up as they change */
+.font-display {
+	font-variant-numeric: tabular-nums;
 }
 
 /* Base styles */
@@ -118,4 +196,28 @@ body::after {
 }
 .nav-link:hover::after {
 	width: 100%;
+}
+
+/* Mode bar: scrolls sideways when it outgrows a narrow screen, with an edge
+   fade on whichever side has more tabs (mask alpha only, theme-neutral). */
+.mode-scroll {
+	--fade-l: 0px;
+	--fade-r: 0px;
+	scrollbar-width: none;
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		#000 var(--fade-l),
+		#000 calc(100% - var(--fade-r)),
+		transparent
+	);
+}
+.mode-scroll::-webkit-scrollbar {
+	display: none;
+}
+.mode-scroll[data-fade-left] {
+	--fade-l: 28px;
+}
+.mode-scroll[data-fade-right] {
+	--fade-r: 28px;
 }

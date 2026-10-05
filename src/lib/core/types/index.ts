@@ -38,6 +38,12 @@ export interface TestConfig {
 	stopOnError: StopOnError;
 }
 
+/** Character keys pressed this test, kept even when later corrected. */
+export interface KeystrokeCounts {
+	correct: number;
+	incorrect: number;
+}
+
 export interface TypingState {
 	text: string;
 	words: WordState[];
@@ -45,6 +51,7 @@ export interface TypingState {
 	currentCharIndex: number;
 	startTime: number | null;
 	endTime: number | null;
+	keystrokes: KeystrokeCounts;
 	mode: TestMode;
 	config: TestConfig;
 }

@@ -43,6 +43,7 @@ export function processKeystroke(
 ): TypingState {
 	const next: TypingState = {
 		...state,
+		keystrokes: { ...state.keystrokes },
 		words: state.words.map((w) => ({
 			...w,
 			characters: w.characters.map((c) => ({ ...c })),
@@ -75,7 +76,11 @@ export function applyKeystroke(
 	char.typed = key;
 	char.status = isCorrect ? "correct" : "incorrect";
 	char.timestamp = timestamp;
-	if (!isCorrect) char.mistakeCount++;
+	if (isCorrect) state.keystrokes.correct++;
+	else {
+		state.keystrokes.incorrect++;
+		char.mistakeCount++;
+	}
 	if (state.startTime === null) state.startTime = timestamp;
 
 	// Letter mode: block cursor on incorrect unless auto-advance threshold reached

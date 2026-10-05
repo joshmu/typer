@@ -25,7 +25,7 @@ export default function RootLayout(props: ParentProps) {
 			classList={{ "bg-black": isGame(), "bg-bg": !isGame() }}
 		>
 			<header
-				class="flex items-center justify-between px-8 py-4 transition-[opacity,translate] duration-300 motion-reduce:transition-none"
+				class="flex items-center justify-between px-4 py-4 transition-[opacity,translate] duration-500 motion-reduce:transition-none sm:px-8"
 				classList={{
 					"opacity-0 pointer-events-none": hidden(),
 					"-translate-y-3": isGame() && hidden(),
@@ -38,7 +38,7 @@ export default function RootLayout(props: ParentProps) {
 				>
 					typer<span class="text-primary/50">_</span>
 				</a>
-				<nav class="flex gap-6 items-center font-display text-sm">
+				<nav class="flex gap-6 items-center font-display text-sm font-medium">
 					{LINKS.map((link) => (
 						<a
 							href={link.href}

@@ -1,9 +1,9 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadBookPercents } from "./book-progress";
+import { loadAverageWpm, loadBookPercents } from "./book-progress";
 import { openBookReader } from "./core/engine/book-reader";
 import type { BookProgress, CachedBook } from "./core/types/book";
-import { TyperDB } from "./db";
+import { TyperDB, type TypingResult } from "./db";
 
 function makeBook(bookId: string, chapterWords: number[]): CachedBook {
 	const chapters = chapterWords.map((count, index) => ({
@@ -85,5 +85,49 @@ describe("loadBookPercents", () => {
 		await db.bookProgress.add(makeProgress(book, { wordOffset: 5 }));
 
 		expect(await loadBookPercents(db)).toEqual({});
+	});
+});
+
+function result(wpm: number, timestamp: number): TypingResult {
+	return {
+		mode: "time",
+		wpm,
+		rawWpm: wpm,
+		accuracy: 100,
+		consistency: 100,
+		duration: 30,
+		charCount: 100,
+		errorCount: 0,
+		timestamp,
+		textHash: "",
+	};
+}
+
+describe("loadAverageWpm", () => {
+	let db: TyperDB;
+
+	beforeEach(() => {
+		db = new TyperDB(`AverageWpm_${Date.now()}_${Math.random()}`);
+	});
+
+	afterEach(async () => {
+		db.close();
+		await db.delete();
+	});
+
+	it("is null with no results", async () => {
+		expect(await loadAverageWpm(db)).toBeNull();
+	});
+
+	it("averages the most recent results", async () => {
+		await db.results.bulkAdd([result(10, 1), result(60, 2), result(80, 3)]);
+
+		expect(await loadAverageWpm(db, 2)).toBe(70);
+	});
+
+	it("ignores zero-WPM results", async () => {
+		await db.results.bulkAdd([result(0, 1), result(50, 2)]);
+
+		expect(await loadAverageWpm(db)).toBe(50);
 	});
 });

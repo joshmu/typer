@@ -388,3 +388,69 @@ describe("applyKeystroke outcome", () => {
 		expect(applyKeystroke(state, "a", 1002)).toBeNull();
 	});
 });
+
+describe("keystroke counts", () => {
+	it("starts at zero", () => {
+		const state = createTypingState("ab");
+		expect(state.keystrokes).toEqual({ correct: 0, incorrect: 0 });
+	});
+
+	it("counts every character key, including mistakes later corrected", () => {
+		const state = createTypingState("ab cd");
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "Backspace", 1001);
+		applyKeystroke(state, "a", 1002);
+		applyKeystroke(state, "b", 1003);
+		applyKeystroke(state, "q", 1004);
+		applyKeystroke(state, "Backspace", 1005);
+		applyKeystroke(state, " ", 1006);
+
+		expect(state.words[0].characters.every((c) => c.status === "correct")).toBe(
+			true,
+		);
+		expect(state.keystrokes).toEqual({ correct: 3, incorrect: 2 });
+	});
+
+	it("counts a correct key retyped after backspacing it", () => {
+		const state = createTypingState("ab");
+		applyKeystroke(state, "a", 1000);
+		applyKeystroke(state, "Backspace", 1001);
+		applyKeystroke(state, "a", 1002);
+		expect(state.keystrokes).toEqual({ correct: 2, incorrect: 0 });
+	});
+
+	it("keeps mistakes a stop on error word reset wipes from the word", () => {
+		const state = createTypingState("ab cd");
+		state.config.stopOnError = "word";
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "b", 1001);
+		applyKeystroke(state, " ", 1002);
+		expect(state.currentCharIndex).toBe(0);
+		expect(state.keystrokes).toEqual({ correct: 2, incorrect: 1 });
+	});
+
+	it("counts blocked stop on error letter keys", () => {
+		const state = createTypingState("ab");
+		state.config.stopOnError = "letter";
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "y", 1001);
+		applyKeystroke(state, "a", 1002);
+		expect(state.keystrokes).toEqual({ correct: 1, incorrect: 2 });
+	});
+
+	it("ignores modifier keys, backspaces and keys after the end", () => {
+		const state = createTypingState("a");
+		applyKeystroke(state, "Shift", 1000);
+		applyKeystroke(state, "Backspace", 1001);
+		applyKeystroke(state, "a", 1002);
+		applyKeystroke(state, "a", 1003);
+		expect(state.keystrokes).toEqual({ correct: 1, incorrect: 0 });
+	});
+
+	it("leaves the input counts untouched in the pure form", () => {
+		const state = createTypingState("ab");
+		const next = processKeystroke(state, "a", 1000);
+		expect(next.keystrokes.correct).toBe(1);
+		expect(state.keystrokes.correct).toBe(0);
+	});
+});

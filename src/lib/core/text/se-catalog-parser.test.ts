@@ -147,6 +147,61 @@ describe("parseBookDetail", () => {
 		expect(meta.dateModified).toBeTruthy();
 	});
 
+	it("reads the summary from schema:abstract, not a download format", () => {
+		const xhtml = `<h1 property="schema:name">Oberland</h1>
+<meta property="schema:abstract" content="A young woman &amp; her trip to Switzerland."/>
+<div property="schema:description"><p>Long description.</p></div>
+<meta property="schema:description" content="epub"/>`;
+		const meta = parseBookDetail(xhtml, "a/b");
+
+		expect(meta.description).toBe("A young woman & her trip to Switzerland.");
+	});
+
+	it("makes site-relative cover URLs absolute", () => {
+		const xhtml = `<meta property="schema:image" content="/images/covers/a-hero.jpg"/>
+<meta property="schema:thumbnailUrl" content="/images/covers/a-thumb.jpg"/>`;
+		const meta = parseBookDetail(xhtml, "a/b");
+
+		expect(meta.coverHeroUrl).toBe(
+			"https://standardebooks.org/images/covers/a-hero.jpg",
+		);
+		expect(meta.coverUrl).toBe(
+			"https://standardebooks.org/images/covers/a-thumb.jpg",
+		);
+	});
+
+	it("extracts the long description as plain paragraphs", () => {
+		const xhtml = loadFixture("book-detail.xhtml");
+		const meta = parseBookDetail(xhtml, "f-scott-fitzgerald/the-great-gatsby");
+		const paragraphs = meta.longDescription?.split("\n\n") ?? [];
+
+		expect(paragraphs.length).toBe(6);
+		expect(paragraphs[0]).toMatch(/^The Great Gatsby is a novel/);
+		expect(paragraphs[1]).toMatch(/^Nick Carraway/);
+		expect(meta.longDescription).not.toContain("donation");
+		expect(meta.longDescription).not.toContain("<");
+	});
+
+	it("reads the long description from the schema:description block", () => {
+		const xhtml = `<section id="description">
+<h2>Description</h2>
+<aside class="donation"><p>Please donate.</p></aside>
+<div property="schema:description">
+<p><i>Oberland</i> is the ninth &#8220;chapter volume&#8221;.</p>
+<p>Miriam takes a  trip &amp; skis.</p>
+</div>
+</section>`;
+		const meta = parseBookDetail(xhtml, "a/b");
+
+		expect(meta.longDescription).toBe(
+			"Oberland is the ninth \u201cchapter volume\u201d.\n\nMiriam takes a trip & skis.",
+		);
+	});
+
+	it("leaves the long description empty when the page has none", () => {
+		expect(parseBookDetail("<h1>x</h1>", "a/b").longDescription).toBe("");
+	});
+
 	it("sets the provided book ID", () => {
 		const xhtml = loadFixture("book-detail.xhtml");
 		const meta = parseBookDetail(xhtml, "f-scott-fitzgerald/the-great-gatsby");
