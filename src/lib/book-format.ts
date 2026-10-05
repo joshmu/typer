@@ -79,8 +79,18 @@ export function pickTypingPace(
 	return { wpm: DEFAULT_WPM, source: "default" };
 }
 
-const TONE_TOKENS = ["--primary", "--caret", "--warning", "--error"];
-const TONE_STRENGTHS = [18, 26, 34];
+/**
+ * Cover tones, all read from the active theme: its accents, a complement of
+ * the primary hue, and its muted text colour for the occasional plain cloth.
+ */
+const TONES: [tone: string, chromaBoost: number][] = [
+	["var(--primary)", 1.7],
+	["var(--error)", 1.7],
+	["var(--warning)", 1.7],
+	["oklch(from var(--primary) l c calc(h + 180))", 1.4],
+	["var(--text-sub)", 1],
+];
+const TONE_STRENGTHS = [24, 32, 40];
 
 function hash(text: string): number {
 	let h = 2166136261;
@@ -97,8 +107,9 @@ function hash(text: string): number {
  */
 export function coverToneBackground(bookId: string): string {
 	const h = hash(bookId);
-	const token = TONE_TOKENS[h % TONE_TOKENS.length];
+	// The boost undoes the greying a mix toward the background adds.
+	const [tone, boost] = TONES[h % TONES.length];
 	const strength =
-		TONE_STRENGTHS[Math.floor(h / TONE_TOKENS.length) % TONE_STRENGTHS.length];
-	return `color-mix(in oklab, var(${token}) ${strength}%, var(--bg-secondary))`;
+		TONE_STRENGTHS[Math.floor(h / TONES.length) % TONE_STRENGTHS.length];
+	return `oklch(from color-mix(in oklab, ${tone} ${strength}%, var(--bg-secondary)) l calc(c * ${boost}) h)`;
 }

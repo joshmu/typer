@@ -108,6 +108,26 @@ describe("coverToneBackground", () => {
 		expect(a).not.toMatch(/#[0-9a-f]{3,8}\b/i);
 	});
 
+	it("keeps the tone saturated rather than greyed by the mix", () => {
+		const tone = coverToneBackground("author/book-a");
+		expect(tone).toMatch(
+			/oklch\(from color-mix\(in oklab, .+\) l calc\(c \* [\d.]+\) h\)/,
+		);
+	});
+
+	it("draws tones from more than the accent tokens", () => {
+		const tones = new Set(
+			Array.from(
+				{ length: 64 },
+				(_, i) =>
+					coverToneBackground(`author/book-${i}`).match(
+						/oklab, (.+?) \d+%/,
+					)?.[1],
+			),
+		);
+		expect(tones.size).toBeGreaterThanOrEqual(5);
+	});
+
 	it("varies between books", () => {
 		const tones = new Set(
 			["a/1", "b/2", "c/3", "d/4", "e/5", "f/6"].map(coverToneBackground),
