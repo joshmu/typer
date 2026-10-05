@@ -21,6 +21,7 @@ import {
 	TERRAIN_ROWS,
 } from "./deck";
 import { createGroundDecals, type GroundDecals } from "./ground-decals";
+import { isSlowRenderer } from "./quality";
 
 /** Rendering groups, drawn in order: the floor and its decals; the field
  * (sprites, turret rings, shots and kill effects); then word plates and
@@ -189,6 +190,10 @@ export function createGameScene(
 	// the bloom on the things that should pop and off the big surface
 	glow.addExcludedMesh(ground);
 	glow.addExcludedMesh(decals);
+	// a software or fallback rasteriser skips the glow, as it skips post: the
+	// blur passes cost more there than the whole rest of a frame
+	const glInfo = engine.getGlInfo();
+	if (glInfo && isSlowRenderer(glInfo.renderer)) glow.isEnabled = false;
 
 	// the player is a layered turret (render/turret.ts) built by the loop, not a
 	// static cone — so nothing more is added here.
