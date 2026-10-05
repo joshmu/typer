@@ -193,3 +193,15 @@ describe("hudMoments", () => {
 		expect(hudMoments(at(0, 2), at(0, 3)).heartLost).toBeNull();
 	});
 });
+
+describe("hudView overdrive", () => {
+	it("is on from the x3 multiplier and off below it", () => {
+		const s = activeState();
+		s.combo = 9;
+		expect(hudView(s).overdrive).toBe(false);
+		s.combo = 10;
+		expect(hudView(s).overdrive).toBe(true);
+		s.combo = 0;
+		expect(hudView(s).overdrive).toBe(false);
+	});
+});

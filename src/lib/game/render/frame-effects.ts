@@ -92,20 +92,23 @@ export function dispatchEffects(
 }
 
 /**
- * Score and multiplier to show on the `nth` of a frame's `of` kills. Kills
- * share the frame's score gain (the remainder lands on the last), and each
- * carries the multiplier of the streak it reached; `combo` is the streak after
- * the frame.
+ * Score and multiplier to show on the `nth` of a frame's `of` kills. Each
+ * kill carries the multiplier of the streak it reached (`combo` is the streak
+ * after the frame). Its points come from `scoreFor(streak)` when the renderer
+ * knows the kill's word; otherwise the frame's score gain is split evenly.
  */
 export function killCredit(
 	of: number,
 	scoreGain: number,
 	combo: number,
 	nth: number,
+	scoreFor?: (streak: number) => number,
 ): { points: number; mult: number } {
+	const streak = Math.max(0, combo - (of - 1 - nth));
+	const mult = comboMultiplier(streak);
+	if (scoreFor) return { points: Math.max(0, scoreFor(streak)), mult };
 	const gain = Math.max(0, scoreGain);
 	const each = Math.floor(gain / Math.max(1, of));
 	const points = nth === of - 1 ? gain - each * (of - 1) : each;
-	const streak = Math.max(0, combo - (of - 1 - nth));
-	return { points, mult: comboMultiplier(streak) };
+	return { points, mult };
 }

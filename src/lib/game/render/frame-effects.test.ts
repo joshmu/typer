@@ -163,4 +163,11 @@ describe("killCredit", () => {
 	it("never credits negative points or a zero multiplier", () => {
 		expect(killCredit(1, -5, 0, 0)).toEqual({ points: 0, mult: 1 });
 	});
+
+	it("credits each kill its own points when its word is known", () => {
+		// a boss sentence word and an escort's short word die together
+		const score = (len: number) => (streak: number) => 10 * len * streak;
+		expect(killCredit(2, 999, 5, 0, score(9)).points).toBe(360);
+		expect(killCredit(2, 999, 5, 1, score(3)).points).toBe(150);
+	});
 });

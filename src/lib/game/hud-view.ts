@@ -21,6 +21,8 @@ export type HudView = {
 	wave: { label: string; frenzy: boolean } | null;
 	incoming: string | null;
 	perkChips: PerkChip[];
+	/** Frenzy overdrive: the streak is at x3 or more. */
+	overdrive: boolean;
 };
 
 /** One owned perk in the HUD strip; repeat picks stack into `count`. */
@@ -75,6 +77,12 @@ function perkChips(perks: readonly PerkId[]): PerkChip[] {
 }
 
 const HOT_MULTIPLIER = 2;
+const OVERDRIVE_MULTIPLIER = 3;
+
+/** Frenzy overdrive: a streak at the x3 multiplier or above. */
+export function isOverdrive(combo: number): boolean {
+	return comboMultiplier(combo) >= OVERDRIVE_MULTIPLIER;
+}
 
 /** What the Horde HUD shows for a state. Pure: no framework or DOM. */
 export function hudView(s: GameState): HudView {
@@ -110,6 +118,7 @@ export function hudView(s: GameState): HudView {
 				? `WAVE ${s.wave + 1} INCOMING`
 				: null,
 		perkChips: perkChips(s.perks),
+		overdrive: isOverdrive(s.combo),
 	};
 }
 
