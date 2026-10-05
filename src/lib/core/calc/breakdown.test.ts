@@ -51,6 +51,8 @@ describe("calculateCharBreakdown", () => {
 		});
 	});
 
+	// Forward-looking: the engine has no word skipping today, so this state is
+	// built by hand.
 	it("counts untyped characters in words already passed as missed", () => {
 		const state = createTypingState("abc de");
 		const [a, b, c, space] = state.words[0].characters;
