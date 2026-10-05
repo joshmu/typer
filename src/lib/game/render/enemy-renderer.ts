@@ -62,12 +62,19 @@ export function labelScale(view: SceneView): number {
 	return view.fontPx / (IDLE_FONT_WORLD * view.ppu);
 }
 
-type EnemyVisual = {
-	sprite: Sprite;
+/** A word-plate billboard: reused across enemies, never rebuilt per spawn. */
+type LabelSlot = {
+	labelRoot: TransformNode;
 	label: Mesh;
 	labelMat: StandardMaterial;
-	labelRoot: TransformNode;
 	texture: DynamicTexture;
+};
+
+// spare plates kept for the next spawns; any beyond this are disposed
+const LABEL_POOL_MAX = 32;
+
+type EnemyVisual = LabelSlot & {
+	sprite: Sprite;
 	lastText: string;
 	walkDist: number;
 	lastX: number;
@@ -105,7 +112,7 @@ type Dying = {
 	size: number;
 	boss: boolean;
 	// the spent word plate, held (flashed) until the shot lands
-	label: TransformNode | null;
+	label: LabelSlot | null;
 };
 
 // how long the front plate rings after an absorbed completion
@@ -123,6 +130,15 @@ const DIE_SCALE = 1.4;
 const BOSS_DIE_MS = 260;
 // CSS px kept clear of labels under the top HUD (wave, score, hull)
 const HUD_SAFE_TOP_PX = 120;
+
+function slotOf(v: EnemyVisual): LabelSlot {
+	return {
+		labelRoot: v.labelRoot,
+		label: v.label,
+		labelMat: v.labelMat,
+		texture: v.texture,
+	};
+}
 
 /** Approximate on-screen box of a label stack, in world units at scale `ls`. */
 function labelBox(
@@ -160,6 +176,58 @@ export function createEnemyRenderer(
 	{ reducedMotion }: { reducedMotion: boolean },
 ) {
 	const visuals = new Map<number, EnemyVisual>();
+	const spareLabels: LabelSlot[] = [];
+	let labelCount = 0;
+
+	/** A word plate from the pool, or a new one. Its texture is redrawn in full
+	 * on first use (a new visual's lastText is empty). */
+	function takeLabel(): LabelSlot {
+		const spare = spareLabels.pop();
+		if (spare) {
+			spare.labelRoot.setEnabled(true);
+			return spare;
+		}
+		const n = labelCount++;
+		// tall billboard label: six stacked rows (current word bottom, queue above)
+		const labelRoot = new TransformNode(`enemy-label-root-${n}`, scene);
+		const label = CreatePlane(
+			`enemy-label-${n}`,
+			{ width: LABEL_PLANE_W, height: LABEL_PLANE_H },
+			scene,
+		);
+		label.parent = labelRoot;
+		label.renderingGroupId = LABEL_GROUP;
+		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
+		// mipmaps ON: the texture renders minified, and without them the text
+		// shimmers into mud
+		const texture = new DynamicTexture(
+			`enemy-label-tex-${n}`,
+			{ width: LABEL_TEX_W, height: LABEL_TEX_H },
+			scene,
+			true,
+		);
+		texture.hasAlpha = true;
+		// unlit: emissive+opacity from the texture so plates render at exactly the
+		// authored colours — diffuse-under-hemispheric-light dimmed the text before
+		const labelMat = new StandardMaterial(`enemy-label-mat-${n}`, scene);
+		labelMat.disableLighting = true;
+		labelMat.emissiveTexture = texture;
+		labelMat.opacityTexture = texture;
+		labelMat.backFaceCulling = false;
+		label.material = labelMat;
+		glow.addExcludedMesh(label); // word plates stay crisp, never bloomed
+		return { labelRoot, label, labelMat, texture };
+	}
+
+	/** Hide a plate and keep it for the next spawn. */
+	function releaseLabel(slot: LabelSlot): void {
+		if (spareLabels.length >= LABEL_POOL_MAX) {
+			slot.labelRoot.dispose(false, true);
+			return;
+		}
+		slot.labelRoot.setEnabled(false);
+		spareLabels.push(slot);
+	}
 
 	function create(id: number, archetypeId: string): EnemyVisual {
 		const arch = getArchetype(archetypeId);
@@ -172,43 +240,11 @@ export function createEnemyRenderer(
 		sprite.isPickable = false;
 		sprite.color = new Color4(1, 1, 1, 1); // show the art's own colours untinted
 
-		// tall billboard label: six stacked rows (current word bottom, queue above)
-		const labelRoot = new TransformNode(`enemy-${id}-labelroot`, scene);
-		const label = CreatePlane(
-			`enemy-${id}-label`,
-			{ width: LABEL_PLANE_W, height: LABEL_PLANE_H },
-			scene,
-		);
-		label.parent = labelRoot;
-		label.renderingGroupId = LABEL_GROUP;
-		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
-		// mipmaps ON: the texture renders minified, and without them the text
-		// shimmers into mud
-		const texture = new DynamicTexture(
-			`enemy-${id}-tex`,
-			{ width: LABEL_TEX_W, height: LABEL_TEX_H },
-			scene,
-			true,
-		);
-		texture.hasAlpha = true;
-		// unlit: emissive+opacity from the texture so plates render at exactly the
-		// authored colours — diffuse-under-hemispheric-light dimmed the text before
-		const labelMat = new StandardMaterial(`enemy-${id}-labelmat`, scene);
-		labelMat.disableLighting = true;
-		labelMat.emissiveTexture = texture;
-		labelMat.opacityTexture = texture;
-		labelMat.backFaceCulling = false;
-		label.material = labelMat;
-		glow.addExcludedMesh(label); // word plates stay crisp, never bloomed
-
 		const baseSize = arch.size ** SIZE_CURVE * ENEMY_SPRITE_SCALE;
 		const renderSize = baseSize * (boss ? BOSS_SCALE : 1);
 		return {
+			...takeLabel(),
 			sprite,
-			label,
-			labelMat,
-			labelRoot,
-			texture,
 			lastText: "",
 			walkDist: 0,
 			lastX: 0,
@@ -238,7 +274,7 @@ export function createEnemyRenderer(
 			// the killing shot is still in flight
 			if (t < 0) continue;
 			if (d.label) {
-				d.label.dispose(false, true);
+				releaseLabel(d.label);
 				d.label = null;
 			}
 			if (t >= 1) {
@@ -304,11 +340,11 @@ export function createEnemyRenderer(
 							start: v.killedAt,
 							size: v.sprite.width,
 							boss: v.isBoss,
-							label: v.labelRoot,
+							label: slotOf(v),
 						});
 					} else {
 						v.sprite.dispose();
-						v.labelRoot.dispose(false, true);
+						releaseLabel(slotOf(v));
 					}
 					visuals.delete(id);
 				}
@@ -429,9 +465,11 @@ export function createEnemyRenderer(
 			visuals.clear();
 			for (const d of dying) {
 				d.sprite.dispose();
-				d.label?.dispose(false, true);
+				d.label?.labelRoot.dispose(false, true);
 			}
 			dying.length = 0;
+			for (const slot of spareLabels) slot.labelRoot.dispose(false, true);
+			spareLabels.length = 0;
 		},
 	};
 }
