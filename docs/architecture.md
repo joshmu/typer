@@ -97,6 +97,7 @@ interface TypingState {
   currentIndex: number;
   startTime: number | null;
   endTime: number | null;
+  keystrokes: { correct: number; incorrect: number }; // every character key, kept after backspace
   mode: TestMode;
   config: TestConfig;
 }
@@ -132,9 +133,19 @@ interface TestConfig {
 function applyKeystroke(state: TypingState, key: string, now: number): void // mutates a draft in place
 function processKeystroke(state: TypingState, key: string, now: number): TypingState // pure clone-then-apply
 function calculateWPM(chars: CharacterState[], elapsedMs: number): number
-function calculateAccuracy(chars: CharacterState[]): number
+function calculateRawWPM(keystrokes: KeystrokeCounts, elapsedMs: number): number
+function calculateAccuracy(keystrokes: KeystrokeCounts): number
+function collectPerSecondWPM(chars: CharacterState[], startTime: number, elapsedMs: number): number[]
 function calculateConsistency(perSecondWPM: number[]): number
+function calculateCharBreakdown(state: TypingState): CharBreakdown
 ```
+
+Result stats:
+
+- **Accuracy** is keystroke accuracy: correct character keys over all character keys, so a corrected typo still costs accuracy. Any mistake caps it at 99.
+- **Raw WPM** counts every character key, including ones later backspaced; **WPM** counts correct characters left in the text.
+- **Per-second WPM** has one sample per second of the test's duration, idle seconds included, so the chart and consistency cover the whole test.
+- **Missed** characters are ones the user skipped: untyped characters behind the cursor. Text the user never reached is not counted, and the breakdown total is only the characters covered.
 
 ### Typing Session
 
