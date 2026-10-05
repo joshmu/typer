@@ -23,27 +23,46 @@ interface FetchOptions {
 	operation: string;
 	/** When set, a 404 throws BookNotFoundError instead of BookServiceError */
 	bookId?: string;
+	/** Defaults to FETCH_TIMEOUT_MS. */
+	timeoutMs?: number;
 }
 
-async function safeFetch(
-	url: string,
-	options: FetchOptions,
-): Promise<Response> {
-	let response: Response;
+/** A request (headers and body) that takes longer than this is abandoned. */
+export const FETCH_TIMEOUT_MS = 8000;
+/** Chapters download together, so each may queue behind the others. */
+const CHAPTER_TIMEOUT_MS = 30_000;
+
+async function fetchText(url: string, options: FetchOptions): Promise<string> {
+	const controller = new AbortController();
+	const timer = setTimeout(
+		() => controller.abort(),
+		options.timeoutMs ?? FETCH_TIMEOUT_MS,
+	);
 	try {
-		response = await fetch(url);
-	} catch (err) {
-		throw new NetworkError(`Failed to reach ${options.operation}`, {
-			cause: err,
-		});
-	}
-	if (!response.ok) {
-		if (response.status === 404 && options.bookId) {
-			throw new BookNotFoundError(options.bookId);
+		let response: Response;
+		try {
+			response = await fetch(url, { signal: controller.signal });
+		} catch (err) {
+			throw new NetworkError(`Failed to reach ${options.operation}`, {
+				cause: err,
+			});
 		}
-		throw new BookServiceError(options.operation, response.status);
+		if (!response.ok) {
+			if (response.status === 404 && options.bookId) {
+				throw new BookNotFoundError(options.bookId);
+			}
+			throw new BookServiceError(options.operation, response.status);
+		}
+		try {
+			return await response.text();
+		} catch (err) {
+			throw new NetworkError(`Failed to read ${options.operation}`, {
+				cause: err,
+			});
+		}
+	} finally {
+		clearTimeout(timer);
 	}
-	return response;
 }
 
 /**
@@ -59,8 +78,7 @@ export async function searchBooks(
 		page: String(page),
 	});
 	const url = `${SE_BASE}/ebooks?${params}`;
-	const response = await safeFetch(url, { operation: "search catalog" });
-	const xhtml = await response.text();
+	const xhtml = await fetchText(url, { operation: "search catalog" });
 	return parseCatalogPage(xhtml);
 }
 
@@ -72,32 +90,28 @@ export async function browseCatalog(page = 1): Promise<BookMeta[]> {
 }
 
 /**
- * Fetch full book metadata from the book detail page.
+ * Fetch full book metadata: the detail page and chapter list, in parallel.
+ * The chapter list is optional: if it fails (other than a 404), the
+ * metadata comes back with no chapters.
  */
 export async function fetchBookDetail(bookId: string): Promise<BookMeta> {
-	const url = `${SE_BASE}/ebooks/${bookId}`;
-	const response = await safeFetch(url, {
-		operation: "fetch book detail",
-		bookId,
-	});
-	const xhtml = await response.text();
-	const meta = parseBookDetail(xhtml, bookId);
-
-	const tocUrl = `${SE_BASE}/ebooks/${bookId}/text`;
-	try {
-		const tocResponse = await safeFetch(tocUrl, {
+	const [detail, toc] = await Promise.allSettled([
+		fetchText(`${SE_BASE}/ebooks/${bookId}`, {
+			operation: "fetch book detail",
+			bookId,
+		}),
+		fetchText(`${SE_BASE}/ebooks/${bookId}/text`, {
 			operation: "fetch chapter list",
 			bookId,
-		});
-		const tocXhtml = await tocResponse.text();
-		meta.chapters = parseChapterList(tocXhtml);
-	} catch (err) {
-		// Chapter list is optional metadata; preserve previous behaviour of
-		// silently dropping it on failure rather than failing the whole detail
-		// fetch. Only NetworkError / 5xx are absorbed; missing books surface.
-		if (err instanceof BookNotFoundError) throw err;
+		}),
+	]);
+	if (detail.status === "rejected") throw detail.reason;
+	const meta = parseBookDetail(detail.value, bookId);
+	if (toc.status === "fulfilled") {
+		meta.chapters = parseChapterList(toc.value);
+	} else if (toc.reason instanceof BookNotFoundError) {
+		throw toc.reason;
 	}
-
 	return meta;
 }
 
@@ -115,7 +129,13 @@ export function loadBookDetail(bookId: string): Promise<BookMeta> {
 		return cached ? cached.meta : fetchBookDetail(bookId);
 	})();
 	detailLoads.set(bookId, load);
-	load.catch(() => detailLoads.delete(bookId));
+	// A failed load, or one missing its chapter list, is retried next time.
+	load.then(
+		(meta) => {
+			if (meta.chapters.length === 0) detailLoads.delete(bookId);
+		},
+		() => detailLoads.delete(bookId),
+	);
 	return load;
 }
 
@@ -128,11 +148,11 @@ export async function fetchChapter(
 	chapterIndex: number,
 ): Promise<BookChapter> {
 	const url = `${SE_BASE}/ebooks/${bookId}/text/${chapterFile}`;
-	const response = await safeFetch(url, {
+	const xhtml = await fetchText(url, {
 		operation: "fetch chapter",
 		bookId,
+		timeoutMs: CHAPTER_TIMEOUT_MS,
 	});
-	const xhtml = await response.text();
 
 	const text = extractTextFromXHTML(xhtml);
 	const title = extractChapterTitle(xhtml);
@@ -148,7 +168,12 @@ export async function fetchAndCacheBook(bookId: string): Promise<CachedBook> {
 	const cached = await getCachedBook(bookId);
 	if (cached) return cached;
 
-	const meta = await fetchBookDetail(bookId);
+	const meta = await loadBookDetail(bookId);
+	if (meta.chapters.length === 0) {
+		// No chapter list (it failed or timed out): nothing to type, and an
+		// empty book must not be cached.
+		throw new BookServiceError("fetch chapter list", 0);
+	}
 
 	const chapters = await Promise.all(
 		meta.chapters.map((file, index) => fetchChapter(bookId, file, index)),
