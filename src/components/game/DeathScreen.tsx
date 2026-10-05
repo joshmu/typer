@@ -53,7 +53,7 @@ export default function DeathScreen(props: DeathScreenProps) {
 				<div class="flex flex-col items-center gap-2">
 					<Show when={props.isNewBest}>
 						<span
-							class="rounded-full bg-primary px-3 py-1 font-display text-xs font-bold uppercase tracking-widest text-bg"
+							class="rounded-full bg-primary px-3 py-1 font-display text-xs font-bold uppercase tracking-widest text-on-primary"
 							data-testid="game-new-best"
 						>
 							New Best

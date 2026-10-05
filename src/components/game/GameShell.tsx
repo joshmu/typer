@@ -200,6 +200,9 @@ export default function GameShell() {
 	onMount(() => {
 		window.addEventListener("keydown", onKeyDown);
 		onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+		// The arena has its own lighting; page-level theme atmosphere stays off.
+		document.documentElement.dataset.surface = "game";
+		onCleanup(() => delete document.documentElement.dataset.surface);
 	});
 
 	// live canvas CSS height → drives the vignette gradient's pixel radii (the
