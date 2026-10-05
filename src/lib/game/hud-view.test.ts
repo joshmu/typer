@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { getArchetype } from "./content/enemies";
-import { hudView } from "./hud-view";
+import { hudView, perkGlyph } from "./hud-view";
 import { createEnemy } from "./sim/enemy-factory";
+import { ALL_PERK_IDS } from "./sim/perks";
 import { createInitialState, type GameState } from "./sim/state";
 import { step } from "./sim/step";
 
@@ -112,9 +113,39 @@ describe("hudView wave", () => {
 });
 
 describe("hudView perks", () => {
-	it("lists one short chip per owned perk, repeats included", () => {
+	it("shows one chip per perk with its full name, glyph and stack count", () => {
 		const s = activeState();
-		s.perks = ["plating", "plating", "adrenaline"];
-		expect(hudView(s).perkChips).toEqual(["Plating", "Plating", "Adrenali"]);
+		s.perks = ["plating", "adrenaline", "plating"];
+		const chips = hudView(s).perkChips;
+		expect(chips.map((c) => [c.id, c.name, c.count])).toEqual([
+			["plating", "Plating", 2],
+			["adrenaline", "Adrenaline", 1],
+		]);
+		for (const c of chips) expect(c.glyph.length).toBeGreaterThan(0);
+	});
+
+	it("never truncates long perk names", () => {
+		const s = activeState();
+		s.perks = ["chain-arc", "splash-rounds"];
+		expect(hudView(s).perkChips.map((c) => c.name)).toEqual([
+			"Chain Arc",
+			"Splash Rounds",
+		]);
+	});
+
+	it("carries the rarity so the chip can be accented", () => {
+		const s = activeState();
+		s.perks = ["chain-arc", "greed"];
+		expect(hudView(s).perkChips.map((c) => c.rarity)).toEqual([
+			"epic",
+			"common",
+		]);
+	});
+});
+
+describe("perkGlyph", () => {
+	it("gives every perk a distinct glyph", () => {
+		const glyphs = ALL_PERK_IDS.map(perkGlyph);
+		expect(new Set(glyphs).size).toBe(ALL_PERK_IDS.length);
 	});
 });

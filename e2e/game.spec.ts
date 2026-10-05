@@ -31,21 +31,18 @@ test.describe("horde game mode", () => {
 			kills = (await page.evaluate(() => window.__game?.getState().kills)) ?? 0;
 		}
 
-		await expect(page.getByTestId("game-kills")).toHaveText("kills 1");
+		await expect(page.getByTestId("game-kills")).toHaveText("1");
 		const state = await page.evaluate(() => window.__game?.getState());
 		expect(state?.kills).toBe(1);
 	});
 
-	test("spawn-ring vignette overlays the arena and tracks canvas size", async ({
-		page,
-	}) => {
+	test("vignette frames the arena and tracks canvas size", async ({ page }) => {
 		await page.goto("/game?seed=42&testMode=1");
 		await page.waitForFunction(() => window.__game !== undefined);
 		const vignette = page.getByTestId("game-vignette");
 		await expect(vignette).toBeVisible();
-		// a world-radius radial gradient: transparent centre, near-opaque past the
-		// spawn ring, so enemies emerge from darkness instead of popping in
-		// the gradient waits on the ResizeObserver's first measure, so poll for it
+		// an elliptical gradient sized from the shell: clear over the play area,
+		// deepening toward the corners. It waits on the ResizeObserver's first measure, so poll for it
 		const background = () =>
 			vignette.evaluate((el) => getComputedStyle(el).backgroundImage);
 		await expect.poll(background).toContain("radial-gradient");
@@ -68,6 +65,32 @@ test.describe("horde game mode", () => {
 		await expect(page.getByTestId("game-start")).toBeVisible();
 		await expect(page.getByTestId("game-wave")).toBeHidden();
 		await expect(page.getByTestId("game-over")).toBeHidden();
+	});
+
+	test("Enter starts the run full-bleed; Esc pauses and brings the header back", async ({
+		page,
+	}) => {
+		await page.goto("/game?seed=42");
+		const header = page.locator("header");
+		await expect(page.getByTestId("game-start")).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Horde" })).toBeVisible();
+		await expect(header).toHaveCSS("opacity", "1");
+
+		await page.keyboard.press("Enter");
+		await expect(page.getByTestId("game-start")).toBeHidden();
+		// the run owns the viewport: the header steps away
+		await expect(header).toHaveCSS("opacity", "0");
+		await expect(page.getByTestId("game-wave")).toBeVisible({ timeout: 10000 });
+		const shell = await page.getByTestId("game-shell").boundingBox();
+		const viewport = page.viewportSize();
+		expect(shell?.height).toBe(viewport?.height);
+
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("game-paused")).toBeVisible();
+		await expect(header).toHaveCSS("opacity", "1");
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("game-paused")).toBeHidden();
+		await expect(header).toHaveCSS("opacity", "0");
 	});
 
 	test("shows the death screen with run stats and restarts", async ({
@@ -113,8 +136,8 @@ test.describe("horde game mode", () => {
 			return s?.status === "running" && s.tick === 0;
 		});
 		await expect(page.getByTestId("game-over")).toBeHidden();
-		await expect(page.getByTestId("game-kills")).toHaveText("kills 0");
-		await expect(page.getByTestId("game-score")).toHaveText("score 0");
+		await expect(page.getByTestId("game-kills")).toHaveText("0");
+		await expect(page.getByTestId("game-score")).toHaveText("0");
 	});
 
 	test("free-flow: switch mid-word to another enemy, then return and finish both", async ({
@@ -293,11 +316,19 @@ test.describe("horde game mode", () => {
 		await expect(page.getByTestId("perk-card-1")).toBeVisible();
 		await expect(page.getByTestId("perk-card-2")).toBeVisible();
 
+		const pickedName =
+			(await page
+				.getByTestId("perk-card-0")
+				.getByTestId("perk-card-name")
+				.textContent()) ?? "";
+		expect(pickedName.length).toBeGreaterThan(0);
 		await page.evaluate(() => window.__game?.sendPerk(0));
 
 		await expect(page.getByTestId("perk-overlay")).toBeHidden();
 		const after = await page.evaluate(() => window.__game?.getState());
 		expect(after?.perks.length).toBe(1);
+		// the owned perk shows under its full name, never truncated
+		await expect(page.getByTestId("perk-strip")).toContainText(pickedName);
 		expect(after?.wavePhase).toBe("intermission");
 	});
 
