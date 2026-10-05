@@ -1,5 +1,6 @@
 import type { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import type { LabelRow } from "./label-rows";
+import { createTextWidths } from "./text-widths";
 
 /**
  * Anything carrying a word-label texture. Both the enemy and powerup renderers
@@ -57,6 +58,8 @@ export function refreshLabelTheme(
 
 // bumped when the webfont (or palette) changes so every cached plate redraws
 let fontEpoch = 0;
+/** Label text widths, shared by plates and score labels; reset when the font lands. */
+export const labelTextWidths = createTextWidths();
 let fontRequested = false;
 
 /** Ask the browser for the bold typing face and redraw plates once it lands. */
@@ -68,6 +71,7 @@ export function loadLabelFont(): void {
 	void document.fonts
 		.load(`bold ${FONT_TARGET}px ${LABEL_FONT}`)
 		.then(() => {
+			labelTextWidths.forget();
 			fontEpoch += 1;
 		})
 		.catch(() => {});
@@ -152,14 +156,14 @@ function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
 	const kind = opts.kind ?? "normal";
 	const flash = opts.flash ?? "none";
 	let fontPx = opts.fontPx;
-	c.font = `bold ${fontPx}px ${LABEL_FONT}`;
+	let font = `bold ${fontPx}px ${LABEL_FONT}`;
 	const typed = word.slice(0, typedCount);
 	const rest = word.slice(typedCount);
 	// shield and armour plates carry an icon to the left of the word
 	const hasIcon = kind !== "normal";
 	const iconW = () => (hasIcon ? fontPx * 0.95 : 0);
-	let typedW = c.measureText(typed).width;
-	let totalW = typedW + c.measureText(rest).width;
+	let typedW = labelTextWidths.of(c, font, typed);
+	let totalW = typedW + labelTextWidths.of(c, font, rest);
 	let padX = fontPx * 0.45;
 
 	// clamp: a long (tier-4) word would overrun the texture and be clipped, so
@@ -167,9 +171,9 @@ function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
 	const scale = Math.min(1, (texW - 8) / (totalW + iconW() + padX * 2));
 	if (scale < 1) {
 		fontPx *= scale;
-		c.font = `bold ${fontPx}px ${LABEL_FONT}`;
-		typedW = c.measureText(typed).width;
-		totalW = typedW + c.measureText(rest).width;
+		font = `bold ${fontPx}px ${LABEL_FONT}`;
+		typedW = labelTextWidths.of(c, font, typed);
+		totalW = typedW + labelTextWidths.of(c, font, rest);
 		padX = fontPx * 0.45;
 	}
 
@@ -304,8 +308,8 @@ function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
 			const head = typed.slice(0, -1);
 			const last = typed.slice(-1);
 			c.fillText(head, tx, ty);
-			const lx = tx + c.measureText(head).width;
-			const lw = c.measureText(last).width;
+			const lx = tx + labelTextWidths.of(c, font, head);
+			const lw = labelTextWidths.of(c, font, last);
 			const s = 1 + 0.2 * pop;
 			c.save();
 			c.translate(lx + lw / 2, ty);
@@ -338,8 +342,7 @@ function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
 }
 
 function drawChip(c: Ctx, cx: number, cy: number, label: string): void {
-	c.font = `bold 36px ${LABEL_FONT}`;
-	const w = c.measureText(label).width + 32;
+	const w = labelTextWidths.of(c, `bold 36px ${LABEL_FONT}`, label) + 32;
 	roundRect(c, cx - w / 2, cy - 26, w, 52, 14);
 	c.globalAlpha = 0.85;
 	c.fillStyle = theme.plate;

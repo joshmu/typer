@@ -19,7 +19,7 @@ import type { Scene } from "@babylonjs/core/scene";
 import "@babylonjs/core/Shaders/particles.fragment";
 import "@babylonjs/core/Shaders/particles.vertex";
 import type { ShotKind } from "./frame-effects";
-import { LABEL_FONT } from "./label";
+import { LABEL_FONT, labelTextWidths } from "./label";
 import { FIELD_GROUP, FLOOR_GROUP, LABEL_GROUP, type SceneView } from "./scene";
 
 // Every lifetime is wall-clock ms, so 120Hz plays the same as 60Hz.
@@ -520,10 +520,10 @@ export function createEffects(
 		c.clearRect(0, 0, SCORE_TEX_W, SCORE_TEX_H);
 		const main = `+${points}`;
 		const tail = mult > 1 ? ` ×${mult}` : "";
-		c.font = `bold 60px ${LABEL_FONT}`;
-		const wMain = c.measureText(main).width;
-		c.font = `bold 44px ${LABEL_FONT}`;
-		const wTail = tail ? c.measureText(tail).width : 0;
+		const wMain = labelTextWidths.of(c, `bold 60px ${LABEL_FONT}`, main);
+		const wTail = tail
+			? labelTextWidths.of(c, `bold 44px ${LABEL_FONT}`, tail)
+			: 0;
 		const k = Math.min(1, (SCORE_TEX_W - 16) / (wMain + wTail));
 		let x = (SCORE_TEX_W - (wMain + wTail) * k) / 2;
 		const y = 68;
