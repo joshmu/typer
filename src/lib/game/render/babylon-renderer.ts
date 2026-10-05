@@ -1,8 +1,10 @@
 import { Vector3 } from "@babylonjs/core/Maths/math";
 import type { RunRenderer } from "../session/run-session";
+import { arenaInk } from "../view";
 import { createEffects } from "./effects";
 import { createEnemyRenderer } from "./enemy-renderer";
 import { dispatchEffects, type EffectCommands } from "./frame-effects";
+import { loadLabelFont, refreshLabelTheme } from "./label";
 import { createPowerupRenderer } from "./powerup-renderer";
 import { createGameScene } from "./scene";
 import { createSpriteAtlas } from "./sprite-atlas";
@@ -25,14 +27,22 @@ export function createBabylonRenderer(
 		gameScene.scene,
 		gameScene.glow,
 		atlas.manager,
+		gameScene.view,
 	);
 	const powerups = createPowerupRenderer(
 		gameScene.scene,
 		gameScene.glow,
 		atlas.manager,
+		gameScene.view,
 	);
 	const effects = createEffects(gameScene.scene);
 	const turret = createTurret(gameScene.scene, atlas.manager);
+	// plates draw in the live theme and the app's typing face
+	refreshLabelTheme(
+		(name) => getComputedStyle(document.documentElement).getPropertyValue(name),
+		arenaInk,
+	);
+	loadLabelFont();
 	// scratch vectors reused every frame — the hot path allocates nothing
 	const muzzle = new Vector3();
 	const shotTo = new Vector3();

@@ -1,6 +1,7 @@
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { SpriteManager } from "@babylonjs/core/Sprites/spriteManager";
 import type { Scene } from "@babylonjs/core/scene";
+import { FIELD_GROUP } from "./scene";
 // side-effect: registers the sprite scene component so SpriteManager renders
 import "@babylonjs/core/Sprites/spriteSceneComponent";
 
@@ -65,8 +66,9 @@ export function createSpriteAtlas(scene: Scene, capacity = 64): SpriteAtlas {
 	);
 	// crisp pixels: no bilinear smoothing anywhere on the atlas
 	manager.texture.updateSamplingMode(Texture.NEAREST_SAMPLINGMODE);
-	// draw sprites above the ground/decals but the label planes still overlay them
-	manager.renderingGroupId = 0;
+	// draw sprites above the floor and its decals; the label planes (same
+	// group, transparent pass) still overlay them
+	manager.renderingGroupId = FIELD_GROUP;
 	// the atlas is authored with a fixed cell grid
 	manager.cellWidth = ATLAS_CELL;
 	manager.cellHeight = ATLAS_CELL;

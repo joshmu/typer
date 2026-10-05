@@ -3,14 +3,12 @@ import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import type { Scene } from "@babylonjs/core/scene";
 
 /**
- * Battlefield persistence via the Crimsonland technique: the ground's diffuse is
- * a single DynamicTexture. The pixel-art terrain is drawn into it once (a centre
- * square crop scaled across the whole floor, imageSmoothing OFF so the chunky
- * pixels stay crisp under the ortho camera), then corpse and breach decals are
- * stamped straight into the same texture on death frames — chunky opaque pixel
- * blood/goo clusters. There are NO live decal entities and no per-frame cost;
- * accumulation is unbounded for free, and the single GPU `texture.update()` is
- * deferred to `flush()` (once per frame) so any number of stamps cost one upload.
+ * Battlefield persistence via the Crimsonland technique: a transparent
+ * DynamicTexture laid over the floor. Corpse and breach decals are stamped
+ * straight into it on death frames as hard-edged pixel clusters sharing one
+ * pixel grid (imageSmoothing off, NEAREST sampling). There are no live decal
+ * entities and no per-frame cost; the single GPU `texture.update()` is
+ * deferred to `flush()` so any number of stamps cost one upload per frame.
  */
 
 export type GroundDecals = {
@@ -33,7 +31,7 @@ export type GroundDecals = {
 
 const SIZE = 2048;
 const TAU = Math.PI * 2;
-const CHUNK = 3; // texture px per blood "pixel" — chunky, hard-edged goo (~0.4 world units)
+const CHUNK = 2; // texture px per decal "pixel": ~0.1 world units, the floor art's own grain
 
 // biome-ignore lint/suspicious/noExplicitAny: 2d canvas context, untyped here
 type Ctx = any;
@@ -46,62 +44,25 @@ function seedRand(seed: number): number {
 export function createGroundDecals(
 	scene: Scene,
 	worldRadius: number,
+	/** stamps beyond this radius fade out toward worldRadius, with the floor */
+	fadeFrom: number,
 ): GroundDecals {
-	// generateMipMaps=false: the ground is viewed at a fixed near-top-down zoom,
-	// so mip levels are never sampled — skipping them avoids the full-chain
-	// regeneration the GPU would otherwise run on every texture.update().
+	// generateMipMaps=false: the floor is viewed at a fixed top-down zoom, so
+	// skipping mips avoids regenerating the chain on every texture.update()
 	const texture = new DynamicTexture(
-		"ground-dynamic",
+		"ground-decals",
 		{ width: SIZE, height: SIZE },
 		scene,
 		false,
 	);
-	// crisp pixels: NEAREST sampling on the GPU, and no canvas smoothing on any
-	// draw (terrain blit AND decal stamps) so nothing gets bilinear-blurred
+	texture.hasAlpha = true;
 	texture.updateSamplingMode(Texture.NEAREST_SAMPLINGMODE);
 	const ctx = texture.getContext() as Ctx;
 	ctx.imageSmoothingEnabled = false;
-	// set by stamps, cleared by flush(): batches all of a frame's decal draws
-	// into a single GPU upload
-	let dirty = false;
-
-	// dark base fill so the disc is never a transparent/black hole before the
-	// terrain image decodes
-	ctx.fillStyle = "#0f0d0c";
-	ctx.fillRect(0, 0, SIZE, SIZE);
+	ctx.clearRect(0, 0, SIZE, SIZE);
 	texture.update();
-
-	// bake the pixel terrain once it loads: a CENTRE SQUARE crop TILED 4×4 across
-	// the floor. A single stretch put one image over the whole 290-unit disc —
-	// each metal plate read building-sized on screen (playtest: "bg scaled too
-	// much"). Tiling shrinks the features 4× while imageSmoothing stays off so
-	// the pixels remain hard-edged.
-	const TILES = 4;
-	const img = new Image();
-	img.onload = () => {
-		const side = Math.min(img.width, img.height);
-		const sx = (img.width - side) / 2;
-		const sy = (img.height - side) / 2;
-		ctx.imageSmoothingEnabled = false;
-		const tile = SIZE / TILES;
-		for (let ty = 0; ty < TILES; ty++) {
-			for (let tx = 0; tx < TILES; tx++) {
-				ctx.drawImage(
-					img,
-					sx,
-					sy,
-					side,
-					side,
-					tx * tile,
-					ty * tile,
-					tile,
-					tile,
-				);
-			}
-		}
-		texture.update();
-	};
-	img.src = "/game/terrain.png";
+	// set by stamps, cleared by flush(): one GPU upload per frame
+	let dirty = false;
 
 	// world → canvas pixel. The ground disc maps world (x, z=sim-y) linearly to
 	// uv centred at 0.5. NO y flip: probe-verified — the disc's UV orientation
@@ -113,6 +74,14 @@ export function createGroundDecals(
 		return [SIZE / 2 + x * pxPerWorld, SIZE / 2 + y * pxPerWorld];
 	}
 
+	/** Stamp opacity at a world point: full on the solid floor, fading to 0 at
+	 * the disc edge the same way the floor does. */
+	function edgeAlpha(x: number, y: number): number {
+		const d = Math.sqrt(x * x + y * y);
+		const t = (worldRadius - d) / (worldRadius - fadeFrom);
+		return t <= 0 ? 0 : t >= 1 ? 1 : t;
+	}
+
 	/** Fill one grid-aligned chunky "pixel" so every stamp shares a pixel grid. */
 	function chunkAt(cx: number, cy: number, fill: string): void {
 		const gx = Math.round(cx / CHUNK) * CHUNK;
@@ -122,11 +91,26 @@ export function createGroundDecals(
 	}
 
 	/** A hard-edged filled disc of chunks (radius in world units). */
-	function blob(px: number, py: number, worldR: number, fill: string): void {
+	function blob(
+		px: number,
+		py: number,
+		worldR: number,
+		fill: string,
+		/** optional second fill dithered in, so a pool reads as pixel grime
+		 * rather than a flat paint dot */
+		speckle?: string,
+	): void {
 		const r = worldR * pxPerWorld;
 		for (let dy = -r; dy <= r; dy += CHUNK) {
 			for (let dx = -r; dx <= r; dx += CHUNK) {
-				if (dx * dx + dy * dy <= r * r) chunkAt(px + dx, py + dy, fill);
+				const d2 = dx * dx + dy * dy;
+				if (d2 > r * r) continue;
+				const gx = Math.round((px + dx) / CHUNK);
+				const gy = Math.round((py + dy) / CHUNK);
+				// ragged rim: drop some edge chunks
+				const n = seedRand(gx * 73856093 + gy * 19349663);
+				if (d2 > r * r * 0.6 && n < 0.35) continue;
+				chunkAt(px + dx, py + dy, speckle && n > 0.72 ? speckle : fill);
 			}
 		}
 	}
@@ -138,41 +122,67 @@ export function createGroundDecals(
 		seed: number,
 	): void {
 		const [px, py] = toCanvas(x, y);
+		ctx.globalAlpha = edgeAlpha(x, y);
 		const [r, g, b] = color;
-		const main = `rgb(${Math.round(r * 190)}, ${Math.round(g * 190)}, ${Math.round(b * 190)})`;
-		const dark = `rgb(${Math.round(r * 90)}, ${Math.round(g * 90)}, ${Math.round(b * 90)})`;
+		// muted against the dim deck: a stain, not a paint dot
+		const main = `rgb(${Math.round(r * 135)}, ${Math.round(g * 135)}, ${Math.round(b * 135)})`;
+		const dark = `rgb(${Math.round(r * 60)}, ${Math.round(g * 60)}, ${Math.round(b * 60)})`;
 
 		// a central pool plus 3–4 satellite gouts, all chunky and opaque so the
-		// kill leaves a clearly-visible mark — sized against the ~2-unit creatures
-		blob(px, py, 0.7, dark);
-		blob(px, py, 0.55, main);
+		// kill leaves a clearly-visible mark, sized against the ~3-unit creatures
+		blob(px, py, 0.9, dark);
+		blob(px, py, 0.7, main, dark);
 		const gouts = 3 + (seed % 2);
 		for (let i = 0; i < gouts; i++) {
 			const a = seedRand(seed * 31 + i * 97) * TAU;
-			const d = (0.5 + seedRand(seed + i * 13) * 0.6) * pxPerWorld;
+			const d = (0.7 + seedRand(seed + i * 13) * 0.8) * pxPerWorld;
 			const gx = px + Math.cos(a) * d;
 			const gy = py + Math.sin(a) * d;
-			blob(gx, gy, 0.2 + seedRand(seed + i * 7) * 0.2, i % 2 ? dark : main);
+			blob(gx, gy, 0.25 + seedRand(seed + i * 7) * 0.25, i % 2 ? dark : main);
 		}
 		// a few dark specks flung further out
-		for (let i = 0; i < 5; i++) {
+		for (let i = 0; i < 7; i++) {
 			const a = seedRand(seed * 7 + i * 53) * TAU;
-			const d = (0.8 + seedRand(seed + i * 17) * 0.5) * pxPerWorld;
+			const d = (1.1 + seedRand(seed + i * 17) * 0.7) * pxPerWorld;
 			chunkAt(px + Math.cos(a) * d, py + Math.sin(a) * d, dark);
 		}
+		ctx.globalAlpha = 1;
 		dirty = true;
 	}
 
 	function stampScar(x: number, y: number, seed: number): void {
 		const [px, py] = toCanvas(x, y);
-		// red core-side breach scar: a chunky char pool with a hot red gash
-		blob(px, py, 0.65, "rgb(18, 8, 8)");
-		blob(px, py, 0.4, "rgb(120, 26, 22)");
-		for (let i = 0; i < 6; i++) {
+		ctx.globalAlpha = edgeAlpha(x, y);
+		// a breach scorches the deck beside the core: soft layered char (each
+		// layer translucent so repeat breaches darken it), a few cracks
+		// radiating out, and a couple of dim embers, all on the shared grid
+		blob(px, py, 1.1, "rgba(6, 4, 4, 0.28)");
+		blob(px, py, 0.75, "rgba(6, 4, 4, 0.4)");
+		blob(px, py, 0.4, "rgba(10, 6, 5, 0.6)");
+		const cracks = 4 + (seed % 3);
+		for (let i = 0; i < cracks; i++) {
 			const a = seedRand(seed * 19 + i * 41) * TAU;
-			const d = (0.25 + seedRand(seed + i * 11) * 0.55) * pxPerWorld;
-			chunkAt(px + Math.cos(a) * d, py + Math.sin(a) * d, "rgb(180, 40, 30)");
+			const len = (0.8 + seedRand(seed + i * 11) * 0.9) * pxPerWorld;
+			for (let d = 0; d < len; d += CHUNK) {
+				// a slight wobble so the crack reads as torn plate, not a ruled line
+				const wob = Math.sin(d * 0.35 + i) * CHUNK;
+				chunkAt(
+					px + Math.cos(a) * d - Math.sin(a) * wob,
+					py + Math.sin(a) * d + Math.cos(a) * wob,
+					"rgba(4, 3, 3, 0.75)",
+				);
+			}
 		}
+		for (let i = 0; i < 3; i++) {
+			const a = seedRand(seed * 23 + i * 29) * TAU;
+			const d = seedRand(seed + i * 5) * 0.5 * pxPerWorld;
+			chunkAt(
+				px + Math.cos(a) * d,
+				py + Math.sin(a) * d,
+				"rgba(190, 80, 30, 0.55)",
+			);
+		}
+		ctx.globalAlpha = 1;
 		dirty = true;
 	}
 

@@ -9,7 +9,9 @@ import { Sprite } from "@babylonjs/core/Sprites/sprite";
 import type { SpriteManager } from "@babylonjs/core/Sprites/spriteManager";
 import type { Scene } from "@babylonjs/core/scene";
 import type { GameState, PowerupKind } from "../sim/state";
+import { labelScale } from "./enemy-renderer";
 import { drawLabel } from "./label";
+import { FIELD_GROUP, type SceneView } from "./scene";
 import { CELLS } from "./sprite-atlas";
 import { powerupVisual } from "./visuals";
 
@@ -23,13 +25,14 @@ type PowerupVisual = {
 };
 
 const CRYSTAL_Y = 1.2; // hover the pickup above the arena floor
-const CRYSTAL_SIZE = 1.4; // playtest: 3.6 read ~3× too big against the arena
-// Label plane: 512×192 texture on a 7×2.625 plane (matching aspect). The word
+const CRYSTAL_SIZE = 2.4; // ~32 CSS px on the reference canvas
+// Label plane: 512×192 texture on a 7×2.625 plane (matching aspect), scaled
+// like the enemy labels so its text keeps a fixed on-screen size. The word
 // plate sits in the bottom 128px band (chevron headroom above), its centre
-// hanging 0.44 world units below the plane centre with a ~0.71-unit half
-// height. +z is screen-up under the ortho camera, so this offset floats the
-// plate just above the crystal even at its locked 1.25× swell.
-const LABEL_UP = (CRYSTAL_SIZE * 1.25) / 2 + 0.35 + 0.71 + 0.44;
+// hanging 0.44 units below the plane centre with a ~0.71-unit half height at
+// scale 1. +z is screen-up under the ortho camera.
+const PLATE_DROP = 0.71 + 0.44;
+const LABEL_GAP = 0.35;
 
 /**
  * Pooled renderer for powerup pickups. Mirrors the enemy renderer's discipline:
@@ -42,6 +45,7 @@ export function createPowerupRenderer(
 	scene: Scene,
 	glow: GlowLayer,
 	manager: SpriteManager,
+	view: SceneView,
 ) {
 	const visuals = new Map<number, PowerupVisual>();
 
@@ -69,7 +73,8 @@ export function createPowerupRenderer(
 			scene,
 		);
 		label.parent = root;
-		label.position.set(0, CRYSTAL_Y + 1, LABEL_UP);
+		label.renderingGroupId = FIELD_GROUP;
+		label.position.set(0, CRYSTAL_Y + 1, 0);
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
 		// mipmaps ON + unlit emissive/opacity material — same clarity treatment as
 		// the enemy labels (see enemy-renderer): crisp under ortho minification,
@@ -102,6 +107,7 @@ export function createPowerupRenderer(
 					visuals.delete(id);
 				}
 			}
+			const ls = labelScale(view);
 			// pulse phase shared across pickups; render-layer trig is fine here
 			const pulse = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(state.tick * 0.12));
 			for (const p of state.powerups) {
@@ -125,7 +131,10 @@ export function createPowerupRenderer(
 				const size = CRYSTAL_SIZE * (isTarget ? 1.25 : 1);
 				v.crystal.width = size;
 				v.crystal.height = size;
-				v.label.scaling.setAll(isTarget ? 1.25 : 1);
+				const k = ls * (isTarget ? 1.25 : 1);
+				v.label.scaling.setAll(k);
+				v.label.position.z =
+					(CRYSTAL_SIZE * 1.25) / 2 + LABEL_GAP + PLATE_DROP * k;
 				drawLabel(v, p.word, p.typedCount, isTarget);
 			}
 		},

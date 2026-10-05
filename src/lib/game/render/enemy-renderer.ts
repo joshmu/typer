@@ -11,29 +11,31 @@ import type { Scene } from "@babylonjs/core/scene";
 import { getArchetype, isBoss } from "../content/enemies";
 import { isCloaked } from "../sim/abilities";
 import type { GameState } from "../sim/state";
-import { drawStackedLabel } from "./label";
+import { spawnFade } from "../view";
+import { drawStackedLabel, FONT_IDLE } from "./label";
+import { FIELD_GROUP, type SceneView } from "./scene";
 import { spriteAngle } from "./sprite-angle";
 import { walkCells } from "./sprite-atlas";
 
-// World-unit size of a size-1 archetype sprite. Tuned for top-down readability
-// under the ortho camera (playtest: enemies were "basic pixels", too small).
-// Playtest 2026-07-12: the first pass (scale 6) filled the frame with giant
-// creatures — the whole render scale read ~3× too big against the arena, so
-// sprites/labels/effects were brought down together (camera and sim untouched).
-const ENEMY_SPRITE_SCALE = 2;
-const BOSS_SCALE = 1.2; // bosses render larger on top of their bigger size (1.6 read oversized)
+// World-unit size of a size-1 archetype sprite: ~50 CSS px on the reference
+// canvas (~13 px/unit), ~0.8 CSS px per art px. Archetype size is compressed
+// (size^0.75) so the smallest creatures stay readable and bosses don't swamp
+// the frame.
+const ENEMY_SPRITE_SCALE = 3.8;
+const SIZE_CURVE = 0.75;
+const BOSS_SCALE = 1.05; // bosses are already large by archetype size
 const SPRITE_Y = 1.2; // lift sprites above the ground/decals
 const LABEL_Y = 2.4; // draw label planes above the sprites
 // world distance travelled between the two walk cells — a chunky, readable gait
-const WALK_STEP = 0.4;
+const WALK_STEP = 0.5;
 
 // Label plane geometry. The texture is 512×768 — six 128px rows: the CURRENT
 // word plate sits in the bottom row (its centre hangs LABEL_ROW_DROP below the
 // plane centre), up to four queued words stack above it, and the top row holds
 // the overflow chip. The plane is positioned so the bottom plate lands a small
-// gap above the sprite's top edge — under the top-down ortho camera, +z is
-// screen-up. Label planes are UI: the word must stay readable (~14px on a
-// ~970px-tall canvas) over the much smaller art.
+// gap above the sprite's top edge (under the top-down ortho camera, +z is
+// screen-up). The whole label is then scaled per frame so text keeps a fixed
+// on-screen size whatever the camera zoom (labelScale).
 const LABEL_PLANE_W = 7;
 const LABEL_TEX_W = 512;
 const LABEL_TEX_H = 768;
@@ -43,11 +45,19 @@ const LABEL_ROW_DROP = LABEL_PLANE_H / 2 - LABEL_ROW_W / 2;
 // half the plate height in world units (104px plate row)
 const LABEL_PLATE_HALF = (104 / LABEL_TEX_H) * (LABEL_PLANE_H / 2);
 const LABEL_GAP = 0.35; // clearance between sprite top edge and plate bottom
+// idle glyph em height in world units at label scale 1
+const IDLE_FONT_WORLD = (FONT_IDLE / LABEL_TEX_W) * LABEL_PLANE_W;
+
+/** Scale a label plane so its idle glyphs land at `view.fontPx` on screen. */
+export function labelScale(view: SceneView): number {
+	return view.fontPx / (IDLE_FONT_WORLD * view.ppu);
+}
 
 type EnemyVisual = {
 	sprite: Sprite;
 	cells: readonly [number, number];
 	label: Mesh;
+	labelMat: StandardMaterial;
 	labelRoot: TransformNode;
 	texture: DynamicTexture;
 	lastText: string;
@@ -61,9 +71,8 @@ type EnemyVisual = {
 	// world-unit sprite size (archetype size × scale), resolved once at create so
 	// sync never re-reads the archetype table per frame
 	baseSize: number;
-	// screen-up world offset from the enemy to the label plane centre, chosen so
-	// the bottom-row word plate floats just above the sprite (see LABEL_* consts)
-	labelUp: number;
+	// half the rendered sprite size: the label's bottom plate floats just above it
+	spriteHalf: number;
 	phase: number;
 	isBoss: boolean;
 };
@@ -82,6 +91,7 @@ export function createEnemyRenderer(
 	scene: Scene,
 	glow: GlowLayer,
 	manager: SpriteManager,
+	view: SceneView,
 ) {
 	const visuals = new Map<number, EnemyVisual>();
 
@@ -104,9 +114,10 @@ export function createEnemyRenderer(
 			scene,
 		);
 		label.parent = labelRoot;
+		label.renderingGroupId = FIELD_GROUP;
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
-		// mipmaps ON: the 512px texture renders ~5-6× minified under the ortho zoom,
-		// and without them the text shimmers into mud (HUD-vs-label clarity gap)
+		// mipmaps ON: the texture renders minified, and without them the text
+		// shimmers into mud
 		const texture = new DynamicTexture(
 			`enemy-${id}-tex`,
 			{ width: LABEL_TEX_W, height: LABEL_TEX_H },
@@ -124,12 +135,13 @@ export function createEnemyRenderer(
 		label.material = labelMat;
 		glow.addExcludedMesh(label); // word plates stay crisp, never bloomed
 
-		const baseSize = arch.size * ENEMY_SPRITE_SCALE;
+		const baseSize = arch.size ** SIZE_CURVE * ENEMY_SPRITE_SCALE;
 		const renderSize = baseSize * (boss ? BOSS_SCALE : 1);
 		return {
 			sprite,
 			cells,
 			label,
+			labelMat,
 			labelRoot,
 			texture,
 			lastText: "",
@@ -138,7 +150,7 @@ export function createEnemyRenderer(
 			lastY: 0,
 			lastAngle: 0,
 			baseSize,
-			labelUp: renderSize / 2 + LABEL_GAP + LABEL_PLATE_HALF + LABEL_ROW_DROP,
+			spriteHalf: renderSize / 2,
 			phase: idPhase(id),
 			isBoss: boss,
 		};
@@ -146,6 +158,8 @@ export function createEnemyRenderer(
 
 	return {
 		sync(state: GameState) {
+			const ls = labelScale(view);
+			const plateDrop = (LABEL_PLATE_HALF + LABEL_ROW_DROP) * ls;
 			const present = new Set(state.enemies.map((e) => e.id));
 			for (const [id, v] of visuals) {
 				if (!present.has(id)) {
@@ -166,7 +180,12 @@ export function createEnemyRenderer(
 
 				// position the sprite flat on the field; label floats above it on screen
 				v.sprite.position.set(e.pos.x, SPRITE_Y, e.pos.y);
-				v.labelRoot.position.set(e.pos.x, LABEL_Y, e.pos.y + v.labelUp);
+				v.labelRoot.scaling.setAll(ls);
+				v.labelRoot.position.set(
+					e.pos.x,
+					LABEL_Y,
+					e.pos.y + v.spriteHalf + LABEL_GAP + plateDrop,
+				);
 
 				// face travel direction (sim velocity) — a creature walking forward.
 				// Hold the last angle while velocity is negligible so a paused enemy
@@ -198,14 +217,19 @@ export function createEnemyRenderer(
 				v.sprite.width = size;
 				v.sprite.height = size;
 
-				// cloak → alpha flutter while hidden; else fully opaque
-				if (e.ability?.kind === "cloak") {
-					v.sprite.color.a = isCloaked(e, state.tick)
-						? 0.18 + 0.1 * (0.5 + 0.5 * Math.sin(state.tick * 0.4 + v.phase))
-						: 1;
+				// fresh spawns fade in from the spawn ring; cloak flutters while hidden
+				const fade = spawnFade(
+					Math.sqrt(e.pos.x * e.pos.x + e.pos.y * e.pos.y),
+				);
+				let alpha = fade;
+				if (e.ability?.kind === "cloak" && isCloaked(e, state.tick)) {
+					alpha *=
+						0.18 + 0.1 * (0.5 + 0.5 * Math.sin(state.tick * 0.4 + v.phase));
 				}
+				v.sprite.color.a = alpha;
+				v.labelMat.alpha = fade;
 
-				// target emphasis comes from the label draw itself (bigger font, amber
+				// target emphasis comes from the label draw itself (bigger font, --primary
 				// border, chevron) — mesh scaling would shift the bottom-anchored plate
 				drawStackedLabel(v, e.words, e.wordIndex, e.typedCount, isTarget);
 			}

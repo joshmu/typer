@@ -6,14 +6,19 @@ import { Sprite } from "@babylonjs/core/Sprites/sprite";
 import type { SpriteManager } from "@babylonjs/core/Sprites/spriteManager";
 import type { Scene } from "@babylonjs/core/scene";
 import type { GameState } from "../sim/state";
+import { REF_PPU } from "../view";
+import { FIELD_GROUP } from "./scene";
 import { spriteAngle } from "./sprite-angle";
 import { CELLS } from "./sprite-atlas";
 
 const MUZZLE_Y = 1.2; // height the shots leave from (matches the sprite plane)
-const MUZZLE_LEN = 1.2; // distance from the hero to the muzzle along its heading
+// the hero's 64px art at exactly 64 CSS px on the reference canvas: an integer
+// 2 device px per art px on a 2x display
+const HERO_SIZE = 64 / REF_PPU;
+// the barrel tip sits ~45% of the sprite out from its centre
+const MUZZLE_LEN = HERO_SIZE * 0.45;
 const RING_LIFE = 22; // frames a powerup ring pulse lives
 const RECOIL_FRAMES = 3; // frames the recoil sprite cell shows after a shot
-const HERO_SIZE = 2.5; // world size of the hero sprite (playtest: 7.5 read ~3× too big)
 
 export type Turret = {
 	/** Advance the recoil / ring / danger animations from the sim tick. Heading
@@ -60,6 +65,7 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 		{ diameter: 1.2, thickness: 0.12, tessellation: 40 },
 		scene,
 	);
+	ring.renderingGroupId = FIELD_GROUP;
 	// torus lies flat in XZ by default → reads as a circle on the ground under the
 	// overhead ortho camera (a standing ring would collapse to an edge-on line)
 	ring.position.y = 0.3;
@@ -72,9 +78,10 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 	// red danger perimeter the player defends
 	const danger = CreateTorus(
 		"turret-danger",
-		{ diameter: 5, thickness: 0.1, tessellation: 64 },
+		{ diameter: HERO_SIZE * 1.5, thickness: 0.1, tessellation: 64 },
 		scene,
 	);
+	danger.renderingGroupId = FIELD_GROUP;
 	danger.position.y = 0.12; // flat on the ground (see ring above)
 	const dangerMat = mat(scene, "turret-danger-mat", new Color3(0.5, 0.4, 0.15));
 	danger.material = dangerMat;

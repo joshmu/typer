@@ -202,13 +202,13 @@ export default function GameShell() {
 		onCleanup(() => window.removeEventListener("keydown", onKeyDown));
 	});
 
-	// live canvas CSS height → drives the vignette gradient's pixel radii (the
-	// ortho camera always frames 2×ORTHO_HALF world units vertically)
-	const [shellHeight, setShellHeight] = createSignal(0);
+	// live shell size drives the vignette ellipse
+	const [shellSize, setShellSize] = createSignal({ w: 0, h: 0 });
 	onMount(() => {
 		if (!shellRef) return;
 		const ro = new ResizeObserver((entries) => {
-			setShellHeight(entries[0]?.contentRect.height ?? 0);
+			const r = entries[0]?.contentRect;
+			setShellSize({ w: r?.width ?? 0, h: r?.height ?? 0 });
 		});
 		ro.observe(shellRef);
 		onCleanup(() => ro.disconnect());
@@ -227,7 +227,9 @@ export default function GameShell() {
 			<div
 				data-testid="game-vignette"
 				class="pointer-events-none absolute inset-0"
-				style={{ "background-image": vignetteGradient(shellHeight()) }}
+				style={{
+					"background-image": vignetteGradient(shellSize().w, shellSize().h),
+				}}
 			/>
 			<Show when={!ready()}>
 				<div class="absolute inset-0 grid place-items-center text-sm opacity-70">

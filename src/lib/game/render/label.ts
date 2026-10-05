@@ -10,25 +10,59 @@ export type LabelTarget = {
 	lastText: string;
 };
 
-// Plate metrics shared by both label paths. Rows are 128px tall in every label
-// texture; these fill the row (playtest: 64px text on the old 512px/11-unit
-// plane landed ~11px on screen — illegibly small next to the DOM HUD text).
+// Plate metrics shared by both label paths, in texture px. Rows are 128px tall
+// in every label texture. The renderers scale the label planes so FONT_IDLE
+// lands at the view's plate font size on screen (see view.plateFontPx).
+export const FONT_IDLE = 68;
 const FONT_TARGET = 80;
-const FONT_IDLE = 68;
 const PLATE_TARGET = 104;
 const PLATE_IDLE = 88;
-// queued words render at this scale/alpha — large and bright enough to READ
-// (playtest: the old 0.55/0.4 queue was illegibly dim)
-const QUEUE_SCALE = 0.7;
-const QUEUE_ALPHA = 0.75;
+// queued words: smaller and dimmer than the current word, still readable
+const QUEUE_SCALE = 0.8;
+const QUEUE_ALPHA = 0.8;
 
-const AMBER = "#facc15";
-const AMBER_BORDER = "rgba(250, 204, 21, 0.85)";
-const GREY_BORDER = "rgba(148, 163, 184, 0.4)";
-const TARGET_REST = "#ffffff";
-const IDLE_REST = "#cbd5e1";
-const PLATE_FILL = "rgba(9, 11, 18, 0.92)";
-const TEXT_OUTLINE = "rgba(3, 5, 10, 0.95)";
+// the app's typing face; canvas text falls back to monospace until it loads
+const LABEL_FONT = '"Roboto Mono", ui-monospace, monospace';
+
+/** Theme colours the plates draw with (see refreshLabelTheme). */
+type LabelTheme = { plate: string; ink: string; primary: string };
+let theme: LabelTheme = {
+	plate: "#101218",
+	ink: "#e6e6e6",
+	primary: "#e2b714",
+};
+
+/**
+ * Read the plate palette from the live theme: --primary for typed progress,
+ * and the theme's bg/text pair arranged dark-plate/light-ink (the arena is
+ * always dark). Call once per run; themes don't change mid-run.
+ */
+export function refreshLabelTheme(
+	read: (name: string) => string,
+	arrange: (bg: string, text: string) => { plate: string; ink: string },
+): void {
+	const primary = read("--primary").trim() || theme.primary;
+	theme = { ...arrange(read("--bg"), read("--text")), primary };
+	fontEpoch += 1; // redraw every plate in the new palette
+}
+
+// bumped when the webfont (or palette) changes so every cached plate redraws
+let fontEpoch = 0;
+let fontRequested = false;
+
+/** Ask the browser for the bold typing face and redraw plates once it lands. */
+export function loadLabelFont(): void {
+	if (fontRequested || typeof document === "undefined" || !document.fonts) {
+		return;
+	}
+	fontRequested = true;
+	void document.fonts
+		.load(`bold ${FONT_TARGET}px ${LABEL_FONT}`)
+		.then(() => {
+			fontEpoch += 1;
+		})
+		.catch(() => {});
+}
 
 // biome-ignore lint/suspicious/noExplicitAny: canvas 2d context, untyped here
 type Ctx = any;
@@ -68,76 +102,99 @@ type PlateOpts = {
 };
 
 /**
- * Draw one word plate centred at (cx, cy): a rounded dark fill (alpha 0.92 so a
- * bright emissive enemy behind it can't wash the text out), a thin accent border,
- * an optional amber progress underline, an optional chevron above, and the word
- * itself — typed prefix amber, remainder white/grey — each glyph given a 3px dark
- * `strokeText` outline BEFORE the fill so it stays crisp over any glow.
+ * Draw one word plate centred at (cx, cy): a rounded plate in the arena plate
+ * colour, a thin border (--primary on the target), an optional progress
+ * underline and chevron, and the word itself. The typed prefix is the loudest
+ * thing on the plate: --primary glyphs with a glow over a --primary wash.
  */
 function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
 	const { word, typedCount, plateH, alpha, isTarget, texW } = opts;
-	c.globalAlpha = alpha;
 	let fontPx = opts.fontPx;
-	c.font = `bold ${fontPx}px monospace`;
+	c.font = `bold ${fontPx}px ${LABEL_FONT}`;
 	const typed = word.slice(0, typedCount);
 	const rest = word.slice(typedCount);
 	let typedW = c.measureText(typed).width;
 	let totalW = typedW + c.measureText(rest).width;
-	let padX = fontPx * 0.4;
+	let padX = fontPx * 0.45;
 
 	// clamp: a long (tier-4) word would overrun the texture and be clipped, so
-	// scale the font down until the whole plate fits within the texture width
-	// (matching the old W-4 clamp, with an 8px margin), then re-measure.
+	// scale the font down until the whole plate fits (8px margin), then re-measure
 	const scale = Math.min(1, (texW - 8) / (totalW + padX * 2));
 	if (scale < 1) {
 		fontPx *= scale;
-		c.font = `bold ${fontPx}px monospace`;
+		c.font = `bold ${fontPx}px ${LABEL_FONT}`;
 		typedW = c.measureText(typed).width;
 		totalW = typedW + c.measureText(rest).width;
-		padX = fontPx * 0.4;
+		padX = fontPx * 0.45;
 	}
 
 	const plateW = totalW + padX * 2;
 	const plateX = cx - plateW / 2;
 	const plateY = cy - plateH / 2;
-	roundRect(c, plateX, plateY, plateW, plateH, plateH * 0.22);
-	c.fillStyle = PLATE_FILL;
+	const radius = plateH * 0.24;
+	roundRect(c, plateX, plateY, plateW, plateH, radius);
+	c.globalAlpha = alpha * 0.9;
+	c.fillStyle = theme.plate;
 	c.fill();
-	c.lineWidth = isTarget ? 2.5 : 1;
-	c.strokeStyle = isTarget ? AMBER_BORDER : GREY_BORDER;
+	c.globalAlpha = alpha * (isTarget ? 1 : 0.22);
+	c.lineWidth = isTarget ? 3 : 1.5;
+	c.strokeStyle = isTarget ? theme.primary : theme.ink;
 	c.stroke();
 
-	// thin amber progress underline so a "semi-completed" enemy reads at a glance
-	if (opts.underline && word.length > 0) {
-		const frac = typedCount / word.length;
-		c.fillStyle = "rgba(250, 204, 21, 0.9)";
-		c.fillRect(plateX + 5, plateY + plateH - 6, (plateW - 10) * frac, 3);
+	const tx = cx - totalW / 2;
+	const ty = cy + fontPx * 0.36;
+
+	// typed prefix: a --primary wash behind the glyphs
+	if (typed) {
+		c.globalAlpha = alpha * 0.2;
+		c.fillStyle = theme.primary;
+		roundRect(
+			c,
+			tx - fontPx * 0.12,
+			plateY + plateH * 0.14,
+			typedW + fontPx * 0.24,
+			plateH * 0.72,
+			radius * 0.6,
+		);
+		c.fill();
 	}
 
-	// text: dark outline first (stroke), then fill on top
-	const tx = cx - totalW / 2;
-	const ty = cy + fontPx * 0.34;
+	// progress underline so a half-typed enemy reads at a glance
+	if (opts.underline && word.length > 0) {
+		const frac = typedCount / word.length;
+		c.globalAlpha = alpha;
+		c.fillStyle = theme.primary;
+		c.fillRect(plateX + 6, plateY + plateH - 7, (plateW - 12) * frac, 4);
+	}
+
 	c.textBaseline = "alphabetic";
 	c.lineJoin = "round";
-	c.lineWidth = 3;
-	c.strokeStyle = TEXT_OUTLINE;
-	if (typed) c.strokeText(typed, tx, ty);
-	if (rest) c.strokeText(rest, tx + typedW, ty);
-	c.fillStyle = AMBER;
-	if (typed) c.fillText(typed, tx, ty);
-	c.fillStyle = isTarget ? TARGET_REST : IDLE_REST;
-	if (rest) c.fillText(rest, tx + typedW, ty);
+	if (rest) {
+		c.globalAlpha = alpha * (isTarget ? 1 : 0.86);
+		c.fillStyle = theme.ink;
+		c.fillText(rest, tx + typedW, ty);
+	}
+	if (typed) {
+		c.globalAlpha = alpha;
+		c.shadowColor = theme.primary;
+		c.shadowBlur = fontPx * 0.35;
+		c.fillStyle = theme.primary;
+		c.fillText(typed, tx, ty);
+		c.shadowBlur = 0;
+		c.shadowColor = "transparent";
+	}
 
-	// subtle chevron above the active target's plate
+	// chevron above the active target's plate
 	if (opts.chevron) {
-		const chY = plateY - 10;
+		const chY = plateY - 12;
 		const chW = 16;
 		c.beginPath();
 		c.moveTo(cx - chW, chY - chW * 0.7);
 		c.lineTo(cx, chY);
 		c.lineTo(cx + chW, chY - chW * 0.7);
-		c.lineWidth = 5;
-		c.strokeStyle = "rgba(250, 204, 21, 0.85)";
+		c.globalAlpha = alpha;
+		c.lineWidth = 6;
+		c.strokeStyle = theme.primary;
 		c.lineCap = "round";
 		c.stroke();
 	}
@@ -145,18 +202,20 @@ function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
 }
 
 function drawChip(c: Ctx, cx: number, cy: number, label: string): void {
-	c.globalAlpha = 0.55;
-	c.font = "bold 30px monospace";
-	const w = c.measureText(label).width + 28;
-	roundRect(c, cx - w / 2, cy - 22, w, 44, 12);
-	c.fillStyle = "rgba(9, 11, 18, 0.9)";
+	c.font = `bold 36px ${LABEL_FONT}`;
+	const w = c.measureText(label).width + 32;
+	roundRect(c, cx - w / 2, cy - 26, w, 52, 14);
+	c.globalAlpha = 0.85;
+	c.fillStyle = theme.plate;
 	c.fill();
-	c.lineWidth = 1;
-	c.strokeStyle = GREY_BORDER;
+	c.globalAlpha = 0.3;
+	c.lineWidth = 1.5;
+	c.strokeStyle = theme.ink;
 	c.stroke();
+	c.globalAlpha = 0.8;
 	c.textBaseline = "alphabetic";
-	c.fillStyle = IDLE_REST;
-	c.fillText(label, cx - (w - 28) / 2, cy + 10);
+	c.fillStyle = theme.ink;
+	c.fillText(label, cx - (w - 32) / 2, cy + 12);
 	c.globalAlpha = 1;
 }
 
@@ -172,7 +231,7 @@ export function drawLabel(
 	typedCount: number,
 	isTarget: boolean,
 ): void {
-	const text = `${word}:${typedCount}:${isTarget ? 1 : 0}`;
+	const text = `${word}:${typedCount}:${isTarget ? 1 : 0}:${fontEpoch}`;
 	if (text === v.lastText) return;
 	v.lastText = text;
 	const { width: W, height: H } = v.texture.getSize();
@@ -217,7 +276,7 @@ export function drawStackedLabel(
 	const visible = Math.min(MAX_STACK, remaining);
 	const overflow = remaining - visible;
 	const shown = words.slice(wordIndex, wordIndex + visible).join(",");
-	const key = `${shown}:${typedCount}:${isTarget ? 1 : 0}:${overflow}`;
+	const key = `${shown}:${typedCount}:${isTarget ? 1 : 0}:${overflow}:${fontEpoch}`;
 	if (key === v.lastText) return;
 	v.lastText = key;
 
