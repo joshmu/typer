@@ -1,25 +1,34 @@
 /** Typing pace assumed for estimates when there is no history. */
 export const DEFAULT_WPM = 40;
 
-const NUMERAL_ONLY = /^(?:[ivxlcdm]+|\d+)\.?$/i;
-const NUMBER_WORD_ONLY = /^(?:chapter|ch\.?)\b/i;
+const NUMERAL = String.raw`(?:[IVXLCDM]+|\d+)`;
+const SEPARATOR = String.raw`\s*[.:\u2013\u2014-]\s*`;
+/** "Chapter I", "Ch. 2", "Chapter the First", "Chapter Two", optionally followed by a separator. */
+const RESTATED_PREFIX = new RegExp(
+	String.raw`^(?:chapter|ch\.?)\s+(?:the\s+)?[a-z\d]+(?:${SEPARATOR}|\s*$)`,
+	"i",
+);
+/** "III. ", "5 — " (upper-case numerals only, so "Mid-Summer" survives) */
+const NUMERAL_PREFIX = new RegExp(`^${NUMERAL}(?:${SEPARATOR}|\\s*$)`);
+
+/** The chapter's own name, with any restated number removed. */
+function chapterName(title: string): string {
+	const name = title
+		.trim()
+		.replace(RESTATED_PREFIX, "")
+		.replace(NUMERAL_PREFIX, "")
+		.trim();
+	return name === "Untitled Chapter" ? "" : name;
+}
 
 /**
  * The one chapter label shown everywhere: "Chapter 3", plus the chapter's
- * own name when it is more than a restated number.
+ * own name when it has one: "Chapter 3: The Return".
  */
 export function chapterLabel(index: number, title?: string): string {
 	const base = `Chapter ${index + 1}`;
-	const name = title?.trim() ?? "";
-	if (
-		!name ||
-		name === "Untitled Chapter" ||
-		NUMERAL_ONLY.test(name) ||
-		NUMBER_WORD_ONLY.test(name)
-	) {
-		return base;
-	}
-	return `${base}: ${name}`;
+	const name = chapterName(title ?? "");
+	return name ? `${base}: ${name}` : base;
 }
 
 /**

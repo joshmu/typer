@@ -24,6 +24,24 @@ describe("chapterLabel", () => {
 		expect(chapterLabel(0, "Untitled Chapter")).toBe("Chapter 1");
 	});
 
+	it("keeps a real name that follows a restated number", () => {
+		expect(chapterLabel(0, "Chapter I: The Arrival")).toBe(
+			"Chapter 1: The Arrival",
+		);
+		expect(chapterLabel(1, "Chapter Two. The Storm")).toBe(
+			"Chapter 2: The Storm",
+		);
+		expect(chapterLabel(2, "III. A Quiet Field")).toBe(
+			"Chapter 3: A Quiet Field",
+		);
+		expect(chapterLabel(4, "5 — Homecoming")).toBe("Chapter 5: Homecoming");
+	});
+
+	it("keeps a name that only starts with the word chapter", () => {
+		expect(chapterLabel(0, "Chapterhouse")).toBe("Chapter 1: Chapterhouse");
+		expect(chapterLabel(0, "Mid-Summer")).toBe("Chapter 1: Mid-Summer");
+	});
+
 	it("keeps a real chapter name after the number", () => {
 		expect(chapterLabel(2, "The Boy Who Lived")).toBe(
 			"Chapter 3: The Boy Who Lived",
