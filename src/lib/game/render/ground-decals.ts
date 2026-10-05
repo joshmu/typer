@@ -36,6 +36,15 @@ const CHUNK = 2; // texture px per decal "pixel": ~0.1 world units, the floor ar
 // biome-ignore lint/suspicious/noExplicitAny: 2d canvas context, untyped here
 type Ctx = any;
 
+/** Stable pseudo-random unit in [0,1) for a grid cell, with no visible
+ * diagonal banding (a full integer mix rather than a linear combination). */
+function hash2(x: number, y: number): number {
+	let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x165667b1);
+	h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+	h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+	return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
 /** Stable pseudo-random unit in [0,1) from an integer seed (render-side). */
 function seedRand(seed: number): number {
 	return (Math.imul(seed | 0, 0x9e3779b1) >>> 0) / 4294967296;
@@ -108,7 +117,7 @@ export function createGroundDecals(
 				const gx = Math.round((px + dx) / CHUNK);
 				const gy = Math.round((py + dy) / CHUNK);
 				// ragged rim: drop some edge chunks
-				const n = seedRand(gx * 73856093 + gy * 19349663);
+				const n = hash2(gx, gy);
 				if (d2 > r * r * 0.6 && n < 0.35) continue;
 				chunkAt(px + dx, py + dy, speckle && n > 0.72 ? speckle : fill);
 			}
@@ -124,11 +133,16 @@ export function createGroundDecals(
 		const [px, py] = toCanvas(x, y);
 		ctx.globalAlpha = edgeAlpha(x, y);
 		const [r, g, b] = color;
-		// muted against the dim deck: a stain, not a paint dot
-		const main = `rgb(${Math.round(r * 135)}, ${Math.round(g * 135)}, ${Math.round(b * 135)})`;
-		const dark = `rgb(${Math.round(r * 60)}, ${Math.round(g * 60)}, ${Math.round(b * 60)})`;
+		// a stain, not a creature: the family colour mostly washed to grey,
+		// dark, and laid down translucent so it reads as part of the deck
+		const grey = (r + g + b) / 3;
+		const wash = (c: number) => c * 0.35 + grey * 0.65;
+		const tone = (k: number) =>
+			`rgba(${Math.round(wash(r) * k)}, ${Math.round(wash(g) * k)}, ${Math.round(wash(b) * k)}, 0.7)`;
+		const main = tone(85);
+		const dark = tone(40);
 
-		// a central pool plus 3–4 satellite gouts, all chunky and opaque so the
+		// a central pool plus 3–4 satellite gouts on the shared pixel grid, so the
 		// kill leaves a clearly-visible mark, sized against the ~3-unit creatures
 		blob(px, py, 0.9, dark);
 		blob(px, py, 0.7, main, dark);
