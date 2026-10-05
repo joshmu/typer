@@ -15,6 +15,8 @@ export interface TypingResult {
 	timestamp: number;
 	textHash: string;
 	bookTitle?: string;
+	/** A time test left running with no input; never a personal best. */
+	afk?: boolean;
 }
 
 export interface GameRun {

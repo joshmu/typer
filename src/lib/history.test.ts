@@ -150,4 +150,25 @@ describe("toTypingResult", () => {
 			toTypingResult(state, completed, "Test Book", 0).bookTitle,
 		).toBeUndefined();
 	});
+
+	it("flags a time test left running with no input as AFK", () => {
+		const state = createTypingState("the quick", {
+			mode: { type: "time", seconds: 15 },
+			startTime: 1_000,
+			endTime: 16_000,
+		});
+		const completed = completeTest(state);
+
+		expect(toTypingResult(state, completed, undefined, 0).afk).toBe(true);
+	});
+
+	it("leaves the AFK flag off a test typed to the end", () => {
+		const state = createTypingState("the quick", {
+			startTime: 1_000,
+			endTime: 31_500,
+		});
+		const record = toTypingResult(state, completeTest(state), undefined, 0);
+
+		expect(record).not.toHaveProperty("afk");
+	});
 });

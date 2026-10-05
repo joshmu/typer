@@ -1,3 +1,4 @@
+import { isAfk } from "./core/calc";
 import type { CompletedTestPayload } from "./core/engine/complete-test";
 import { simpleHash } from "./core/text/hash";
 import type { TypingState } from "./core/types";
@@ -24,6 +25,7 @@ export function toTypingResult(
 		timestamp: now,
 		textHash: simpleHash(state.text),
 		bookTitle: state.mode.type === "book" ? bookTitle : undefined,
+		...(isAfk(state) && { afk: true }),
 	};
 }
 
