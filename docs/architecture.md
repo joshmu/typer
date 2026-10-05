@@ -142,7 +142,7 @@ function calculateCharBreakdown(state: TypingState): CharBreakdown
 
 Result stats:
 
-- **Accuracy** is keystroke accuracy: correct character keys over all character keys, so a corrected typo still costs accuracy. Any mistake caps it at 99.
+- **Accuracy** is keystroke accuracy: correct character keys over all character keys, so a corrected typo still costs accuracy. It is rounded down, so any mistake keeps it below 100.
 - **Raw WPM** counts every character key, including ones later backspaced; **WPM** counts correct characters left in the text.
 - **Per-second WPM** has one sample per second of the test's duration, idle seconds included, so the chart and consistency cover the whole test.
 - **Missed** characters are ones the user skipped: untyped characters behind the cursor. Text the user never reached is not counted, and the breakdown total is only the characters covered.

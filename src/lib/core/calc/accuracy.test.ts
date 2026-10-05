@@ -22,11 +22,18 @@ describe("calculateAccuracy", () => {
 		expect(calculateAccuracy({ correct: 0, incorrect: 0 })).toBe(100);
 	});
 
-	it("rounds to the nearest integer", () => {
-		expect(calculateAccuracy({ correct: 2, incorrect: 1 })).toBe(67);
+	it("rounds down", () => {
+		expect(calculateAccuracy({ correct: 2, incorrect: 1 })).toBe(66);
+		expect(calculateAccuracy({ correct: 19, incorrect: 1 })).toBe(95);
 	});
 
-	it("never rounds a mistake up to 100", () => {
+	it("is exact on whole percentages, free of float drift", () => {
+		expect(calculateAccuracy({ correct: 29, incorrect: 71 })).toBe(29);
+		expect(calculateAccuracy({ correct: 57, incorrect: 43 })).toBe(57);
+	});
+
+	it("never shows 100 after a mistake", () => {
 		expect(calculateAccuracy({ correct: 999, incorrect: 1 })).toBe(99);
+		expect(calculateAccuracy({ correct: 99_999, incorrect: 1 })).toBe(99);
 	});
 });
