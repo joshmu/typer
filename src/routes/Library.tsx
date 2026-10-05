@@ -1,9 +1,10 @@
 import { useNavigate } from "@solidjs/router";
-import { createSignal } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import { reconcile } from "solid-js/store";
 import BookBrowser from "@/components/books/BookBrowser";
 import { useAllBookProgress } from "@/lib/book-progress";
 import { fetchAndCacheBook } from "@/lib/book-service";
+import { createBookStarter } from "@/lib/book-start";
 import { usePreferences } from "@/lib/preferences-context";
 
 export default function Library() {
@@ -14,21 +15,26 @@ export default function Library() {
 
 	/**
 	 * Caches the book, then opens it in book mode on "/", which resumes it at
-	 * its committed position. A failed load rejects, for the sheet to show.
+	 * its committed position. Leaving the library drops a start still loading.
 	 */
+	const starter = createBookStarter(fetchAndCacheBook, (bookId) => {
+		setPrefs("lastBookId", bookId);
+		setPrefs("lastMode", reconcile({ type: "book", bookId, chapterIndex: 0 }));
+		navigate("/");
+	});
+	onCleanup(() => starter.cancel());
+
+	/** A failed load rejects, for the sheet to show. */
 	async function startBook(bookId: string): Promise<void> {
 		setLoading(true);
 		try {
-			await fetchAndCacheBook(bookId);
+			await starter.start(bookId);
 		} catch (err) {
 			console.error("Failed to load book:", err);
 			throw err;
 		} finally {
 			setLoading(false);
 		}
-		setPrefs("lastBookId", bookId);
-		setPrefs("lastMode", reconcile({ type: "book", bookId, chapterIndex: 0 }));
-		navigate("/");
 	}
 
 	return (
