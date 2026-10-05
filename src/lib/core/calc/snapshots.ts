@@ -13,17 +13,73 @@ export function collectPerSecondWPM(
 	startTime: number,
 	elapsedMs: number,
 ): number[] {
+	const counts = countPerSecond(
+		chars,
+		startTime,
+		elapsedMs,
+		(char) => char.status === "correct",
+	);
+	return toWpm(counts, elapsedMs);
+}
+
+export interface PerSecondActivity {
+	/** WPM from every typed character, right or wrong, per second. */
+	raw: number[];
+	/** Characters per second that were mistyped, corrected or not. */
+	errors: number[];
+}
+
+/**
+ * Raw WPM and mistakes for each second, bucketed like `collectPerSecondWPM`.
+ * Only each character's last keystroke is known, so keys later erased by
+ * Backspace are not counted.
+ */
+export function collectPerSecondActivity(
+	chars: CharacterState[],
+	startTime: number,
+	elapsedMs: number,
+): PerSecondActivity {
+	const typed = countPerSecond(
+		chars,
+		startTime,
+		elapsedMs,
+		(char) => char.status !== "pending" && char.status !== "missed",
+	);
+	const errors = countPerSecond(
+		chars,
+		startTime,
+		elapsedMs,
+		(char) =>
+			char.status === "incorrect" ||
+			char.status === "extra" ||
+			char.mistakeCount > 0,
+	);
+	return { raw: toWpm(typed, elapsedMs), errors };
+}
+
+function secondsIn(elapsedMs: number): number {
+	return Math.max(1, Math.round(elapsedMs / 1000));
+}
+
+function countPerSecond(
+	chars: CharacterState[],
+	startTime: number,
+	elapsedMs: number,
+	include: (char: CharacterState) => boolean,
+): number[] {
 	if (elapsedMs <= 0) return [];
-
-	const seconds = Math.max(1, Math.round(elapsedMs / 1000));
+	const seconds = secondsIn(elapsedMs);
 	const counts = new Array<number>(seconds).fill(0);
-
 	for (const char of chars) {
-		if (char.status !== "correct" || char.timestamp == null) continue;
+		if (char.timestamp == null || !include(char)) continue;
 		const second = Math.floor((char.timestamp - startTime) / 1000);
 		counts[Math.min(Math.max(second, 0), seconds - 1)]++;
 	}
+	return counts;
+}
 
+function toWpm(counts: number[], elapsedMs: number): number[] {
+	const seconds = counts.length;
 	const lastMs = elapsedMs - (seconds - 1) * 1000;
 	return counts.map((count, i) => {
 		const ms = i === seconds - 1 ? lastMs : 1000;
