@@ -202,9 +202,14 @@ export default function GameShell() {
 		}
 		// Esc pauses a live run and resumes a paused one
 		if (e.key === "Escape") {
-			if (started() && !isOver() && hud()?.wavePhase !== "perk-choice") {
+			// a pause always resumes, whatever paused it (a hidden tab can pause
+			// the perk draft); a fresh pause needs a live run outside the draft
+			if (paused()) {
 				e.preventDefault();
-				setPause(!paused());
+				setPause(false);
+			} else if (started() && !isOver() && hud()?.wavePhase !== "perk-choice") {
+				e.preventDefault();
+				setPause(true);
 			}
 			return;
 		}
@@ -289,6 +294,7 @@ export default function GameShell() {
 			class="relative h-dvh w-full overflow-hidden bg-black text-text"
 			style={ink() ? { "--bg": ink()?.plate, "--text": ink()?.ink } : undefined}
 			data-testid="game-shell"
+			data-tick={hud()?.tick ?? 0}
 		>
 			<canvas ref={canvasRef} class="h-full w-full outline-none" />
 			{/* frames the arena: clear over the play area, deepening toward the

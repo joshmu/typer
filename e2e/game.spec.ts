@@ -56,15 +56,17 @@ test.describe("horde game mode", () => {
 	test("holds the sim at tick 0 behind the start overlay", async ({ page }) => {
 		// NON-testMode load (a real session): the loop renders the scene but must
 		// not advance the sim until the player starts. window.__game is
-		// testMode-only, so assert on the DOM instead — a running sim flips to an
-		// active wave (mounting the wave chip) within ~1s, so if it stays hidden
-		// across a 2s wait the sim never advanced.
+		// testMode-only, so read the tick the shell exposes on its root.
 		await page.goto("/game?seed=42");
+		const shell = page.getByTestId("game-shell");
 		await expect(page.getByTestId("game-start")).toBeVisible();
 		await page.waitForTimeout(2000);
 		await expect(page.getByTestId("game-start")).toBeVisible();
-		await expect(page.getByTestId("game-wave")).toBeHidden();
+		await expect(shell).toHaveAttribute("data-tick", "0");
 		await expect(page.getByTestId("game-over")).toBeHidden();
+		// and the same shell does report a live tick once the run starts
+		await page.keyboard.press("Enter");
+		await expect(shell).not.toHaveAttribute("data-tick", "0");
 	});
 
 	test("Enter starts the run full-bleed; Esc pauses and brings the header back", async ({
@@ -91,6 +93,44 @@ test.describe("horde game mode", () => {
 		await page.keyboard.press("Escape");
 		await expect(page.getByTestId("game-paused")).toBeHidden();
 		await expect(header).toHaveCSS("opacity", "0");
+	});
+
+	test("a hidden tab pauses the perk draft, and Esc resumes it", async ({
+		page,
+	}) => {
+		await page.goto("/game?seed=42&testMode=1");
+		await page.waitForFunction(() => window.__game !== undefined);
+		await page.evaluate(() => {
+			const g = window.__game;
+			if (!g) return;
+			for (let i = 0; i < 2000; i++) {
+				const s = g.getState();
+				if (s.wavePhase === "perk-choice") return;
+				const alive = s.enemies.filter((e) => e.alive);
+				if (alive.length === 0) {
+					g.stepTicks(20);
+					continue;
+				}
+				const t = alive.find((e) => e.id === s.targetId) ?? alive[0];
+				const w = t.words[t.wordIndex];
+				g.sendKeys(w[t.typedCount] ?? w[0]);
+			}
+		});
+		await expect(page.getByTestId("perk-overlay")).toBeVisible();
+
+		// the tab goes hidden mid-draft
+		await page.evaluate(() => {
+			Object.defineProperty(document, "hidden", {
+				configurable: true,
+				get: () => true,
+			});
+			document.dispatchEvent(new Event("visibilitychange"));
+		});
+		await expect(page.getByTestId("game-paused")).toBeVisible();
+
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("game-paused")).toBeHidden();
+		await expect(page.getByTestId("perk-overlay")).toBeVisible();
 	});
 
 	test("shows the death screen with run stats and restarts", async ({
