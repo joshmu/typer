@@ -570,7 +570,7 @@ function HeaderNotice(props: {
 	onRetry: () => void;
 }) {
 	return (
-		<span data-testid="library-stale" class="inline-flex items-center gap-2">
+		<span data-testid="library-stale" class="flex h-4 items-center gap-2">
 			<span
 				class="size-1.5 shrink-0 rounded-full bg-error"
 				aria-hidden="true"
@@ -581,7 +581,7 @@ function HeaderNotice(props: {
 			</span>
 			<button
 				type="button"
-				class="-my-1 inline-flex items-center gap-1 rounded-full px-2 py-1 text-primary outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-70"
+				class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-primary outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-70"
 				onClick={props.onRetry}
 				disabled={props.retrying}
 				aria-busy={props.retrying}
