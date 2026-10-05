@@ -60,6 +60,7 @@ export interface TestSession {
 	allBookProgress: Accessor<BookProgress[]>;
 	startWithMode: (mode: TestMode) => Promise<void>;
 	setCustomText: (text: string) => void;
+	/** Rejects with the load error, so the caller can show it. */
 	selectBook: (bookId: string, prev?: BookProgress) => Promise<void>;
 	complete: (state: TypingState) => void;
 	redo: () => void;
@@ -154,6 +155,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			} else {
 				console.error("Failed to load book:", err);
 			}
+			throw err;
 		} finally {
 			if (request === latestBookFetch) setBookLoading(false);
 		}
