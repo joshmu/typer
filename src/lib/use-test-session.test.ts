@@ -552,6 +552,97 @@ describe("useTestSession", () => {
 		});
 	});
 
+	it("publishes the result's per-second detail and AFK verdict", () =>
+		createRoot((dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { recordCompletion: vi.fn().mockResolvedValue(undefined) },
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick", 3_000));
+			const insights = session.result()?.insights;
+			expect(insights?.afk).toBe(false);
+			expect(insights?.rawPerSecond).toHaveLength(3);
+			expect(insights?.errorsPerSecond).toHaveLength(3);
+			dispose();
+		}));
+
+	it("shows the result once the typing block has left", async () => {
+		let leave: () => void = () => {};
+		const exitTyping = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					leave = resolve;
+				}),
+		);
+		const recordCompletion = vi.fn().mockResolvedValue(undefined);
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { recordCompletion, exitTyping },
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			expect(recordCompletion).toHaveBeenCalledTimes(1);
+			expect(session.result()).toBeNull();
+			leave();
+			await new Promise((r) => setTimeout(r));
+			expect(session.result()).not.toBeNull();
+			dispose();
+		});
+	});
+
+	it("drops a result whose exit was overtaken by a new test", async () => {
+		let leave: () => void = () => {};
+		const exitTyping = () =>
+			new Promise<void>((resolve) => {
+				leave = resolve;
+			});
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: {
+					recordCompletion: vi.fn().mockResolvedValue(undefined),
+					exitTyping,
+				},
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			session.setCustomText("brown fox");
+			leave();
+			await new Promise((r) => setTimeout(r));
+			expect(session.result()).toBeNull();
+			expect(session.text()).toBe("brown fox");
+			dispose();
+		});
+	});
+
+	it("flags an unsaved result even when the save fails during the exit", async () => {
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		let leave: () => void = () => {};
+		const exitTyping = () =>
+			new Promise<void>((resolve) => {
+				leave = resolve;
+			});
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: {
+					recordCompletion: vi.fn().mockRejectedValue(new Error("disk full")),
+					exitTyping,
+				},
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			await new Promise((r) => setTimeout(r));
+			leave();
+			await new Promise((r) => setTimeout(r));
+			expect(session.result()).not.toBeNull();
+			expect(session.saveFailed()).toBe(true);
+			dispose();
+		});
+	});
+
 	it("completing a test leaves the loaded test's accessors untouched", () =>
 		createRoot((dispose) => {
 			const session = useTestSession({

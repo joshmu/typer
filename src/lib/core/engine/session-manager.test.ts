@@ -171,6 +171,19 @@ describe("applyResult", () => {
 		expect(next.result).toBe(result);
 	});
 
+	it("attaches the result's insights for the results screen", () => {
+		const session = createInitialSession({ type: "time", seconds: 15 });
+		const insights = {
+			mode: { type: "time", seconds: 15 } as const,
+			timestamp: 5,
+			afk: true,
+			rawPerSecond: [60],
+			errorsPerSecond: [0],
+		};
+		const next = applyResult(session, RESULT, undefined, insights);
+		expect(next.result).toMatchObject({ wpm: RESULT.wpm, insights });
+	});
+
 	it("reopens the reader at the committed progress", () => {
 		const book = makeBook([makeChapter(0, ["a", "b", "c", "d", "e"])]);
 		const session = applyBookSelection(
