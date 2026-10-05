@@ -6,6 +6,7 @@ interface WordProps {
 	word: WordState;
 	isActive: boolean;
 	activeCharIndex: number;
+	ref?: (el: HTMLSpanElement) => void;
 }
 
 export default function Word(props: WordProps) {
@@ -25,7 +26,14 @@ export default function Word(props: WordProps) {
 	});
 
 	return (
-		<span ref={wordRef} class="inline" data-word-active={props.isActive}>
+		<span
+			ref={(el) => {
+				wordRef = el;
+				props.ref?.(el);
+			}}
+			class="inline"
+			data-word-active={props.isActive}
+		>
 			<For each={props.word.characters}>
 				{(char) => (
 					<span class={characterClass(char.status, char.mistakeCount)}>

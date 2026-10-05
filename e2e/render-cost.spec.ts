@@ -230,3 +230,39 @@ for (const sound of [false, true]) {
 		},
 	);
 }
+
+// Every third character key is wrong, so each of those keystrokes also
+// flashes the caret and shakes the word. That feedback must stay class
+// toggles: no extra remounts and no layout reads.
+function missHeavyKeys(): string[] {
+	return Array.from(passage.slice(0, KEYSTROKES), (ch, i) => {
+		if (i % 3 !== 1 || ch === " ") return ch;
+		return ch === "z" ? "x" : "z";
+	});
+}
+
+for (const stopOnError of ["off", "letter", "word"] as const) {
+	test(`miss-heavy typing (stop on error: ${stopOnError}) stays cursor-only`, async ({
+		page,
+	}) => {
+		await page.addInitScript((value) => {
+			localStorage.setItem(
+				"typer-preferences",
+				JSON.stringify({ stopOnError: value }),
+			);
+		}, stopOnError);
+		await startTest(page);
+		await installRecorder(page);
+		for (const key of missHeavyKeys()) {
+			await page.keyboard.press(key === " " ? "Space" : key);
+		}
+		const { remountsPerKey, measuresPerKey } = await flushRenderCost(page);
+		expect(measuresPerKey).toHaveLength(KEYSTROKES);
+		expect(
+			report(`Word remounts, misses, ${stopOnError}`, remountsPerKey),
+		).toBe(0);
+		expect(
+			report(`Layout re-measures, misses, ${stopOnError}`, measuresPerKey),
+		).toBe(0);
+	});
+}
