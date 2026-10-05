@@ -38,3 +38,27 @@ export async function loadBookPercents(
 export function useBookPercents() {
 	return safeFrom<Record<string, number>>(() => loadBookPercents(), {});
 }
+
+/**
+ * Mean WPM over the most recent typing results, or null with no history.
+ */
+export async function loadAverageWpm(
+	database: TyperDB = db,
+	limit = 50,
+): Promise<number | null> {
+	const recent = await database.results
+		.orderBy("timestamp")
+		.reverse()
+		.limit(limit)
+		.toArray();
+	const wpms = recent.map((r) => r.wpm).filter((wpm) => wpm > 0);
+	if (wpms.length === 0) return null;
+	return wpms.reduce((sum, wpm) => sum + wpm, 0) / wpms.length;
+}
+
+/**
+ * Reactive query: recent average WPM, null with no history.
+ */
+export function useAverageWpm() {
+	return safeFrom<number | null>(() => loadAverageWpm(), null);
+}
