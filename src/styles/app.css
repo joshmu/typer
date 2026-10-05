@@ -44,23 +44,25 @@
 	animation: blink 1s step-end infinite;
 }
 
-/* Progressive error tiers — warning (amber) → error (red) */
-.text-error-1 {
-	color: var(--warning);
+/* Typed character states. Wrong chars are solid --error; a faint wash keeps
+   a mistyped space visible. Corrected chars keep their colour and carry an
+   error underline. Extra chars are struck through. */
+.char-wrong {
+	background-color: color-mix(in srgb, var(--error) 14%, transparent);
+	border-radius: 2px;
 }
-.text-error-2 {
-	color: color-mix(in srgb, var(--error) 50%, var(--warning));
+.char-corrected {
+	text-decoration-line: underline;
+	text-decoration-thickness: 2px;
+	text-decoration-color: color-mix(in srgb, var(--error) 60%, transparent);
+	text-underline-offset: 0.3em;
+	text-decoration-skip-ink: none;
 }
-.text-error-3 {
-	color: var(--error);
-}
-
-/* Correct characters with prior mistakes — warning-tinted */
-.text-correct-tint {
-	color: color-mix(in srgb, var(--correct) 70%, var(--warning));
-}
-.text-correct-tint-heavy {
-	color: color-mix(in srgb, var(--correct) 50%, var(--warning));
+.char-extra {
+	opacity: 0.75;
+	text-decoration-line: line-through;
+	text-decoration-thickness: 2px;
+	text-decoration-color: color-mix(in srgb, var(--error) 70%, transparent);
 }
 
 /* Base styles */
