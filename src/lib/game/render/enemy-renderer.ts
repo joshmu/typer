@@ -224,6 +224,8 @@ export function createEnemyRenderer(
 			const d = dying[i];
 			const ms = d.boss ? BOSS_DIE_MS : DIE_MS;
 			const t = (now - d.start) / ms;
+			// the killing shot is still in flight
+			if (t < 0) continue;
 			if (t >= 1) {
 				d.sprite.dispose();
 				dying.splice(i, 1);

@@ -31,8 +31,10 @@ const SCORCH_POOL = 10;
 const SCORE_POOL = 8;
 const BURST_POOL = 6;
 
-// a shot's bright head runs muzzle to target in HEAD_MS, then the beam fades
-const HEAD_MS = 40;
+// a shot's bright head runs muzzle to target in this long, then the beam
+// fades; a kill's impact lands when the head arrives
+export const SHOT_TRAVEL_MS = 40;
+const HEAD_MS = SHOT_TRAVEL_MS;
 const TRACER_MS = { light: 70, clang: 100, heavy: 130 } as const;
 const TRACER_W = { light: 0.18, clang: 0.24, heavy: 0.35 } as const;
 const HEAD_SIZE = { light: 0.45, clang: 0.55, heavy: 0.8 } as const;
@@ -82,8 +84,9 @@ export type Effects = {
 		now: number,
 		overdrive: number,
 	): void;
-	/** Kill impact at (x, y): flash, sparks, gibs, shockwave, scorch and an
-	 * optional "+points xmult" label. */
+	/** Kill impact at (x, y), landing SHOT_TRAVEL_MS after `now` when the
+	 * shot arrives: flash, sparks, gibs, shockwave, scorch and an optional
+	 * "+points xmult" label. */
 	kill(
 		x: number,
 		y: number,
@@ -504,6 +507,87 @@ export function createEffects(
 	}
 
 	const waveColor = new Color3();
+	// kills waiting for their shot to arrive
+	type Impact = {
+		at: number;
+		x: number;
+		y: number;
+		color: readonly [number, number, number];
+		boss: boolean;
+		credit: KillCreditLabel | null;
+	};
+	const pending: Impact[] = [];
+	function land(k: Impact, now: number): void {
+		const { x, y, color, boss, credit } = k;
+		flash(x, y, boss ? 6 : 2.4, KILL_FLASH_MS * (boss ? 2 : 1), white, now);
+
+		const b = acquire(bursts, now);
+		b.start = now;
+		b.live = true;
+		b.at.set(x, FX_Y, y);
+		// white-hot streaks cooling to the family colour
+		b.sparks.color1 = new Color4(1, 1, 1, 1);
+		b.sparks.color2 = new Color4(
+			0.5 + color[0] * 0.5,
+			0.5 + color[1] * 0.5,
+			0.5 + color[2] * 0.5,
+			1,
+		);
+		b.sparks.colorDead = new Color4(color[0], color[1], color[2], 0);
+		b.sparks.manualEmitCount = boss ? 36 : 13;
+		b.sparks.minEmitPower = boss ? 20 : 14;
+		b.sparks.maxEmitPower = boss ? 34 : 24;
+		b.gibs.color1 = new Color4(color[0], color[1], color[2], 1);
+		b.gibs.color2 = new Color4(
+			color[0] * 0.55,
+			color[1] * 0.55,
+			color[2] * 0.55,
+			1,
+		);
+		b.gibs.colorDead = new Color4(
+			color[0] * 0.2,
+			color[1] * 0.2,
+			color[2] * 0.2,
+			0,
+		);
+		b.gibs.manualEmitCount = boss ? 24 : 10;
+
+		const w = acquire(waves, now);
+		w.start = now;
+		w.dur = boss ? BOSS_WAVE_MS : WAVE_MS;
+		w.radius = boss ? BOSS_WAVE_RADIUS : WAVE_RADIUS;
+		waveColor.set(color[0], color[1], color[2]);
+		Color3.LerpToRef(white, waveColor, 0.35, w.color);
+		w.mat.emissiveColor.copyFrom(w.color);
+		w.live = true;
+		w.mesh.position.x = x;
+		w.mesh.position.z = y;
+		w.mesh.scaling.setAll(0.05);
+		w.mesh.visibility = 1;
+		w.mesh.setEnabled(true);
+
+		const s = acquire(scorches, now);
+		s.start = now;
+		s.dur = SCORCH_MS * (boss ? 2 : 1);
+		s.live = true;
+		s.mesh.position.x = x;
+		s.mesh.position.z = y;
+		s.mesh.scaling.setAll(boss ? 4.5 : 1.8);
+		s.mesh.visibility = 1;
+		s.mesh.setEnabled(true);
+
+		if (credit && credit.points > 0) {
+			const l = acquire(scores, now);
+			drawScore(l, credit.points, credit.mult);
+			l.start = now;
+			l.live = true;
+			l.x = x;
+			l.z = y;
+			l.big = boss || credit.mult >= 3;
+			l.mat.alpha = 1;
+			l.root.setEnabled(true);
+		}
+	}
 
 	return {
 		shot(from, to, kind, now, overdrive) {
@@ -529,74 +613,7 @@ export function createEffects(
 			flash(from.x, from.z, MUZZLE_SIZE[kind], MUZZLE_MS[kind], color, now);
 		},
 		kill(x, y, color, boss, now, credit) {
-			flash(x, y, boss ? 6 : 2.4, KILL_FLASH_MS * (boss ? 2 : 1), white, now);
-
-			const b = acquire(bursts, now);
-			b.start = now;
-			b.live = true;
-			b.at.set(x, FX_Y, y);
-			// white-hot streaks cooling to the family colour
-			b.sparks.color1 = new Color4(1, 1, 1, 1);
-			b.sparks.color2 = new Color4(
-				0.5 + color[0] * 0.5,
-				0.5 + color[1] * 0.5,
-				0.5 + color[2] * 0.5,
-				1,
-			);
-			b.sparks.colorDead = new Color4(color[0], color[1], color[2], 0);
-			b.sparks.manualEmitCount = boss ? 36 : 13;
-			b.sparks.minEmitPower = boss ? 20 : 14;
-			b.sparks.maxEmitPower = boss ? 34 : 24;
-			b.gibs.color1 = new Color4(color[0], color[1], color[2], 1);
-			b.gibs.color2 = new Color4(
-				color[0] * 0.55,
-				color[1] * 0.55,
-				color[2] * 0.55,
-				1,
-			);
-			b.gibs.colorDead = new Color4(
-				color[0] * 0.2,
-				color[1] * 0.2,
-				color[2] * 0.2,
-				0,
-			);
-			b.gibs.manualEmitCount = boss ? 24 : 10;
-
-			const w = acquire(waves, now);
-			w.start = now;
-			w.dur = boss ? BOSS_WAVE_MS : WAVE_MS;
-			w.radius = boss ? BOSS_WAVE_RADIUS : WAVE_RADIUS;
-			waveColor.set(color[0], color[1], color[2]);
-			Color3.LerpToRef(white, waveColor, 0.35, w.color);
-			w.mat.emissiveColor.copyFrom(w.color);
-			w.live = true;
-			w.mesh.position.x = x;
-			w.mesh.position.z = y;
-			w.mesh.scaling.setAll(0.05);
-			w.mesh.visibility = 1;
-			w.mesh.setEnabled(true);
-
-			const s = acquire(scorches, now);
-			s.start = now;
-			s.dur = SCORCH_MS * (boss ? 2 : 1);
-			s.live = true;
-			s.mesh.position.x = x;
-			s.mesh.position.z = y;
-			s.mesh.scaling.setAll(boss ? 4.5 : 1.8);
-			s.mesh.visibility = 1;
-			s.mesh.setEnabled(true);
-
-			if (credit && credit.points > 0) {
-				const l = acquire(scores, now);
-				drawScore(l, credit.points, credit.mult);
-				l.start = now;
-				l.live = true;
-				l.x = x;
-				l.z = y;
-				l.big = boss || credit.mult >= 3;
-				l.mat.alpha = 1;
-				l.root.setEnabled(true);
-			}
+			pending.push({ at: now + SHOT_TRAVEL_MS, x, y, color, boss, credit });
 		},
 		breach(x, y, now) {
 			flash(x, y, 3, 140, theme.error, now);
@@ -627,6 +644,12 @@ export function createEffects(
 			theme.primary.scaleToRef(gain * LIGHT_LEVEL, lightMat.emissiveColor);
 		},
 		update(now) {
+			for (let i = 0; i < pending.length; ) {
+				if (pending[i].at <= now) {
+					land(pending[i], pending[i].at);
+					pending.splice(i, 1);
+				} else i++;
+			}
 			for (const t of tracers) {
 				if (!t.live) continue;
 				const age = now - t.start;

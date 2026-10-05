@@ -2,7 +2,7 @@ import { Color3, Vector3 } from "@babylonjs/core/Maths/math";
 import { isBoss } from "../content/enemies";
 import type { RunRenderer } from "../session/run-session";
 import { arenaInk } from "../view";
-import { createEffects } from "./effects";
+import { createEffects, SHOT_TRAVEL_MS } from "./effects";
 import { createEnemyRenderer } from "./enemy-renderer";
 import {
 	dispatchEffects,
@@ -125,8 +125,9 @@ export function createBabylonRenderer(
 				killCredit(of, scoreGain, combo, nth),
 			);
 			gameScene.ground.stampCorpse(x, y, color, id);
-			enemies.killed(id, now);
-			juice.kill(now, combo, boss);
+			// the death lands when the shot does
+			enemies.killed(id, now + SHOT_TRAVEL_MS);
+			juice.kill(now + SHOT_TRAVEL_MS, combo, boss);
 		},
 		breach(x, y, id) {
 			gameScene.ground.stampScar(x, y, id);
