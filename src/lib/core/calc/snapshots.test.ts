@@ -90,20 +90,17 @@ describe("collectPerSecondWPM", () => {
 
 describe("trimIdleTail", () => {
 	it("drops the seconds after the last keystroke", () => {
-		const chars = correctBetween(10, 0, 2000);
-		expect(trimIdleTail([60, 60, 0, 0], chars, START)).toEqual([60, 60]);
+		expect(trimIdleTail([60, 60, 0, 0], START + 1900, START)).toEqual([60, 60]);
 	});
 
 	it("keeps the second the last keystroke landed in", () => {
-		const chars = [
-			...correctBetween(5, 0, 1000),
-			{ ...createIncorrectChar("a", "x"), timestamp: START + 2500 },
-		];
-		expect(trimIdleTail([60, 0, 0, 0], chars, START)).toEqual([60, 0, 0]);
+		expect(trimIdleTail([60, 0, 0, 0], START + 2500, START)).toEqual([
+			60, 0, 0,
+		]);
 	});
 
 	it("leaves samples alone when nothing was typed", () => {
-		expect(trimIdleTail([0, 0], [], START)).toEqual([0, 0]);
+		expect(trimIdleTail([0, 0], null, START)).toEqual([0, 0]);
 	});
 });
 

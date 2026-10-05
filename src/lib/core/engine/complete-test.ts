@@ -44,7 +44,7 @@ export function completeTest(state: TypingState): CompletedTestPayload {
 	const consistency = calculateConsistency(
 		state.mode.type === "time"
 			? wpmPerSecond
-			: trimIdleTail(wpmPerSecond, chars, state.startTime ?? 0),
+			: trimIdleTail(wpmPerSecond, state.activity.lastAt, state.startTime ?? 0),
 	);
 	const breakdown = calculateCharBreakdown(state);
 

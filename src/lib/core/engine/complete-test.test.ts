@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { calculateConsistency } from "../calc";
 import type { TypingState } from "../types";
 import { createTypingState } from "../types/test-fixtures";
 import { completeTest } from "./complete-test";
@@ -151,6 +152,21 @@ describe("completeTest", () => {
 		expect(out.result.wpmPerSecond).toHaveLength(62);
 		expect(out.result.wpmPerSecond.slice(60)).toEqual([0, 0]);
 		expect(out.result.consistency).toBeGreaterThanOrEqual(98);
+	});
+
+	it("ends a zen run's idle tail at its last key, even an erased one", () => {
+		const state = createTypingState("x".repeat(400), { mode: { type: "zen" } });
+		for (let i = 0; i < 50; i++) applyKeystroke(state, "x", START + i * 200);
+		// Ten keys, each erased at once, through seconds 10 and 11; Esc at 30s
+		for (let i = 0; i < 10; i++) {
+			applyKeystroke(state, "z", START + 10_000 + i * 200);
+			applyKeystroke(state, "Backspace", START + 10_100 + i * 200);
+		}
+		state.endTime = START + 30_000;
+		const samples = completeTest(state).result.wpmPerSecond;
+		expect(completeTest(state).result.consistency).toBe(
+			calculateConsistency(samples.slice(0, 12)),
+		);
 	});
 
 	it("keeps every second of a time test in consistency", () => {
