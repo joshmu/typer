@@ -20,8 +20,11 @@ export function timeTicks(seconds: number): number[] {
 
 export function formatSecond(second: number): string {
 	if (second < 60) return `${second}s`;
+	const pad = (n: number) => n.toString().padStart(2, "0");
 	const secs = second % 60;
-	return `${Math.floor(second / 60)}:${secs.toString().padStart(2, "0")}`;
+	if (second < 3600) return `${Math.floor(second / 60)}:${pad(secs)}`;
+	const mins = Math.floor(second / 60) % 60;
+	return `${Math.floor(second / 3600)}:${pad(mins)}:${pad(secs)}`;
 }
 
 /** A y-axis top rounded up to a tidy step, with four equal bands. */

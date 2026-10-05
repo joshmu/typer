@@ -152,6 +152,7 @@ export default function Home() {
 								breakdown={r().breakdown}
 								elapsed={r().elapsed}
 								wpmPerSecond={r().wpmPerSecond}
+								sampleSeconds={r().sampleSeconds}
 								insights={r().insights}
 								header={
 									session.mode().type === "book" && session.activeBook() ? (

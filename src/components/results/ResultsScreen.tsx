@@ -30,6 +30,8 @@ interface ResultsScreenProps {
 	breakdown: CharBreakdown;
 	elapsed: number;
 	wpmPerSecond: number[];
+	/** Seconds each wpmPerSecond sample covers (more than 1 on a long session). */
+	sampleSeconds?: number;
 	/** Mode, AFK verdict and per-second detail for the chart and the best. */
 	insights?: ResultInsights;
 	/** Shown above the hero, inside the first screen (book progress). */
@@ -150,6 +152,7 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 		consistency: props.consistency,
 		elapsed: props.elapsed,
 		wpmPerSecond: props.wpmPerSecond,
+		sampleSeconds: props.sampleSeconds ?? 1,
 		insights: props.insights,
 	};
 	const insights = result.insights;
@@ -492,6 +495,7 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 						</div>
 						<WPMChart
 							wpm={result.wpmPerSecond}
+							sampleSeconds={result.sampleSeconds}
 							raw={insights?.rawPerSecond}
 							errors={insights?.errorsPerSecond}
 							height={150}

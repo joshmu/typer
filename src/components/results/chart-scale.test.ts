@@ -43,6 +43,12 @@ describe("formatSecond", () => {
 		expect(formatSecond(60)).toBe("1:00");
 		expect(formatSecond(95)).toBe("1:35");
 	});
+
+	it("reads an hour or more as h:mm:ss", () => {
+		expect(formatSecond(3600)).toBe("1:00:00");
+		expect(formatSecond(86_400)).toBe("24:00:00");
+		expect(formatSecond(3_725)).toBe("1:02:05");
+	});
 });
 
 describe("wpmScale", () => {

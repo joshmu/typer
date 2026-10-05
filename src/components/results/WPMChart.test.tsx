@@ -29,4 +29,20 @@ describe("WPMChart", () => {
 		}
 		expect(container.querySelectorAll("rect").length).toBeLessThanOrEqual(300);
 	});
+
+	it("reads a bucketed day-long session in true seconds", () => {
+		const wpm = Array.from({ length: 600 }, (_, i) => (i === 0 ? 25 : 0));
+		const { container, getByTestId } = render(() => (
+			<WPMChart wpm={wpm} sampleSeconds={144} drawDelay={null} />
+		));
+		expect(container.querySelector("svg")?.getAttribute("aria-label")).toBe(
+			"WPM over 86400 seconds, peaking at 25",
+		);
+		const chart = container.firstElementChild as HTMLElement;
+		chart.dispatchEvent(
+			new PointerEvent("pointermove", { clientX: 36, bubbles: true }),
+		);
+		expect(getByTestId("chart-readout").textContent).toContain("1s–2:24");
+		expect(getByTestId("chart-readout").textContent).toContain("25 wpm");
+	});
 });

@@ -21,8 +21,10 @@ import {
 } from "./chart-scale";
 
 interface WPMChartProps {
-	/** True per-second WPM; the line shows its moving average. */
+	/** True WPM per sample; the line shows its moving average. */
 	wpm: number[];
+	/** Seconds each sample covers: 1, or more on a long bucketed session. */
+	sampleSeconds?: number;
 	raw?: number[];
 	errors?: number[];
 	height?: number;
@@ -54,6 +56,13 @@ export default function WPMChart(props: WPMChartProps) {
 	const chartH = () => height() - PAD.top - PAD.bottom;
 	const baseline = () => PAD.top + chartH();
 	const count = () => props.wpm.length;
+	const sampleWidth = () => props.sampleSeconds ?? 1;
+	const totalSeconds = () => count() * sampleWidth();
+	/** The seconds a sample covers, e.g. "12s" or "1s–2:24". */
+	const sampleLabel = (i: number) =>
+		sampleWidth() === 1
+			? formatSecond(i + 1)
+			: `${formatSecond(i * sampleWidth() + 1)}–${formatSecond((i + 1) * sampleWidth())}`;
 
 	const scale = createMemo(() => wpmScale(peakOf(props.wpm, props.raw)));
 
@@ -175,7 +184,7 @@ export default function WPMChart(props: WPMChartProps) {
 				viewBox={`0 0 ${width()} ${height()}`}
 				class="block overflow-visible"
 				role="img"
-				aria-label={`WPM over ${count()} seconds, peaking at ${peakOf(props.wpm)}`}
+				aria-label={`WPM over ${totalSeconds()} seconds, peaking at ${peakOf(props.wpm)}`}
 			>
 				<defs>
 					<linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -209,10 +218,10 @@ export default function WPMChart(props: WPMChartProps) {
 					)}
 				</For>
 
-				<For each={timeTicks(count())}>
+				<For each={timeTicks(totalSeconds())}>
 					{(second) => (
 						<text
-							x={x(second - 1)}
+							x={x(Math.min(count() - 1, (second - 1) / sampleWidth()))}
 							y={baseline() + 18}
 							text-anchor="middle"
 							fill="var(--text-sub)"
@@ -341,7 +350,8 @@ export default function WPMChart(props: WPMChartProps) {
 					data-testid="chart-readout"
 				>
 					<div class="mb-1 text-text-sub">
-						{formatSecond(hovered()! + 1)} · {smoothingWindow(count())}s avg{" "}
+						{sampleLabel(hovered()!)} ·{" "}
+						{formatSecond(smoothingWindow(count()) * sampleWidth())} avg{" "}
 						{smoothed()[hovered()!]}
 					</div>
 					<div class="flex items-center gap-3">
