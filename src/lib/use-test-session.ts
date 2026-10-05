@@ -25,6 +25,11 @@ import {
 	toTypingResult,
 } from "@/lib/history";
 import type { UserPreferences } from "@/lib/preferences";
+import {
+	deriveResultInsights,
+	publishResultInsights,
+} from "@/lib/result-insights";
+import { exitTypingBlock as defaultExitTyping } from "@/lib/typing-exit";
 import { isTypingActive } from "@/lib/typing-focus";
 
 /** Words fed per typing window in book/zen mode. */
@@ -39,6 +44,7 @@ export interface UseTestSessionOptions {
 		fetchAndCacheBook: typeof defaultFetchAndCacheBook;
 		loadWordList: typeof defaultLoadWordList;
 		recordCompletion: typeof defaultRecordCompletion;
+		exitTyping: typeof defaultExitTyping;
 	}>;
 }
 
@@ -67,6 +73,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const fetchBook = options.deps?.fetchAndCacheBook ?? defaultFetchAndCacheBook;
 	const record = options.deps?.recordCompletion ?? defaultRecordCompletion;
 	const loadWordList = options.deps?.loadWordList ?? defaultLoadWordList;
+	const exitTyping = options.deps?.exitTyping ?? defaultExitTyping;
 
 	const [session, setSession] = createSignal<SessionState>(
 		createInitialSession(INITIAL_MODE),
@@ -170,15 +177,25 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			});
 		}
 
-		latestStart++;
+		const request = ++latestStart;
+		let failed = false;
 		setSaveFailed(false);
-		setSession((s) => applyResult(s, testResult, draft));
+		publishResultInsights(deriveResultInsights(state, testResult.elapsed, now));
+		const show = () => {
+			if (request !== latestStart) return;
+			setSession((s) => applyResult(s, testResult, draft));
+			if (failed) setSaveFailed(true);
+		};
+		const exiting = exitTyping();
+		if (exiting) void exiting.then(show);
+		else show();
 
 		void record(
 			toTypingResult(state, completed, activeBook()?.meta.title, now),
 			draft,
 		).catch((err: unknown) => {
 			console.error("Failed to record the completed test:", err);
+			failed = true;
 			if (result() === testResult) setSaveFailed(true);
 		});
 	}
