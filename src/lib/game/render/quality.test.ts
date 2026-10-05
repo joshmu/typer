@@ -55,6 +55,16 @@ describe("createQualityWatch", () => {
 		expect(w.level()).toBe(1);
 	});
 
+	it("needs a fresh full window of slow frames after a pause", () => {
+		const w = createQualityWatch();
+		const fast = run(w, 0, 1000, () => 16.7);
+		// a hidden tab: one 5s frame, then the game resumes slow
+		expect(w.sample(5000, fast.end + 5000)).toBeNull();
+		const resumed = run(w, fast.end + 5000, 1900, () => 25);
+		expect(resumed.steps).toEqual([]);
+		expect(run(w, resumed.end, 300, () => 25).steps).toEqual(["shed-post"]);
+	});
+
 	it("skips gaps from a hidden tab or a pause", () => {
 		const w = createQualityWatch();
 		expect(run(w, 0, 3000, (i) => (i % 2 ? 16.7 : 900)).steps).toEqual([]);

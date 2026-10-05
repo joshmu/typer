@@ -59,7 +59,12 @@ export function createQualityWatch({
 
 	return {
 		sample(dt, now) {
-			if (level >= STEPS.length || !(dt > 0) || dt > GAP_MS) return null;
+			if (level >= STEPS.length || !(dt > 0)) return null;
+			// after a gap, judge only frames from here on
+			if (dt > GAP_MS) {
+				reset(now);
+				return null;
+			}
 			if (Number.isNaN(since)) since = now - dt;
 			times[head] = now;
 			dts[head] = dt;
