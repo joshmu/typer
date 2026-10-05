@@ -46,7 +46,17 @@
 .caret-idle {
 	animation: caret-blink 1s ease-in-out infinite;
 }
-.caret-miss {
+/* The miss flash is an --error overlay fading out on opacity alone */
+.caret::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background-color: var(--error);
+	opacity: 0;
+	pointer-events: none;
+}
+.caret-miss::after {
 	animation: caret-miss 120ms ease-out;
 }
 @keyframes caret-blink {
@@ -60,9 +70,11 @@
 }
 @keyframes caret-miss {
 	0%,
-	60% {
-		background-color: var(--error);
-		box-shadow: 0 0 12px color-mix(in srgb, var(--error) 60%, transparent);
+	50% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
 	}
 }
 
