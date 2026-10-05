@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { SimEvent } from "../sim/events";
-import { dispatchEffects, type EffectCommands } from "./frame-effects";
+import {
+	dispatchEffects,
+	type EffectCommands,
+	killCredit,
+} from "./frame-effects";
 
 function recorder(): { calls: string[]; fx: EffectCommands } {
 	const calls: string[] = [];
@@ -139,5 +143,31 @@ describe("dispatchEffects", () => {
 		expect(run([{ type: "powerup", kind: "freeze" }])).toEqual([
 			"powerupPulse",
 		]);
+	});
+});
+
+describe("killCredit", () => {
+	it("splits the frame's score gain across its kills, the remainder on the last", () => {
+		expect(killCredit(1, 40, 1, 0)).toEqual({ points: 40, mult: 1 });
+		expect(killCredit(2, 101, 2, 0).points).toBe(50);
+		expect(killCredit(2, 101, 2, 1).points).toBe(51);
+	});
+
+	it("credits each kill the multiplier its own streak earned", () => {
+		// three kills this frame took the streak from 3 to 6: x1, x2, x2
+		expect(killCredit(3, 90, 6, 0).mult).toBe(1);
+		expect(killCredit(3, 90, 6, 1).mult).toBe(2);
+		expect(killCredit(3, 90, 6, 2).mult).toBe(2);
+	});
+
+	it("never credits negative points or a zero multiplier", () => {
+		expect(killCredit(1, -5, 0, 0)).toEqual({ points: 0, mult: 1 });
+	});
+
+	it("credits each kill its own points when its word is known", () => {
+		// a boss sentence word and an escort's short word die together
+		const score = (len: number) => (streak: number) => 10 * len * streak;
+		expect(killCredit(2, 999, 5, 0, score(9)).points).toBe(360);
+		expect(killCredit(2, 999, 5, 1, score(3)).points).toBe(150);
 	});
 });

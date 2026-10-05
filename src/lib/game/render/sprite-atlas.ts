@@ -56,7 +56,7 @@ export type SpriteAtlas = {
 	dispose(): void;
 };
 
-export function createSpriteAtlas(scene: Scene, capacity = 64): SpriteAtlas {
+export function createSpriteAtlas(scene: Scene, capacity = 128): SpriteAtlas {
 	const manager = new SpriteManager(
 		"sprite-atlas",
 		ATLAS_URL,

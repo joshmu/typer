@@ -1,8 +1,22 @@
-import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { animate } from "motion";
+import {
+	createEffect,
+	createSignal,
+	For,
+	onCleanup,
+	onMount,
+	Show,
+} from "solid-js";
+import { isOverdrive } from "@/lib/game/hud-view";
 import type { GameLoop } from "@/lib/game/render/loop";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
 import type { GameState } from "@/lib/game/sim/state";
-import { arenaInk, frameFor, vignetteGradient } from "@/lib/game/view";
+import {
+	arenaInk,
+	frameFor,
+	STATUS_TINT_RGB,
+	vignetteGradient,
+} from "@/lib/game/view";
 import { setRunLive } from "@/lib/game-chrome";
 import { getBestRun, saveGameRun, useBestRun } from "@/lib/game-runs";
 import DeathScreen from "./DeathScreen";
@@ -27,10 +41,38 @@ declare global {
 // after the core falls, ignore restart keys this long so a word typed in the
 // final moment can't skip the ending
 const DEATH_INPUT_GRACE_MS = 800;
+// the final breach plays out on the field before the death screen covers it
+const DEATH_REVEAL_MS = 650;
+// and a wave's last kill lands before the perk draft covers it
+const DRAFT_REVEAL_MS = 450;
+
+/** True once `cond` has held for `ms` (at once when `immediate`); false
+ * again as soon as it stops. */
+function revealAfter(
+	cond: () => boolean,
+	ms: number,
+	immediate: boolean,
+): () => boolean {
+	const [shown, setShown] = createSignal(false);
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	createEffect(() => {
+		if (!cond()) {
+			clearTimeout(timer);
+			timer = undefined;
+			setShown(false);
+		} else if (!shown() && timer === undefined) {
+			if (immediate) setShown(true);
+			else timer = setTimeout(() => setShown(true), ms);
+		}
+	});
+	onCleanup(() => clearTimeout(timer));
+	return shown;
+}
 
 export default function GameShell() {
 	let canvasRef: HTMLCanvasElement | undefined;
 	let shellRef: HTMLDivElement | undefined;
+	let breachRef: HTMLDivElement | undefined;
 	let loop: GameLoop | undefined;
 	let disposed = false;
 	let startLoop:
@@ -64,10 +106,29 @@ export default function GameShell() {
 	const [previousBest, setPreviousBest] = createSignal<number | null>(null);
 
 	const isOver = () => hud()?.status === "gameover";
-	// a run is live while the sim is advancing under the player's hands: the
-	// site header gets out of the way and the arena owns the viewport
+	const statusTint = () => {
+		const s = hud();
+		if (!s || s.status === "gameover") return null;
+		if (s.freezeTicksLeft > 0) return "freeze";
+		return s.slowTicksLeft > 0 ? "slow" : null;
+	};
+	const overdrive = () => {
+		const s = hud();
+		return !!s && s.status !== "gameover" && isOverdrive(s.combo);
+	};
+	// the death screen and the perk draft wait a beat so the final breach or
+	// kill plays out on the field first (never in testMode)
+	const deathShown = revealAfter(isOver, DEATH_REVEAL_MS, testMode);
+	const draftShown = revealAfter(
+		() => hud()?.wavePhase === "perk-choice",
+		DRAFT_REVEAL_MS,
+		testMode,
+	);
+	// a run is live while the sim is advancing under the player's hands (and
+	// through the final beat before the death screen): the site header gets
+	// out of the way and the arena owns the viewport
 	createEffect(() =>
-		setRunLive(ready() && started() && !paused() && !isOver()),
+		setRunLive(ready() && started() && !paused() && !deathShown()),
 	);
 	onCleanup(() => setRunLive(false));
 
@@ -111,6 +172,21 @@ export default function GameShell() {
 			gameoverAt = performance.now();
 			void persistRun(state);
 		}
+	});
+
+	// a breach flashes the screen edges red. A colour flash, so it plays under
+	// reduced motion too
+	let lastHp: number | null = null;
+	createEffect(() => {
+		const hp = hud()?.playerHp ?? null;
+		if (hp !== null && lastHp !== null && hp < lastHp && breachRef) {
+			animate(
+				breachRef,
+				{ opacity: [0, 1, 0] },
+				{ duration: 0.32, times: [0, 0.25, 1], ease: "easeOut" },
+			);
+		}
+		lastHp = hp;
 	});
 
 	onMount(async () => {
@@ -249,6 +325,8 @@ export default function GameShell() {
 		// (the sim ignores keys in this phase anyway — swallow them for cleanliness)
 		if (hud()?.wavePhase === "perk-choice") {
 			e.preventDefault();
+			// no blind picks before the cards are on screen
+			if (!draftShown()) return;
 			if (e.key === "1" || e.key === "2" || e.key === "3") {
 				loop?.pushPerk(Number(e.key) - 1);
 			}
@@ -307,18 +385,51 @@ export default function GameShell() {
 					"background-image": vignetteGradient(shellSize().w, shellSize().h),
 				}}
 			/>
+			{/* freeze and slow wash in from the edges */}
+			<For each={["freeze", "slow"] as const}>
+				{(kind) => (
+					<div
+						data-testid={`status-tint-${kind}`}
+						class="pointer-events-none absolute inset-0 transition-opacity duration-200"
+						style={{
+							opacity: statusTint() === kind ? 1 : 0,
+							"box-shadow": `inset 0 0 180px 44px rgba(${STATUS_TINT_RGB[kind]}, 0.42)`,
+							background: `radial-gradient(ellipse at center, transparent 55%, rgba(${STATUS_TINT_RGB[kind]}, 0.12))`,
+						}}
+					/>
+				)}
+			</For>
+			{/* overdrive: the edges smoulder in the theme's ember */}
+			<div
+				data-testid="overdrive-glow"
+				class="pointer-events-none absolute inset-0 shadow-[inset_0_0_220px_40px_color-mix(in_srgb,var(--primary)_38%,transparent)] transition-opacity ease-out"
+				classList={{
+					"opacity-100 duration-300": overdrive(),
+					"opacity-0 duration-700": !overdrive(),
+					"motion-safe:animate-[ember-smoulder_1.6s_ease-in-out_infinite]":
+						overdrive(),
+				}}
+			/>
+			<div
+				ref={breachRef}
+				data-testid="breach-flash"
+				class="pointer-events-none absolute inset-0 opacity-0 shadow-[inset_0_0_160px_36px_color-mix(in_srgb,var(--error)_70%,transparent)]"
+			/>
 			<Show when={!ready()}>
 				<div class="absolute inset-0 grid place-items-center font-display text-sm uppercase tracking-[0.3em] text-text-sub">
 					Loading arena…
 				</div>
 			</Show>
-			<Show when={started() && !isOver() ? hud() : null}>
+			{/* the HUD stays up through the final beat, so the last heart breaks */}
+			<Show when={started() && !deathShown() ? hud() : null}>
 				{(state) => (
 					<Hud state={state()} frame={frameFor(shellSize().w, shellSize().h)} />
 				)}
 			</Show>
 
-			<Show when={hud()?.wavePhase === "perk-choice" ? hud() : null}>
+			<Show
+				when={hud()?.wavePhase === "perk-choice" && draftShown() ? hud() : null}
+			>
 				{(state) => (
 					<PerkDraft
 						wave={state().wave}
@@ -352,7 +463,7 @@ export default function GameShell() {
 			<Show when={ready() && !started() && !isOver()}>
 				<StartScreen bestRun={bestRun()} onStart={start} />
 			</Show>
-			<Show when={isOver() ? hud() : null}>
+			<Show when={isOver() && deathShown() ? hud() : null}>
 				{(state) => (
 					<DeathScreen
 						stats={deriveRunStats(state())}

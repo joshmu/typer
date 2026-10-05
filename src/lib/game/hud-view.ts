@@ -1,5 +1,5 @@
 import { getArchetype, isBoss } from "./content/enemies";
-import { comboFraction, comboMultiplier } from "./sim/combo";
+import { COMBO_DECAY_TICKS, comboFraction, comboMultiplier } from "./sim/combo";
 import { PERK_DEFS, type PerkId, type Rarity } from "./sim/perks";
 import type { GameState } from "./sim/state";
 
@@ -21,6 +21,8 @@ export type HudView = {
 	wave: { label: string; frenzy: boolean } | null;
 	incoming: string | null;
 	perkChips: PerkChip[];
+	/** Frenzy overdrive: the streak is at x3 or more. */
+	overdrive: boolean;
 };
 
 /** One owned perk in the HUD strip; repeat picks stack into `count`. */
@@ -75,6 +77,12 @@ function perkChips(perks: readonly PerkId[]): PerkChip[] {
 }
 
 const HOT_MULTIPLIER = 2;
+const OVERDRIVE_MULTIPLIER = 3;
+
+/** Frenzy overdrive: a streak at the x3 multiplier or above. */
+export function isOverdrive(combo: number): boolean {
+	return comboMultiplier(combo) >= OVERDRIVE_MULTIPLIER;
+}
 
 /** What the Horde HUD shows for a state. Pure: no framework or DOM. */
 export function hudView(s: GameState): HudView {
@@ -110,5 +118,48 @@ export function hudView(s: GameState): HudView {
 				? `WAVE ${s.wave + 1} INCOMING`
 				: null,
 		perkChips: perkChips(s.perks),
+		overdrive: isOverdrive(s.combo),
+	};
+}
+
+/** What the HUD should animate between two consecutive states. */
+export type HudMoments = {
+	/** The streak grew this frame. */
+	comboUp: boolean;
+	/** The streak crossed into a higher multiplier. */
+	tierUp: boolean;
+	/** The streak broke: what it was and how much of its window was left. */
+	comboBroke: { count: number; fraction: number } | null;
+	/** Index of the heart lost this frame (the new hp), if any. */
+	heartLost: number | null;
+};
+
+type MomentState = Pick<GameState, "combo" | "playerHp" | "comboTicksLeft"> & {
+	perks?: GameState["perks"];
+};
+
+/** The HUD moments between `prev` and `next`. Pure: no framework or DOM. */
+export function hudMoments(
+	prev: MomentState | null,
+	next: MomentState,
+): HudMoments {
+	if (!prev) {
+		return { comboUp: false, tierUp: false, comboBroke: null, heartLost: null };
+	}
+	// the decay window, as comboWindow reads it
+	const window = prev.perks?.includes("adrenaline")
+		? Math.floor(COMBO_DECAY_TICKS * 1.5)
+		: COMBO_DECAY_TICKS;
+	return {
+		comboUp: next.combo > prev.combo,
+		tierUp: comboMultiplier(next.combo) > comboMultiplier(prev.combo),
+		comboBroke:
+			prev.combo > 0 && next.combo === 0
+				? {
+						count: prev.combo,
+						fraction: Math.min(1, prev.comboTicksLeft / window),
+					}
+				: null,
+		heartLost: next.playerHp < prev.playerHp ? next.playerHp : null,
 	};
 }

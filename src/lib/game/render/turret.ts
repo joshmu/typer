@@ -18,23 +18,25 @@ const MUZZLE_Y = 1.2; // height the shots leave from (matches the sprite plane)
 const HERO_SIZE = 64 / REF_PPU;
 // the barrel tip sits ~45% of the sprite out from its centre
 const MUZZLE_LEN = HERO_SIZE * 0.45;
-const RING_LIFE = 22; // frames a powerup ring pulse lives
-const RECOIL_FRAMES = 3; // frames the hero stays squashed after a shot
+const RING_MS = 370; // how long a ring pulse spreads
+const RING_SPREAD = 5; // scale a ring pulse grows by
+const RECOIL_MS = 50; // how long the hero stays squashed after a shot
 // recoil squash. The atlas's recoil cell is a different turret design, so
 // the hero keeps its idle cell and kicks by scale instead.
 const RECOIL_SCALE = 0.92;
 
 export type Turret = {
-	/** Advance the recoil / ring / danger animations from the sim tick. Heading
+	/** Advance the recoil / ring / danger animations to `now` (ms). Heading
 	 * is untouched here — it belongs to `fire` alone. */
-	update(state: GameState): void;
+	update(state: GameState, now: number): void;
 	/** World position of the muzzle along the CURRENT heading, into `out`. */
 	getMuzzle(out: Vector3): Vector3;
 	/** Fire toward a world point: snap the hero's heading there (last-shot
 	 * heading — never re-anchors on its own) and kick the recoil squash. */
-	fire(x: number, z: number): void;
-	/** Kick off a radial ring pulse from the hero (powerup activation). */
-	ringPulse(): void;
+	fire(x: number, z: number, now: number): void;
+	/** A radial ring pulse from the hero: a powerup activating, or the combo
+	 * climbing a tier (in --primary, wider). */
+	ringPulse(kind: "powerup" | "tier", now: number): void;
 	dispose(): void;
 };
 
@@ -101,11 +103,13 @@ export function createTurret(
 	// torus lies flat in XZ by default → reads as a circle on the ground under the
 	// overhead ortho camera (a standing ring would collapse to an edge-on line)
 	ring.position.y = 0.3;
-	const ringMat = mat(scene, "turret-ring-mat", new Color3(0.4, 0.85, 1));
+	const powerupRing = new Color3(0.4, 0.85, 1);
+	const ringMat = mat(scene, "turret-ring-mat", powerupRing);
 	ringMat.alpha = 0;
 	ring.material = ringMat;
 	ring.setEnabled(false);
-	let ringLife = 0;
+	let ringAt = -1;
+	let ringSpread = RING_SPREAD;
 
 	// red danger perimeter the player defends
 	const danger = CreateTorus(
@@ -124,7 +128,7 @@ export function createTurret(
 	let hx = 0;
 	let hz = -1;
 	hero.angle = spriteAngle(hx, hz);
-	let recoilFrames = 0;
+	let recoilAt = -1;
 
 	function setHeading(x: number, z: number): void {
 		const len = Math.hypot(x, z);
@@ -134,19 +138,23 @@ export function createTurret(
 	}
 
 	return {
-		update(state: GameState) {
+		update(state: GameState, now: number) {
 			// recoil: a brief squash after each shot
-			const size = recoilFrames > 0 ? HERO_SIZE * RECOIL_SCALE : HERO_SIZE;
-			if (recoilFrames > 0) recoilFrames -= 1;
+			const recoiling = recoilAt >= 0 && now - recoilAt < RECOIL_MS;
+			const size = recoiling ? HERO_SIZE * RECOIL_SCALE : HERO_SIZE;
 			hero.width = size;
 			hero.height = size;
 
-			if (ringLife > 0) {
-				ringLife -= 1;
-				const t = 1 - ringLife / RING_LIFE;
-				ring.scaling.setAll(1 + t * 5);
-				ringMat.alpha = (1 - t) * 0.7;
-				if (ringLife === 0) ring.setEnabled(false);
+			if (ringAt >= 0) {
+				const t = (now - ringAt) / RING_MS;
+				if (t >= 1) {
+					ringAt = -1;
+					ring.setEnabled(false);
+				} else {
+					const e = 1 - (1 - t) * (1 - t);
+					ring.scaling.setAll(1 + e * ringSpread);
+					ringMat.alpha = (1 - t) * 0.8;
+				}
 			}
 
 			// danger ring: nearest enemy proximity drives colour + pulse
@@ -166,16 +174,20 @@ export function createTurret(
 			out.set(hx * MUZZLE_LEN, MUZZLE_Y, hz * MUZZLE_LEN);
 			return out;
 		},
-		fire(x: number, z: number) {
+		fire(x: number, z: number, now: number) {
 			setHeading(x, z);
 			hero.angle = spriteAngle(hx, hz);
-			recoilFrames = RECOIL_FRAMES;
+			recoilAt = now;
 		},
-		ringPulse() {
-			ringLife = RING_LIFE;
+		ringPulse(kind, now) {
+			ringAt = now;
+			ringSpread = kind === "tier" ? RING_SPREAD * 2.4 : RING_SPREAD;
+			ringMat.emissiveColor.copyFrom(
+				kind === "tier" ? tint.primary : powerupRing,
+			);
 			ring.setEnabled(true);
 			ring.scaling.setAll(1);
-			ringMat.alpha = 0.7;
+			ringMat.alpha = 0.8;
 		},
 		dispose() {
 			hero.dispose();

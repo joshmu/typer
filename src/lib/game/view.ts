@@ -73,6 +73,12 @@ export function spawnFade(dist: number): number {
 	return t <= 0 ? 0 : t >= 1 ? 1 : t;
 }
 
+// freeze and slow powerups tint the screen edges: ice and amber
+export const STATUS_TINT_RGB = {
+	freeze: "110, 190, 255",
+	slow: "255, 176, 72",
+} as const;
+
 // vignette ink: a deep blue-black so the edges read as space, not a mask
 const VIGNETTE_RGB = "3, 4, 10";
 // [position along the corner ellipse, alpha]. The top/bottom edge midpoints
