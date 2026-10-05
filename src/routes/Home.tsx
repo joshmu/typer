@@ -4,6 +4,7 @@ import BookHeader from "@/components/books/BookHeader";
 import ModeSelector from "@/components/typing/ModeSelector";
 import TextInputModal from "@/components/typing/TextInputModal";
 import TypingTest from "@/components/typing/TypingTest";
+import { chapterLabel } from "@/lib/book-format";
 import { loadExpandedQuotes } from "@/lib/core/text/quotes";
 import { usePreferences } from "@/lib/preferences-context";
 import { useTestSession } from "@/lib/use-test-session";
@@ -50,8 +51,11 @@ export default function Home() {
 							>
 								<div class="text-center mb-6">
 									<p class="text-sm text-text-sub mb-2">
-										{session.activeBook()!.meta.title} · Chapter{" "}
-										{(session.bookReader()?.position.chapterIndex ?? 0) + 1}
+										{session.activeBook()!.meta.title} ·{" "}
+										{chapterLabel(
+											session.bookReader()?.position.chapterIndex ?? 0,
+											session.bookReader()?.chapterTitle,
+										)}
 									</p>
 									<div class="w-64 mx-auto h-1.5 bg-bg-secondary rounded-full overflow-hidden">
 										<div
