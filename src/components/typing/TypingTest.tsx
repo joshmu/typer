@@ -49,10 +49,7 @@ export default function TypingTest(props: TypingTestProps) {
 		return calculateWPM(chars, e);
 	});
 
-	const accuracy = createMemo(() => {
-		const chars = state.words.flatMap((w) => w.characters);
-		return calculateAccuracy(chars);
-	});
+	const accuracy = createMemo(() => calculateAccuracy(state.keystrokes));
 
 	const isContinuousMode =
 		state.mode.type === "zen" || state.mode.type === "book";

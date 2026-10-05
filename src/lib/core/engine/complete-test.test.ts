@@ -1,33 +1,41 @@
 import { describe, expect, it } from "vitest";
-import {
-	createCorrectChar,
-	createIncorrectChar,
-	createTypingState,
-} from "../types/test-fixtures";
+import type { TypingState } from "../types";
+import { createTypingState } from "../types/test-fixtures";
 import { completeTest } from "./complete-test";
+import { applyKeystroke } from "./process-keystroke";
+
+const START = 1_000_000;
+
+/** Type `keys` one every `stepMs` from START, then end the test at `durationMs`. */
+function typeThenEnd(
+	state: TypingState,
+	keys: string[],
+	durationMs: number,
+	stepMs = 100,
+): TypingState {
+	keys.forEach((key, i) => {
+		applyKeystroke(state, key, START + i * stepMs);
+	});
+	state.endTime ??= START + durationMs;
+	return state;
+}
+
+const repeat = (key: string, n: number) => Array<string>(n).fill(key);
 
 function buildState(opts: {
 	correct: number;
 	incorrect?: number;
 	durationMs: number;
-	startTime?: number;
 }) {
 	const total = opts.correct + (opts.incorrect ?? 0);
-	const text = "x".repeat(total);
-	const state = createTypingState(text, {
-		startTime: opts.startTime ?? 1_000_000,
-		endTime: (opts.startTime ?? 1_000_000) + opts.durationMs,
+	const state = createTypingState("x".repeat(total), {
+		mode: { type: "time", seconds: 30 },
 	});
-	const chars = state.words.flatMap((w) => w.characters);
-	for (let i = 0; i < opts.correct; i++) {
-		const char = chars[i];
-		Object.assign(char, createCorrectChar(char.expected));
-	}
-	for (let i = 0; i < (opts.incorrect ?? 0); i++) {
-		const char = chars[opts.correct + i];
-		Object.assign(char, createIncorrectChar(char.expected, "z"));
-	}
-	return state;
+	return typeThenEnd(
+		state,
+		[...repeat("x", opts.correct), ...repeat("z", opts.incorrect ?? 0)],
+		opts.durationMs,
+	);
 }
 
 describe("completeTest", () => {
@@ -38,7 +46,6 @@ describe("completeTest", () => {
 		expect(out.result.rawWpm).toBe(0);
 		expect(out.result.accuracy).toBe(100); // accuracy defaults to 100 when nothing typed
 		expect(out.result.elapsed).toBe(0);
-		expect(out.charCount).toBe(11);
 		expect(out.errorCount).toBe(0);
 	});
 
@@ -60,6 +67,18 @@ describe("completeTest", () => {
 		expect(out.result.accuracy).toBe(80);
 	});
 
+	it("keeps corrected typos in accuracy", () => {
+		const state = createTypingState("abcde fghij");
+		typeThenEnd(
+			state,
+			["a", "x", "Backspace", "b", "c", "q", "Backspace", "d", "e"],
+			10_000,
+		);
+		const out = completeTest(state);
+		expect(out.result.breakdown.incorrect).toBe(0);
+		expect(out.result.accuracy).toBe(71); // 5 correct of 7 character keys
+	});
+
 	it("populates breakdown counts", () => {
 		const state = buildState({ correct: 6, incorrect: 4, durationMs: 10_000 });
 		const out = completeTest(state);
@@ -75,11 +94,7 @@ describe("completeTest", () => {
 	});
 
 	it("collects per-second WPM snapshots", () => {
-		const state = buildState({
-			correct: 25,
-			durationMs: 30_000,
-			startTime: 1_000_000,
-		});
+		const state = buildState({ correct: 25, durationMs: 30_000 });
 		const out = completeTest(state);
 		expect(Array.isArray(out.result.wpmPerSecond)).toBe(true);
 	});
