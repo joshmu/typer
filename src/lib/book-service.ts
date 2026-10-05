@@ -4,7 +4,7 @@ import {
 	parseCatalogPage,
 	parseChapterList,
 } from "./core/text/se-catalog-parser";
-import { SE_PROXY_PATH } from "./core/text/se-source";
+import { SE_ORIGIN } from "./core/text/se-source";
 import {
 	extractChapterTitle,
 	extractTextFromXHTML,
@@ -20,7 +20,7 @@ import {
 import { db } from "./db";
 import { fetchWithRetry } from "./http-retry";
 
-const SE_BASE = `${SE_PROXY_PATH}/ebooks`;
+const SE_BASE = `${SE_ORIGIN}/ebooks`;
 
 interface FetchOptions {
 	/** Operation label, used in thrown error messages */
