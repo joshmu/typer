@@ -1,4 +1,4 @@
-import { Show } from "solid-js";
+import { createEffect, onCleanup, Show } from "solid-js";
 import { usePreferences } from "@/lib/preferences-context";
 
 /**
@@ -7,6 +7,15 @@ import { usePreferences } from "@/lib/preferences-context";
  */
 export default function SmallScreenNotice() {
 	const [prefs, setPrefs] = usePreferences();
+	// Room below the page while the note shows, so it covers nothing for good.
+	createEffect(() => {
+		const root = document.documentElement;
+		root.toggleAttribute(
+			"data-small-notice",
+			!prefs.smallScreenNoticeDismissed,
+		);
+		onCleanup(() => root.removeAttribute("data-small-notice"));
+	});
 	return (
 		<Show when={!prefs.smallScreenNoticeDismissed}>
 			<div

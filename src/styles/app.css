@@ -234,6 +234,13 @@ body::after {
 	}
 }
 
+/* Clears the small-screen note, which is fixed to the bottom. */
+@media (max-width: 639px) {
+	html[data-small-notice] body {
+		padding-bottom: 6rem;
+	}
+}
+
 /* Mode bar: scrolls sideways when it outgrows a narrow screen, with an edge
    fade on whichever side has more tabs (mask alpha only, theme-neutral). */
 .mode-scroll {
