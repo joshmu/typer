@@ -174,4 +174,34 @@ test.describe("book mode", () => {
 		await card.click();
 		await expect(page.getByTestId("book-header")).toContainText("Test Book");
 	});
+
+	test("a book closed before any typing is offered to start", async ({
+		page,
+	}) => {
+		await page.goto("/library");
+		await page.getByText("Test Book").first().click();
+		await page.getByRole("button", { name: /start reading/i }).click();
+		await expect(page.getByTestId("book-header")).toContainText("0%");
+
+		await page.getByRole("button", { name: "Close book" }).click();
+		const card = page.getByRole("button", { name: /^start test book/i });
+		await expect(card).toBeVisible();
+		await card.click();
+		await expect(page.getByTestId("book-header")).toContainText("Test Book");
+	});
+
+	test("a started book reads <1%, never 0%", async ({ page }) => {
+		await page.goto("/library");
+		await page.getByText("Test Book").first().click();
+		await page.getByRole("button", { name: /start reading/i }).click();
+		const typingTest = page.getByTestId("typing-test");
+		await expect(typingTest).toBeVisible({ timeout: 5000 });
+		const first = (await page.getByTestId("text-display").textContent()) ?? "";
+		await typingTest.focus();
+		await page.keyboard.type(`${first.trim().split(/\s+/)[0]} `);
+		await page.keyboard.press("Escape");
+		await page.getByRole("button", { name: /continue reading/i }).click();
+
+		await expect(page.getByTestId("book-header")).not.toContainText(/(^|\D)0%/);
+	});
 });

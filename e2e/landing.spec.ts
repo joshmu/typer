@@ -43,6 +43,17 @@ test("the card is reached with Shift+Tab and hides while typing", async ({
 	await expect(page.getByTestId("continue-card")).toHaveAttribute("inert", "");
 });
 
+test("Tab and Shift+Tab stay in the typing area mid-test", async ({ page }) => {
+	await page.goto("/");
+	const typingTest = page.getByTestId("typing-test");
+	await expect(typingTest).toBeFocused();
+	await page.keyboard.type("x");
+	await page.keyboard.press("Shift+Tab");
+	await expect(typingTest).toBeFocused();
+	await page.keyboard.press("Tab");
+	await expect(typingTest).toBeFocused();
+});
+
 test("a returning visit restores the last mode and sub-option", async ({
 	page,
 }) => {
@@ -76,6 +87,18 @@ test.describe("on a narrow screen", () => {
 		await page.goto("/");
 		const note = page.getByTestId("small-screen-notice");
 		await expect(note).toContainText("built for a keyboard");
+		// the page makes room, so the note never covers the footer for good
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+		const about = page
+			.getByRole("contentinfo")
+			.getByRole("link", { name: "about" });
+		const [aboutBox, noteBox] = [
+			await about.boundingBox(),
+			await note.boundingBox(),
+		];
+		expect((aboutBox?.y ?? 0) + (aboutBox?.height ?? 0)).toBeLessThanOrEqual(
+			noteBox?.y ?? 0,
+		);
 		await note.getByRole("button", { name: "Dismiss" }).click();
 		await expect(note).toHaveCount(0);
 
