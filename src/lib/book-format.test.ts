@@ -5,6 +5,7 @@ import {
 	coverToneBackground,
 	DEFAULT_WPM,
 	formatAge,
+	formatBookPercent,
 	formatDuration,
 	pickTypingPace,
 	typingMinutes,
@@ -178,5 +179,30 @@ describe("formatAge", () => {
 		expect(ago(3 * 3_600_000)).toBe("3 hours ago");
 		expect(ago(24 * 3_600_000)).toBe("yesterday");
 		expect(ago(4 * 86_400_000)).toBe("4 days ago");
+	});
+});
+
+describe("formatBookPercent", () => {
+	it("shows the whole percent", () => {
+		expect(formatBookPercent(42, { chapterIndex: 3, wordOffset: 10 })).toBe(
+			"42%",
+		);
+		expect(formatBookPercent(100, { chapterIndex: 9, wordOffset: 0 })).toBe(
+			"100%",
+		);
+	});
+
+	it("shows <1% once any of the book is typed, so progress never reads as 0%", () => {
+		expect(formatBookPercent(0, { chapterIndex: 0, wordOffset: 6 })).toBe(
+			"<1%",
+		);
+		expect(formatBookPercent(0, { chapterIndex: 1, wordOffset: 0 })).toBe(
+			"<1%",
+		);
+	});
+
+	it("shows 0% before the first word", () => {
+		expect(formatBookPercent(0, { chapterIndex: 0, wordOffset: 0 })).toBe("0%");
+		expect(formatBookPercent(0)).toBe("0%");
 	});
 });

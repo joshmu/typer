@@ -20,9 +20,8 @@ test.describe("book mode", () => {
 	});
 
 	test("browse → select → type → results shows progress", async ({ page }) => {
-		await page.goto("/");
+		await page.goto("/library");
 
-		// Default mode is book, so the browser should appear after initial fetch.
 		const bookCard = page.getByText("Test Book").first();
 		await expect(bookCard).toBeVisible({ timeout: 5000 });
 		await bookCard.click();
@@ -32,9 +31,12 @@ test.describe("book mode", () => {
 		await expect(startButton).toBeVisible();
 		await startButton.click();
 
-		// Typing test container appears
+		// The book opens on the typing screen, its header in place of the mode bar
+		await expect(page).toHaveURL(/\/$/);
 		const typingTest = page.getByTestId("typing-test");
 		await expect(typingTest).toBeVisible({ timeout: 5000 });
+		await expect(page.getByTestId("book-header")).toContainText("Test Book");
+		await expect(page.getByTestId("mode-selector")).toHaveCount(0);
 
 		// Type a few words then Esc to finish.
 		await typingTest.focus();
@@ -52,7 +54,7 @@ test.describe("book mode", () => {
 	});
 
 	test("continue reading advances the feeder", async ({ page }) => {
-		await page.goto("/");
+		await page.goto("/library");
 
 		const bookCard = page.getByText("Test Book").first();
 		await expect(bookCard).toBeVisible({ timeout: 5000 });
@@ -87,7 +89,7 @@ test.describe("book mode", () => {
 	});
 
 	test("typing the book's last word finishes the book", async ({ page }) => {
-		await page.goto("/");
+		await page.goto("/library");
 		await page.getByText("Test Book").first().click();
 		await page.getByRole("button", { name: /start reading/i }).click();
 
@@ -109,5 +111,97 @@ test.describe("book mode", () => {
 			page.getByRole("button", { name: /back to library/i }),
 		).toBeVisible({ timeout: 5000 });
 		await expect(page.getByText("100% complete")).toBeVisible();
+
+		// A finished book goes back to the library for the next one
+		await page.getByRole("button", { name: /back to library/i }).click();
+		await expect(page).toHaveURL(/\/library$/);
+	});
+
+	test("a returning visit resumes the book at the committed position", async ({
+		page,
+	}) => {
+		await page.goto("/library");
+		await page.getByText("Test Book").first().click();
+		await page.getByRole("button", { name: /start reading/i }).click();
+
+		const typingTest = page.getByTestId("typing-test");
+		await expect(typingTest).toBeVisible({ timeout: 5000 });
+		const first = (await page.getByTestId("text-display").textContent()) ?? "";
+		const [firstWord, secondWord] = first.trim().split(/\s+/);
+		await typingTest.focus();
+		await page.keyboard.type(`${firstWord} `);
+		await page.keyboard.press("Escape");
+		await expect(
+			page.getByRole("button", { name: /continue reading/i }),
+		).toBeVisible({ timeout: 5000 });
+
+		await page.goto("/");
+		await expect(page.getByTestId("book-header")).toContainText("Test Book");
+		await expect
+			.poll(async () =>
+				((await page.getByTestId("text-display").textContent()) ?? "")
+					.trim()
+					.split(/\s+/)
+					.at(0),
+			)
+			.toBe(secondWord);
+	});
+
+	test("closing a book in progress returns to a time test with a card to continue it", async ({
+		page,
+	}) => {
+		await page.goto("/library");
+		await page.getByText("Test Book").first().click();
+		await page.getByRole("button", { name: /start reading/i }).click();
+		const typingTest = page.getByTestId("typing-test");
+		await expect(typingTest).toBeVisible({ timeout: 5000 });
+		const first = (await page.getByTestId("text-display").textContent()) ?? "";
+		await typingTest.focus();
+		await page.keyboard.type(`${first.trim().split(/\s+/)[0]} `);
+		await page.keyboard.press("Escape");
+		await page.getByRole("button", { name: /continue reading/i }).click();
+
+		await page.getByRole("button", { name: "Close book" }).click();
+		await expect(page.getByRole("button", { name: "time" })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		const card = page.getByRole("button", {
+			name: /continue reading test book/i,
+		});
+		await expect(card).toBeVisible();
+
+		await card.click();
+		await expect(page.getByTestId("book-header")).toContainText("Test Book");
+	});
+
+	test("a book closed before any typing is offered to start", async ({
+		page,
+	}) => {
+		await page.goto("/library");
+		await page.getByText("Test Book").first().click();
+		await page.getByRole("button", { name: /start reading/i }).click();
+		await expect(page.getByTestId("book-header")).toContainText("0%");
+
+		await page.getByRole("button", { name: "Close book" }).click();
+		const card = page.getByRole("button", { name: /^start test book/i });
+		await expect(card).toBeVisible();
+		await card.click();
+		await expect(page.getByTestId("book-header")).toContainText("Test Book");
+	});
+
+	test("a started book reads <1%, never 0%", async ({ page }) => {
+		await page.goto("/library");
+		await page.getByText("Test Book").first().click();
+		await page.getByRole("button", { name: /start reading/i }).click();
+		const typingTest = page.getByTestId("typing-test");
+		await expect(typingTest).toBeVisible({ timeout: 5000 });
+		const first = (await page.getByTestId("text-display").textContent()) ?? "";
+		await typingTest.focus();
+		await page.keyboard.type(`${first.trim().split(/\s+/)[0]} `);
+		await page.keyboard.press("Escape");
+		await page.getByRole("button", { name: /continue reading/i }).click();
+
+		await expect(page.getByTestId("book-header")).not.toContainText(/(^|\D)0%/);
 	});
 });

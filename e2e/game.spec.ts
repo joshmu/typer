@@ -128,6 +128,8 @@ test.describe("horde game mode", () => {
 		await expect(page.getByTestId("game-over-score")).toBeVisible();
 		await expect(page.getByTestId("game-over-wpm")).toBeVisible();
 		await expect(page.getByTestId("game-restart")).toBeVisible();
+		// the run is over: the site header comes back
+		await expect(page.locator("header")).toHaveCSS("opacity", "1");
 
 		// restart via keyboard R — fresh loop, HUD reset to a running tick-0 state
 		await page.keyboard.press("r");

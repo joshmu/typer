@@ -26,6 +26,7 @@ import {
 	recordCompletion as defaultRecordCompletion,
 	toTypingResult,
 } from "@/lib/history";
+import { DEFAULT_MODE } from "@/lib/last-mode";
 import type { UserPreferences } from "@/lib/preferences";
 import { exitTypingBlock as defaultExitTyping } from "@/lib/typing-exit";
 import { isTypingActive } from "@/lib/typing-focus";
@@ -37,6 +38,8 @@ const TIME_MODE_WORD_COUNT = 200;
 
 export interface UseTestSessionOptions {
 	wordListSize: () => UserPreferences["wordListSize"];
+	/** The mode before the first start; a time 30 test by default. */
+	initialMode?: TestMode;
 	/** Test-only IO overrides. */
 	deps?: Partial<{
 		fetchAndCacheBook: typeof defaultFetchAndCacheBook;
@@ -62,11 +65,11 @@ export interface TestSession {
 	setCustomText: (text: string) => void;
 	/** Rejects with the load error, so the caller can show it. */
 	selectBook: (bookId: string, prev?: BookProgress) => Promise<void>;
+	/** Opens an already cached book at its committed position. */
+	openBook: (book: CachedBook, progress?: BookProgress) => void;
 	complete: (state: TypingState) => void;
 	redo: () => void;
 }
-
-const INITIAL_MODE: TestMode = { type: "book", bookId: "", chapterIndex: 0 };
 
 export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const fetchBook = options.deps?.fetchAndCacheBook ?? defaultFetchAndCacheBook;
@@ -75,7 +78,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const exitTyping = options.deps?.exitTyping ?? defaultExitTyping;
 
 	const [session, setSession] = createSignal<SessionState>(
-		createInitialSession(INITIAL_MODE),
+		createInitialSession(options.initialMode ?? DEFAULT_MODE),
 	);
 	// One memo per field, so a change to one field leaves readers of the others alone.
 	const field = <K extends keyof SessionState>(key: K) =>
@@ -161,6 +164,13 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		}
 	}
 
+	function openBook(book: CachedBook, progress?: BookProgress): void {
+		latestStart++;
+		setSession((s) =>
+			applyBookSelection(s, book, progress ?? null, BOOK_WORD_COUNT),
+		);
+	}
+
 	function complete(state: TypingState): void {
 		const completed = completeTest(state);
 		const { result: testResult, charCount } = completed;
@@ -222,6 +232,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		startWithMode,
 		setCustomText,
 		selectBook,
+		openBook,
 		complete,
 		redo,
 	};

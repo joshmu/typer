@@ -13,6 +13,7 @@ import type { BookErrorCopy } from "@/lib/book-errors";
 import {
 	chapterFills,
 	chapterLabel,
+	formatBookPercent,
 	formatDuration,
 	pickTypingPace,
 	typingMinutes,
@@ -244,7 +245,7 @@ export default function BookDetail(props: BookDetailProps) {
 										</Show>
 									</span>
 									<span class="shrink-0 tabular-nums text-primary">
-										{props.percent}% read
+										{formatBookPercent(props.percent, progress())} read
 									</span>
 								</div>
 								<ChapterStrip

@@ -1,18 +1,36 @@
 import { useLocation } from "@solidjs/router";
-import type { ParentProps } from "solid-js";
+import { For, type ParentProps } from "solid-js";
 import { isRunLive } from "@/lib/game-chrome";
 import { isTypingActive } from "@/lib/typing-focus";
 
 const LINKS = [
-	{ href: "/", label: "Home" },
-	{ href: "/game", label: "Game" },
-	{ href: "/settings", label: "Settings" },
+	{ href: "/", label: "type" },
+	{ href: "/library", label: "library" },
+	{ href: "/game", label: "horde" },
 ] as const;
+
+function GearIcon() {
+	return (
+		<svg
+			viewBox="0 0 24 24"
+			class="size-[18px]"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.8"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M10.3 3.6a1.7 1.7 0 0 1 3.4 0 1.7 1.7 0 0 0 2.6 1.1 1.7 1.7 0 0 1 2.4 2.4 1.7 1.7 0 0 0 1.1 2.6 1.7 1.7 0 0 1 0 3.4 1.7 1.7 0 0 0-1.1 2.6 1.7 1.7 0 0 1-2.4 2.4 1.7 1.7 0 0 0-2.6 1.1 1.7 1.7 0 0 1-3.4 0 1.7 1.7 0 0 0-2.6-1.1 1.7 1.7 0 0 1-2.4-2.4 1.7 1.7 0 0 0-1.1-2.6 1.7 1.7 0 0 1 0-3.4 1.7 1.7 0 0 0 1.1-2.6 1.7 1.7 0 0 1 2.4-2.4 1.7 1.7 0 0 0 2.6-1.1z" />
+			<circle cx="12" cy="12" r="3" />
+		</svg>
+	);
+}
 
 export default function RootLayout(props: ParentProps) {
 	const location = useLocation();
-	const isActive = (href: string) =>
-		href === "/" ? location.pathname === "/" : location.pathname === href;
+	const current = (href: string) =>
+		location.pathname === href ? "page" : undefined;
 
 	// /game is full-bleed: the header floats over the arena instead of taking
 	// layout space, and steps away entirely while a run is live
@@ -31,6 +49,7 @@ export default function RootLayout(props: ParentProps) {
 					"-translate-y-3": isGame() && hidden(),
 					"absolute inset-x-0 top-0 z-30": isGame(),
 				}}
+				inert={hidden()}
 			>
 				<a
 					href="/"
@@ -38,22 +57,51 @@ export default function RootLayout(props: ParentProps) {
 				>
 					typer<span class="text-primary/50">_</span>
 				</a>
-				<nav class="flex gap-6 items-center font-display text-sm font-medium">
-					{LINKS.map((link) => (
-						<a
-							href={link.href}
-							class="nav-link no-underline"
-							classList={{
-								"text-primary hover:text-primary/80": isActive(link.href),
-								"text-text-sub hover:text-text": !isActive(link.href),
-							}}
-						>
-							{link.label}
-						</a>
-					))}
+				<nav
+					aria-label="Main"
+					class="flex items-center gap-5 font-display text-sm font-medium tracking-wide sm:gap-7"
+				>
+					<For each={LINKS}>
+						{(link) => (
+							<a
+								href={link.href}
+								class="nav-link no-underline"
+								aria-current={current(link.href)}
+							>
+								{link.label}
+							</a>
+						)}
+					</For>
+					<span class="h-4 w-px bg-text-sub/25" aria-hidden="true" />
+					<a
+						href="/settings"
+						class="nav-link nav-icon no-underline"
+						aria-label="Settings"
+						title="Settings"
+						aria-current={current("/settings")}
+					>
+						<GearIcon />
+					</a>
 				</nav>
 			</header>
 			{props.children}
+			<footer
+				class="flex justify-center px-4 pt-2 pb-5 motion-safe:transition-opacity motion-safe:duration-500"
+				classList={{
+					hidden: isGame(),
+					"opacity-0 pointer-events-none": hidden(),
+				}}
+				inert={hidden()}
+			>
+				<a
+					href="/about"
+					class="font-display text-xs tracking-wide text-text-sub/70 no-underline transition-colors hover:text-text"
+					classList={{ "text-text": location.pathname === "/about" }}
+					aria-current={current("/about")}
+				>
+					about
+				</a>
+			</footer>
 		</div>
 	);
 }
