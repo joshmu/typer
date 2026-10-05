@@ -16,6 +16,9 @@ interface BookCoverProps {
 }
 
 const STAGGER_MS = 15;
+/** Neutral light on the cloth: a spine shadow and a soft top-left sheen. */
+const CLOTH_LIGHT =
+	"linear-gradient(90deg, rgb(0 0 0 / 0.28), transparent 7%), linear-gradient(160deg, rgb(255 255 255 / 0.08), transparent 45%, rgb(0 0 0 / 0.2))";
 const MAX_STAGGER_STEPS = 12;
 
 /**
@@ -42,7 +45,9 @@ export default function BookCover(props: BookCoverProps) {
 		<div class="absolute inset-0 bg-bg-secondary">
 			<div
 				class="absolute inset-0 flex flex-col items-center justify-center p-[9%] text-center"
-				style={{ background: coverToneBackground(props.bookId) }}
+				style={{
+					background: `${CLOTH_LIGHT}, ${coverToneBackground(props.bookId)}`,
+				}}
 				data-testid="cover-fallback"
 				aria-hidden="true"
 			>
