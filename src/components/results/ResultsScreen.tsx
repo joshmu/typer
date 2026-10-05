@@ -9,12 +9,13 @@ import {
 	Switch,
 } from "solid-js";
 import {
+	bestScope,
 	type CharBreakdown,
 	comparePersonalBest,
 	type PersonalBestOutcome,
 } from "@/lib/core/calc";
+import type { ResultInsights } from "@/lib/core/engine/result-insights";
 import { findPreviousBest } from "@/lib/queries";
-import { latestResultInsights } from "@/lib/result-insights";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
 import { copyResultImage } from "./copy-image";
 import HistoryList from "./HistoryList";
@@ -29,6 +30,10 @@ interface ResultsScreenProps {
 	breakdown: CharBreakdown;
 	elapsed: number;
 	wpmPerSecond: number[];
+	/** Mode, AFK verdict and per-second detail for the chart and the best. */
+	insights?: ResultInsights;
+	/** Shown above the hero, inside the first screen (book progress). */
+	header?: JSX.Element;
 	onRedo: () => void;
 	redoLabel?: string;
 	/** The result could not be recorded to history. */
@@ -45,8 +50,9 @@ const CHART_AT = COUNT_S;
 /** History mounts once the chart has drawn, off the animation's frames. */
 const HISTORY_AFTER_MS = 1900;
 
+/** Whole seconds, rounded the same way as the chart's samples. */
 function formatTime(ms: number): string {
-	const seconds = Math.floor(ms / 1000);
+	const seconds = Math.round(ms / 1000);
 	const mins = Math.floor(seconds / 60);
 	const secs = seconds % 60;
 	return mins > 0 ? `${mins}:${secs.toString().padStart(2, "0")}` : `${secs}s`;
@@ -127,6 +133,10 @@ const COPY_LABELS = {
 	failed: "Couldn't copy",
 } as const;
 
+interface Stoppable {
+	stop(): void;
+}
+
 export default function ResultsScreen(props: ResultsScreenProps) {
 	let containerRef!: HTMLDivElement;
 	let heroRef!: HTMLSpanElement;
@@ -135,15 +145,45 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 	let chipRef!: HTMLDivElement;
 	let redoRef!: HTMLButtonElement;
 
+	// The result is read once: the reveal and the async paths below outlive
+	// the props' owner when the user redoes mid-reveal.
+	const result = {
+		wpm: props.wpm,
+		rawWpm: props.rawWpm,
+		accuracy: props.accuracy,
+		consistency: props.consistency,
+		elapsed: props.elapsed,
+		wpmPerSecond: props.wpmPerSecond,
+		insights: props.insights,
+	};
+	const insights = result.insights;
 	const reduced = prefersReducedMotion();
-	const insights = latestResultInsights();
 	const afk = insights?.afk ?? false;
+	const scope = insights ? bestScope(insights.mode) : null;
+	const hasChart = result.wpmPerSecond.length > 1;
+
 	const [pb, setPb] = createSignal<PersonalBestOutcome | null>(
 		afk ? { kind: "afk" } : null,
 	);
 	const [showHistory, setShowHistory] = createSignal(false);
 	const [copyState, setCopyState] =
 		createSignal<keyof typeof COPY_LABELS>("idle");
+
+	let disposed = false;
+	const running: Stoppable[] = [];
+	const track = (control: Stoppable) => {
+		running.push(control);
+	};
+	const timers: ReturnType<typeof setTimeout>[] = [];
+	const later = (ms: number, fn: () => void) => {
+		timers.push(setTimeout(fn, ms));
+	};
+	onCleanup(() => {
+		disposed = true;
+		for (const control of running) control.stop();
+		for (const t of timers) clearTimeout(t);
+		void import("./pb-burst").then((m) => m.stopBurst());
+	});
 
 	// With nothing focused, Tab lands on Redo so Tab then Enter restarts.
 	// Once something has focus, Tab moves on as usual.
@@ -157,38 +197,31 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 	window.addEventListener("keydown", focusRedoOnTab);
 	onCleanup(() => window.removeEventListener("keydown", focusRedoOnTab));
 
-	const timers: ReturnType<typeof setTimeout>[] = [];
-	const later = (ms: number, fn: () => void) => {
-		timers.push(setTimeout(fn, ms));
-	};
-	onCleanup(() => {
-		for (const t of timers) clearTimeout(t);
-	});
-
 	// The burst waits for the count-up to land, and for the best to load.
 	let landed = reduced;
 	const celebrate = (outcome: PersonalBestOutcome | null) => {
-		if (!landed || reduced || outcome?.kind !== "new") return;
-		void import("./pb-burst").then((m) => m.burstFrom(chipRef));
+		if (disposed || !landed || reduced || outcome?.kind !== "new") return;
+		void import("./pb-burst").then((m) => {
+			if (!disposed) void m.burstFrom(chipRef);
+		});
 	};
 
-	if (insights && !afk) {
-		findPreviousBest({
-			mode: insights.mode.type,
-			duration: insights.mode.type === "time" ? insights.duration : undefined,
-			before: insights.timestamp,
-		})
+	if (insights && scope && !afk) {
+		findPreviousBest({ ...scope, before: insights.timestamp })
 			.then((best) => {
-				const outcome = comparePersonalBest(props.wpm, best, false);
+				if (disposed) return;
+				const outcome = comparePersonalBest(result.wpm, best, false);
 				setPb(outcome);
 				celebrate(outcome);
 			})
-			.catch(() => setPb(null));
+			.catch(() => {
+				if (!disposed) setPb(null);
+			});
 	}
 
 	onMount(() => {
 		if (reduced) {
-			animate(containerRef, { opacity: [0, 1] }, { duration: 0.2 });
+			track(animate(containerRef, { opacity: [0, 1] }, { duration: 0.2 }));
 			later(0, () => setShowHistory(true));
 			return;
 		}
@@ -196,84 +229,105 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 		const q = (selector: string) => containerRef.querySelectorAll(selector);
 		const rise = (px: number) => [`translateY(${px}px)`, "translateY(0)"];
 
-		animate(
-			q(".hero-meta"),
-			{ opacity: [0, 1], transform: rise(6) },
-			{ duration: 0.3, ease: "easeOut" },
+		track(
+			animate(
+				q(".hero-meta"),
+				{ opacity: [0, 1], transform: rise(6) },
+				{ duration: 0.3, ease: "easeOut" },
+			),
 		);
 
-		animate(0, props.wpm, {
-			duration: COUNT_S,
-			ease: [0.33, 1, 0.68, 1],
-			onUpdate(value) {
-				heroRef.textContent = Math.round(value).toString();
-			},
-			onComplete() {
-				heroRef.textContent = String(props.wpm);
-				landed = true;
-				animate(
-					heroWrap,
-					{ transform: ["scale(1.06)", "scale(1)"] },
-					{ type: spring, bounce: 0.3, visualDuration: 0.35 },
-				);
-				if (!afk) {
-					animate(
-						glowRef,
-						{
-							opacity: [0.12, 0.4, 0.14],
-							transform: ["scale(0.9)", "scale(1.15)", "scale(1)"],
-						},
-						{ duration: 0.8, ease: "easeOut" },
+		track(
+			animate(0, result.wpm, {
+				duration: COUNT_S,
+				ease: [0.33, 1, 0.68, 1],
+				onUpdate(value) {
+					heroRef.textContent = Math.round(value).toString();
+				},
+				onComplete() {
+					if (disposed) return;
+					heroRef.textContent = String(result.wpm);
+					landed = true;
+					track(
+						animate(
+							heroWrap,
+							{ transform: ["scale(1.06)", "scale(1)"] },
+							{ type: spring, bounce: 0.3, visualDuration: 0.35 },
+						),
 					);
-				}
-				animate(
-					chipRef,
-					{ opacity: [0, 1], transform: ["scale(0.85)", "scale(1)"] },
-					{ type: spring, bounce: 0.4, visualDuration: 0.3 },
-				);
-				celebrate(pb());
-			},
-		});
-
-		animate(
-			q(".stat-cell"),
-			{ opacity: [0, 1], transform: rise(10) },
-			{
-				type: spring,
-				bounce: 0.15,
-				visualDuration: 0.45,
-				delay: stagger(0.06, { startDelay: STATS_AT }),
-			},
+					if (!afk) {
+						track(
+							animate(
+								glowRef,
+								{
+									opacity: [0.12, 0.4, 0.14],
+									transform: ["scale(0.9)", "scale(1.15)", "scale(1)"],
+								},
+								{ duration: 0.8, ease: "easeOut" },
+							),
+						);
+					}
+					track(
+						animate(
+							chipRef,
+							{ opacity: [0, 1], transform: ["scale(0.85)", "scale(1)"] },
+							{ type: spring, bounce: 0.4, visualDuration: 0.3 },
+						),
+					);
+					celebrate(pb());
+				},
+			}),
 		);
 
-		animate(
-			q(".panel"),
-			{ opacity: [0, 1], transform: rise(12) },
-			{ duration: 0.45, delay: PANEL_AT, ease: [0.22, 1, 0.36, 1] },
+		track(
+			animate(
+				q(".stat-cell"),
+				{ opacity: [0, 1], transform: rise(10) },
+				{
+					type: spring,
+					bounce: 0.15,
+					visualDuration: 0.45,
+					delay: stagger(0.06, { startDelay: STATS_AT }),
+				},
+			),
 		);
 
-		animate(
-			q(".breakdown-item"),
-			{ opacity: [0, 1], transform: rise(6) },
-			{ duration: 0.3, delay: stagger(0.06, { startDelay: CHARS_AT }) },
+		track(
+			animate(
+				q(".panel"),
+				{ opacity: [0, 1], transform: rise(12) },
+				{ duration: 0.45, delay: PANEL_AT, ease: [0.22, 1, 0.36, 1] },
+			),
+		);
+
+		track(
+			animate(
+				q(".breakdown-item"),
+				{ opacity: [0, 1], transform: rise(6) },
+				{ duration: 0.3, delay: stagger(0.06, { startDelay: CHARS_AT }) },
+			),
 		);
 		q(".breakdown-count").forEach((el, i) => {
 			const target = Number((el as HTMLElement).dataset.count ?? 0);
 			el.textContent = "0";
-			animate(0, target, {
-				duration: 0.7,
-				delay: CHARS_AT + i * 0.06,
-				ease: [0.22, 1, 0.36, 1],
-				onUpdate(value) {
-					el.textContent = Math.round(value).toString();
-				},
-			});
+			track(
+				animate(0, target, {
+					duration: 0.7,
+					delay: CHARS_AT + i * 0.06,
+					ease: [0.22, 1, 0.36, 1],
+					onUpdate(value) {
+						el.textContent = Math.round(value).toString();
+					},
+				}),
+			);
 		});
 
-		animate(
-			q(".actions"),
-			{ opacity: [0, 1], transform: rise(8) },
-			{ duration: 0.35, delay: ACTIONS_AT, ease: "easeOut" },
+		track(
+			animate(
+				q(".actions"),
+				{ opacity: [0, 1], transform: rise(8) },
+				{ duration: 0.35, delay: ACTIONS_AT, ease: "easeOut" },
+			),
 		);
 
 		later(HISTORY_AFTER_MS, () => setShowHistory(true));
@@ -282,23 +336,24 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 	const copyImage = async () => {
 		if (copyState() === "busy") return;
 		setCopyState("busy");
+		let outcome: keyof typeof COPY_LABELS;
 		try {
-			setCopyState(
-				await copyResultImage({
-					wpm: props.wpm,
-					rawWpm: props.rawWpm,
-					accuracy: props.accuracy,
-					consistency: props.consistency,
-					time: formatTime(props.elapsed),
-					mode: insights ? modeLabel(insights.mode) : "",
-					wpmPerSecond: props.wpmPerSecond,
-					rawPerSecond: insights?.rawPerSecond ?? [],
-					pb: pb(),
-				}),
-			);
+			outcome = await copyResultImage({
+				wpm: result.wpm,
+				rawWpm: result.rawWpm,
+				accuracy: result.accuracy,
+				consistency: result.consistency,
+				time: formatTime(result.elapsed),
+				mode: insights ? modeLabel(insights.mode) : "",
+				wpmPerSecond: result.wpmPerSecond,
+				rawPerSecond: insights?.rawPerSecond ?? [],
+				pb: pb(),
+			});
 		} catch {
-			setCopyState("failed");
+			outcome = "failed";
 		}
+		if (disposed) return;
+		setCopyState(outcome);
 		later(1800, () => setCopyState("idle"));
 	};
 
@@ -313,12 +368,14 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 	return (
 		<div
 			ref={containerRef}
-			class="mx-auto flex w-[min(48rem,calc(100vw-4rem))] flex-col items-center"
+			class="mx-auto flex w-[min(48rem,calc(100vw-2rem))] flex-col items-center"
 			data-testid="results"
 		>
 			{/* The result fills the first screen, so history mounting below it
 			    never shifts it. */}
-			<div class="flex min-h-[calc(100svh-9.75rem)] w-full flex-col items-center justify-center gap-6 sm:gap-7">
+			<div class="flex min-h-[calc(100svh-9.75rem)] w-full flex-col items-center justify-center gap-6">
+				{props.header}
+
 				{/* Hero */}
 				<div class="relative flex flex-col items-center">
 					<div
@@ -352,12 +409,12 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 							classList={{ "text-primary": !afk, "text-text-sub": afk }}
 							data-testid="result-wpm"
 						>
-							{reduced ? props.wpm : 0}
+							{reduced ? result.wpm : 0}
 						</span>
 					</div>
 					<div
 						ref={chipRef}
-						class={`relative mt-3 flex h-8 items-center ${hidden}`}
+						class={`relative flex items-center ${scope || afk ? "mt-3 h-8" : ""} ${hidden}`}
 						data-testid="pb-chip"
 					>
 						<Switch>
@@ -413,14 +470,16 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 
 				{/* Chart and character breakdown */}
 				<div
-					class={`panel w-full rounded-2xl border border-text-sub/10 bg-bg-secondary/50 px-4 pt-4 pb-4 sm:px-6 sm:pt-5 ${hidden}`}
+					class={`panel w-full rounded-2xl border border-text-sub/10 bg-bg-secondary/50 px-4 py-4 sm:px-6 ${hidden}`}
 				>
-					<Show when={props.wpmPerSecond.length > 1}>
-						<div class="mb-3 flex items-center justify-between gap-4 font-display text-[11px] text-text-sub">
-							<span class="font-display uppercase tracking-[0.2em]">
-								wpm over time
-							</span>
+					<Show when={hasChart}>
+						<div class="mb-2 flex items-center justify-between gap-4 font-display text-[11px] text-text-sub">
+							<span class="uppercase tracking-[0.2em]">wpm over time</span>
 							<span class="flex items-center gap-4">
+								<span class="flex items-center gap-1.5">
+									<span class="h-0.5 w-3 rounded bg-primary" />
+									average
+								</span>
 								<Show when={insights?.rawPerSecond.length}>
 									<span class="flex items-center gap-1.5">
 										<span class="h-0.5 w-3 rounded bg-text-sub" />
@@ -436,14 +495,19 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 							</span>
 						</div>
 						<WPMChart
-							wpm={props.wpmPerSecond}
+							wpm={result.wpmPerSecond}
 							raw={insights?.rawPerSecond}
 							errors={insights?.errorsPerSecond}
+							height={150}
 							drawDelay={reduced ? null : CHART_AT}
 						/>
 					</Show>
 
-					<div class="mt-4 border-t border-text-sub/10 pt-4">
+					<div
+						classList={{
+							"mt-3 border-t border-text-sub/10 pt-4": hasChart,
+						}}
+					>
 						<div class="grid grid-cols-2 gap-x-8 gap-y-2 sm:grid-cols-4">
 							<BreakdownItem
 								label="correct"

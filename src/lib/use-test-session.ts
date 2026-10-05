@@ -5,13 +5,15 @@ import {
 	type BookReader,
 	countCompletedWords,
 } from "@/lib/core/engine/book-reader";
-import { completeTest, type TestResult } from "@/lib/core/engine/complete-test";
+import { completeTest } from "@/lib/core/engine/complete-test";
+import { deriveResultInsights } from "@/lib/core/engine/result-insights";
 import {
 	applyBookSelection,
 	applyResult,
 	applyText,
 	createInitialSession,
 	decideRedo,
+	type SessionResult,
 	type SessionState,
 } from "@/lib/core/engine/session-manager";
 import { getRandomQuote } from "@/lib/core/text/quotes";
@@ -25,10 +27,6 @@ import {
 	toTypingResult,
 } from "@/lib/history";
 import type { UserPreferences } from "@/lib/preferences";
-import {
-	deriveResultInsights,
-	publishResultInsights,
-} from "@/lib/result-insights";
 import { exitTypingBlock as defaultExitTyping } from "@/lib/typing-exit";
 import { isTypingActive } from "@/lib/typing-focus";
 
@@ -51,7 +49,7 @@ export interface UseTestSessionOptions {
 export interface TestSession {
 	mode: Accessor<TestMode>;
 	text: Accessor<string | null>;
-	result: Accessor<TestResult | null>;
+	result: Accessor<SessionResult | null>;
 	/** The shown result could not be recorded. */
 	saveFailed: Accessor<boolean>;
 	activeBook: Accessor<CachedBook | null>;
@@ -180,10 +178,10 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		const request = ++latestStart;
 		let failed = false;
 		setSaveFailed(false);
-		publishResultInsights(deriveResultInsights(state, testResult.elapsed, now));
+		const insights = deriveResultInsights(state, testResult.elapsed, now);
 		const show = () => {
 			if (request !== latestStart) return;
-			setSession((s) => applyResult(s, testResult, draft));
+			setSession((s) => applyResult(s, testResult, draft, insights));
 			if (failed) setSaveFailed(true);
 		};
 		const exiting = exitTyping();
@@ -196,7 +194,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		).catch((err: unknown) => {
 			console.error("Failed to record the completed test:", err);
 			failed = true;
-			if (result() === testResult) setSaveFailed(true);
+			if (result()?.insights === insights) setSaveFailed(true);
 		});
 	}
 

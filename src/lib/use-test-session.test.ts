@@ -6,7 +6,6 @@ import type { TestMode, TypingState } from "@/lib/core/types";
 import type { BookChapter, CachedBook } from "@/lib/core/types/book";
 import { createTypingState } from "@/lib/core/types/test-fixtures";
 import { db } from "@/lib/db";
-import { latestResultInsights } from "@/lib/result-insights";
 import { setTypingActive } from "@/lib/typing-focus";
 import { useTestSession } from "./use-test-session";
 
@@ -561,7 +560,7 @@ describe("useTestSession", () => {
 			});
 			session.setCustomText("the quick");
 			session.complete(completedState("the quick", 3_000));
-			const insights = latestResultInsights();
+			const insights = session.result()?.insights;
 			expect(insights?.afk).toBe(false);
 			expect(insights?.rawPerSecond).toHaveLength(3);
 			expect(insights?.errorsPerSecond).toHaveLength(3);

@@ -1,6 +1,9 @@
+import type confettiFn from "canvas-confetti";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
 
 const HEX = /^#(?:[0-9a-f]{3}){1,2}$/i;
+
+let loaded: typeof confettiFn | null = null;
 
 function themeColour(name: string): string | null {
 	const value = getComputedStyle(document.documentElement)
@@ -12,16 +15,10 @@ function themeColour(name: string): string | null {
 /** One burst of theme-coloured confetti from an element, for a new best. */
 export async function burstFrom(el: HTMLElement): Promise<void> {
 	if (prefersReducedMotion()) return;
-	const { default: confetti } = await import("canvas-confetti");
+	loaded ??= (await import("canvas-confetti")).default;
 	const rect = el.getBoundingClientRect();
 	const primary = themeColour("--primary") ?? "#e2b714";
-	const colours = [
-		primary,
-		primary,
-		themeColour("--caret") ?? primary,
-		themeColour("--text") ?? primary,
-	];
-	await confetti({
+	await loaded({
 		particleCount: 70,
 		spread: 75,
 		startVelocity: 30,
@@ -33,7 +30,17 @@ export async function burstFrom(el: HTMLElement): Promise<void> {
 			x: (rect.left + rect.width / 2) / window.innerWidth,
 			y: (rect.top + rect.height / 2) / window.innerHeight,
 		},
-		colors: colours,
+		colors: [
+			primary,
+			primary,
+			themeColour("--caret") ?? primary,
+			themeColour("--text") ?? primary,
+		],
 		disableForReducedMotion: true,
 	});
+}
+
+/** Clear any burst still falling, so it never runs into the next test. */
+export function stopBurst(): void {
+	loaded?.reset();
 }

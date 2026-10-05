@@ -1,5 +1,5 @@
-import { type Accessor, from } from "solid-js";
 import { liveQuery } from "dexie";
+import { type Accessor, from } from "solid-js";
 
 /**
  * Safe wrapper around from(liveQuery(...)) that returns a fallback
