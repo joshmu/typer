@@ -28,3 +28,11 @@ export function calculateRawWPM(
 	if (elapsedMs === 0) return 0;
 	return Math.round((correct + incorrect) / 5 / (elapsedMs / 60_000));
 }
+
+const LIVE_WPM_MIN_MS = 2000;
+const LIVE_WPM_MIN_KEYS = 10;
+
+/** Live WPM is noise until the test has run 2s and seen 10 character keys. */
+export function isLiveWpmReady(elapsedMs: number, charKeys: number): boolean {
+	return elapsedMs >= LIVE_WPM_MIN_MS && charKeys >= LIVE_WPM_MIN_KEYS;
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CharacterState } from "../types";
 import { createCorrectChar, createIncorrectChar } from "../types/test-fixtures";
-import { calculateRawWPM, calculateWPM } from "./wpm";
+import { calculateRawWPM, calculateWPM, isLiveWpmReady } from "./wpm";
 
 describe("calculateWPM", () => {
 	it("calculates gross WPM: (correct chars / 5) / elapsed minutes", () => {
@@ -61,5 +61,15 @@ describe("calculateRawWPM", () => {
 
 	it("returns 0 with no keystrokes", () => {
 		expect(calculateRawWPM({ correct: 0, incorrect: 0 }, 60_000)).toBe(0);
+	});
+});
+
+describe("isLiveWpmReady", () => {
+	it("waits for both 2 seconds and 10 character keys", () => {
+		expect(isLiveWpmReady(0, 0)).toBe(false);
+		expect(isLiveWpmReady(500, 4)).toBe(false);
+		expect(isLiveWpmReady(1999, 30)).toBe(false);
+		expect(isLiveWpmReady(5000, 9)).toBe(false);
+		expect(isLiveWpmReady(2000, 10)).toBe(true);
 	});
 });
