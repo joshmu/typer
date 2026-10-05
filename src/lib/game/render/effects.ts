@@ -549,6 +549,19 @@ export function createEffects(
 		s.tex.update();
 	}
 
+	// Once the label font is in, draw and clear every score label off screen,
+	// so the first kills don't pay for the canvas font and glyph setup.
+	let disposed = false;
+	void document.fonts?.load(`bold 60px ${LABEL_FONT}`).then(() => {
+		if (disposed) return;
+		for (const s of scores) {
+			if (s.live) continue;
+			drawScore(s, 0, 2);
+			s.tex.getContext().clearRect(0, 0, SCORE_TEX_W, SCORE_TEX_H);
+			s.tex.update();
+		}
+	});
+
 	const waveColor = new Color3();
 	function wave(
 		x: number,
@@ -816,6 +829,7 @@ export function createEffects(
 			}
 		},
 		dispose() {
+			disposed = true;
 			for (const t of tracers) {
 				t.beam.dispose();
 				t.head.dispose();
