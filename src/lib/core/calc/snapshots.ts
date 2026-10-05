@@ -30,3 +30,22 @@ export function collectPerSecondWPM(
 		return Math.round(count / CHARS_PER_WORD / (ms / MS_PER_MINUTE));
 	});
 }
+
+/**
+ * Per-second samples up to the second of the last keystroke, dropping the
+ * idle tail before a test is ended by hand (Esc) or by its text running out.
+ */
+export function trimIdleTail(
+	samples: number[],
+	chars: CharacterState[],
+	startTime: number,
+): number[] {
+	let lastKey = -1;
+	for (const char of chars) {
+		if (char.timestamp != null && char.timestamp > lastKey) {
+			lastKey = char.timestamp;
+		}
+	}
+	if (lastKey < 0) return samples;
+	return samples.slice(0, Math.floor((lastKey - startTime) / 1000) + 1);
+}

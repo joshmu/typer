@@ -6,6 +6,7 @@ import {
 	calculateRawWPM,
 	calculateWPM,
 	collectPerSecondWPM,
+	trimIdleTail,
 } from "../calc";
 import type { TypingState } from "../types";
 
@@ -38,7 +39,13 @@ export function completeTest(state: TypingState): CompletedTestPayload {
 		state.startTime ?? 0,
 		elapsed,
 	);
-	const consistency = calculateConsistency(wpmPerSecond);
+	// Time tests run to their limit, so idle seconds count; other tests are
+	// ended by the user or the text, and the idle tail before that does not.
+	const consistency = calculateConsistency(
+		state.mode.type === "time"
+			? wpmPerSecond
+			: trimIdleTail(wpmPerSecond, chars, state.startTime ?? 0),
+	);
 	const breakdown = calculateCharBreakdown(state);
 
 	return {

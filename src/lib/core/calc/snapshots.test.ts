@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CharacterState } from "../types";
 import { createCorrectChar, createIncorrectChar } from "../types/test-fixtures";
-import { collectPerSecondWPM } from "./snapshots";
+import { collectPerSecondWPM, trimIdleTail } from "./snapshots";
 
 const START = 1000;
 
@@ -81,5 +81,24 @@ describe("collectPerSecondWPM", () => {
 			{ ...createCorrectChar("b"), timestamp: null },
 		];
 		expect(collectPerSecondWPM(chars, START, 1000)).toEqual([12]);
+	});
+});
+
+describe("trimIdleTail", () => {
+	it("drops the seconds after the last keystroke", () => {
+		const chars = correctBetween(10, 0, 2000);
+		expect(trimIdleTail([60, 60, 0, 0], chars, START)).toEqual([60, 60]);
+	});
+
+	it("keeps the second the last keystroke landed in", () => {
+		const chars = [
+			...correctBetween(5, 0, 1000),
+			{ ...createIncorrectChar("a", "x"), timestamp: START + 2500 },
+		];
+		expect(trimIdleTail([60, 0, 0, 0], chars, START)).toEqual([60, 0, 0]);
+	});
+
+	it("leaves samples alone when nothing was typed", () => {
+		expect(trimIdleTail([0, 0], [], START)).toEqual([0, 0]);
 	});
 });

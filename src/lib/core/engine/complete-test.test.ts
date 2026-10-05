@@ -142,4 +142,23 @@ describe("completeTest", () => {
 		expect(completeTest(steady).result.consistency).toBe(100);
 		expect(completeTest(stalled).result.consistency).toBeLessThan(50);
 	});
+
+	it("ignores the idle tail before Esc when scoring a zen run's consistency", () => {
+		// A steady 60 WPM for 60s, then 2s idle before Esc
+		const state = createTypingState("x".repeat(400), { mode: { type: "zen" } });
+		typeThenEnd(state, repeat("x", 300), 62_000, 200);
+		const out = completeTest(state);
+		expect(out.result.wpmPerSecond).toHaveLength(62);
+		expect(out.result.wpmPerSecond.slice(60)).toEqual([0, 0]);
+		expect(out.result.consistency).toBeGreaterThanOrEqual(98);
+	});
+
+	it("keeps every second of a time test in consistency", () => {
+		const state = createTypingState("x".repeat(400), {
+			mode: { type: "time", seconds: 60 },
+		});
+		// Steady for 58s, idle for the last 2s
+		typeThenEnd(state, repeat("x", 290), 60_000, 200);
+		expect(completeTest(state).result.consistency).toBeLessThan(90);
+	});
 });
