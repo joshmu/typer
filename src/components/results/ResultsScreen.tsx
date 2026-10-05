@@ -32,7 +32,10 @@ function StatCard(props: { label: string; value: string; sub?: string }) {
 			<span class="font-display text-xs uppercase tracking-widest text-text-sub">
 				{props.label}
 			</span>
-			<span class="text-3xl font-bold text-text">
+			<span
+				class="text-3xl font-bold text-text"
+				data-testid={`stat-${props.label}`}
+			>
 				{props.value}
 				{props.sub && (
 					<span class="text-lg text-text-sub font-normal">{props.sub}</span>
