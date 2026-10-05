@@ -8,26 +8,6 @@ export function useRecentResults(limit = 20) {
 	);
 }
 
-/** The fastest counted result, AFK results left out. */
-export function usePersonalBest(mode?: string) {
-	return safeFrom<TypingResult | undefined>(() => {
-		if (mode) {
-			return db.results
-				.where("mode")
-				.equals(mode)
-				.filter((r) => !r.afk)
-				.reverse()
-				.sortBy("wpm")
-				.then((results) => results[0]);
-		}
-		return db.results
-			.orderBy("wpm")
-			.reverse()
-			.filter((r) => !r.afk)
-			.first();
-	}, undefined);
-}
-
 export interface PreviousBestQuery {
 	mode: string;
 	/** Time tests only compare against tests of the same length. */

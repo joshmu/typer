@@ -70,7 +70,7 @@ test("Tab then Enter on results restarts wherever focus is", async ({
 	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
 
 	// Move the focus start point below the Redo button.
-	await page.getByText("personal best").click();
+	await page.getByText("Enter", { exact: true }).click();
 	await page.keyboard.press("Tab");
 	await page.keyboard.press("Enter");
 	await expect(page.getByTestId("text-input")).toBeVisible();
