@@ -185,3 +185,27 @@ body::after {
 .nav-link:hover::after {
 	width: 100%;
 }
+
+/* Mode bar: scrolls sideways when it outgrows a narrow screen, with an edge
+   fade on whichever side has more tabs (mask alpha only, theme-neutral). */
+.mode-scroll {
+	--fade-l: 0px;
+	--fade-r: 0px;
+	scrollbar-width: none;
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		#000 var(--fade-l),
+		#000 calc(100% - var(--fade-r)),
+		transparent
+	);
+}
+.mode-scroll::-webkit-scrollbar {
+	display: none;
+}
+.mode-scroll[data-fade-left] {
+	--fade-l: 28px;
+}
+.mode-scroll[data-fade-right] {
+	--fade-r: 28px;
+}
