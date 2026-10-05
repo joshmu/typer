@@ -2,6 +2,23 @@ import type { BookMeta } from "../types/book";
 
 const SE_BASE = "https://standardebooks.org";
 
+function absoluteUrl(url: string): string {
+	return url.startsWith("/") ? `${SE_BASE}${url}` : url;
+}
+
+const ENTITIES: Record<string, string> = {
+	"&amp;": "&",
+	"&quot;": '"',
+	"&#39;": "'",
+	"&apos;": "'",
+	"&lt;": "<",
+	"&gt;": ">",
+};
+
+function decodeEntities(text: string): string {
+	return text.replace(/&(amp|quot|#39|apos|lt|gt);/g, (m) => ENTITIES[m]);
+}
+
 /**
  * Parse the Standard Ebooks catalog listing page XHTML into BookMeta[].
  * Extracts data from schema.org-annotated list items.
@@ -107,14 +124,18 @@ export function parseBookDetail(xhtml: string, bookId: string): BookMeta {
 		author = authorName?.[1]?.trim() ?? "";
 	}
 
-	const description = schemaContent("description");
+	// Newer pages carry the summary as schema:abstract; later
+	// schema:description metas name download formats ("epub").
+	const description = decodeEntities(
+		schemaContent("abstract") || schemaContent("description"),
+	);
 	const wordCountStr = schemaContent("wordCount");
 	const wordCount = wordCountStr ? Number.parseInt(wordCountStr, 10) : 0;
 	const language = schemaContent("inLanguage");
 	const datePublished = schemaContent("datePublished");
 	const dateModified = schemaContent("dateModified");
-	const coverHeroUrl = schemaContent("image");
-	const coverUrl = schemaContent("thumbnailUrl");
+	const coverHeroUrl = absoluteUrl(schemaContent("image"));
+	const coverUrl = absoluteUrl(schemaContent("thumbnailUrl"));
 
 	return {
 		id: bookId,
