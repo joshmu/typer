@@ -106,9 +106,9 @@ export default function TypingTest(props: TypingTestProps) {
 
 		if (key === "Escape" && isContinuousMode) e.preventDefault();
 
-		// Keep focus in the typing area before the test starts; Shift+Tab
-		// still leaves for the controls around it.
-		if (key === "Tab" && !e.shiftKey && !state.startTime) {
+		// Tab keeps focus in the typing area. Before the test starts, Shift+Tab
+		// still leaves for the controls around it; mid-test they are inert.
+		if (key === "Tab" && (!e.shiftKey || state.startTime)) {
 			e.preventDefault();
 			return;
 		}
