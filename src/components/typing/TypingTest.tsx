@@ -50,10 +50,7 @@ export default function TypingTest(props: TypingTestProps) {
 		return calculateWPM(chars, e);
 	});
 
-	const accuracy = createMemo(() => {
-		const chars = state.words.flatMap((w) => w.characters);
-		return calculateAccuracy(chars);
-	});
+	const accuracy = createMemo(() => calculateAccuracy(state.keystrokes));
 
 	const isContinuousMode =
 		state.mode.type === "zen" || state.mode.type === "book";
@@ -156,7 +153,12 @@ export default function TypingTest(props: TypingTestProps) {
 			onKeyDown={handleKeydown}
 			data-testid="typing-test"
 		>
-			<StatsBar wpm={wpm()} accuracy={accuracy()} elapsed={elapsed()} />
+			<StatsBar
+				wpm={wpm()}
+				accuracy={accuracy()}
+				elapsed={elapsed()}
+				typed={state.keystrokes.correct + state.keystrokes.incorrect}
+			/>
 			{/* One reserved row for the Caps Lock warning and the Esc hint, so
 			    neither shifts the text when it appears. */}
 			<div class="mb-2 flex h-5 items-center text-xs">
