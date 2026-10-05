@@ -18,7 +18,10 @@ const HERO_SIZE = 64 / REF_PPU;
 // the barrel tip sits ~45% of the sprite out from its centre
 const MUZZLE_LEN = HERO_SIZE * 0.45;
 const RING_LIFE = 22; // frames a powerup ring pulse lives
-const RECOIL_FRAMES = 3; // frames the recoil sprite cell shows after a shot
+const RECOIL_FRAMES = 3; // frames the hero stays squashed after a shot
+// recoil squash. The atlas's recoil cell is a different turret design, so
+// the hero keeps its idle cell and kicks by scale instead.
+const RECOIL_SCALE = 0.92;
 
 export type Turret = {
 	/** Advance the recoil / ring / danger animations from the sim tick. Heading
@@ -27,7 +30,7 @@ export type Turret = {
 	/** World position of the muzzle along the CURRENT heading, into `out`. */
 	getMuzzle(out: Vector3): Vector3;
 	/** Fire toward a world point: snap the hero's heading there (last-shot
-	 * heading — never re-anchors on its own) and kick the recoil sprite cell. */
+	 * heading — never re-anchors on its own) and kick the recoil squash. */
 	fire(x: number, z: number): void;
 	/** Kick off a radial ring pulse from the hero (powerup activation). */
 	ringPulse(): void;
@@ -47,7 +50,7 @@ function mat(scene: Scene, name: string, emissive: Color3) {
  * heading is the LAST-SHOT heading — it changes ONLY when a shot fires (`fire`)
  * and simply HOLDS otherwise; it never tracks a locked target or re-anchors to
  * the nearest enemy on its own (explicit playtest feedback: the hero keeps
- * facing whatever it last shot at). A recoil cell flashes for a few frames on each shot. Two
+ * facing whatever it last shot at). The hero squashes briefly on each shot. Two
  * flat rings (drawn on the ground plane) survive from the old turret: a powerup
  * activation pulse and a red danger perimeter that flares as the horde presses in.
  */
@@ -102,13 +105,11 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 
 	return {
 		update(state: GameState) {
-			// recoil cell flashes for a few frames after each shot
-			if (recoilFrames > 0) {
-				recoilFrames -= 1;
-				hero.cellIndex = CELLS.heroRecoil;
-			} else {
-				hero.cellIndex = CELLS.heroIdle;
-			}
+			// recoil: a brief squash after each shot
+			const size = recoilFrames > 0 ? HERO_SIZE * RECOIL_SCALE : HERO_SIZE;
+			if (recoilFrames > 0) recoilFrames -= 1;
+			hero.width = size;
+			hero.height = size;
 
 			if (ringLife > 0) {
 				ringLife -= 1;

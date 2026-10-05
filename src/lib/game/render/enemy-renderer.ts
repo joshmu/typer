@@ -27,8 +27,9 @@ const SIZE_CURVE = 0.75;
 const BOSS_SCALE = 1.05; // bosses are already large by archetype size
 const SPRITE_Y = 1.2; // lift sprites above the ground/decals
 const LABEL_Y = 2.4; // draw label planes above the sprites
-// world distance travelled between the two walk cells — a chunky, readable gait
+// world distance per step of the gait, and the sway (radians) at each step
 const WALK_STEP = 0.5;
+const WADDLE = 0.08;
 
 // Label plane geometry. The texture is 512×768 — six 128px rows: the CURRENT
 // word plate sits in the bottom row (its centre hangs LABEL_ROW_DROP below the
@@ -56,7 +57,6 @@ export function labelScale(view: SceneView): number {
 
 type EnemyVisual = {
 	sprite: Sprite;
-	cells: readonly [number, number];
 	label: Mesh;
 	labelMat: StandardMaterial;
 	labelRoot: TransformNode;
@@ -146,7 +146,6 @@ export function createEnemyRenderer(
 		const renderSize = baseSize * (boss ? BOSS_SCALE : 1);
 		return {
 			sprite,
-			cells,
 			label,
 			labelMat,
 			labelRoot,
@@ -211,17 +210,17 @@ export function createEnemyRenderer(
 				if (e.vel.x * e.vel.x + e.vel.y * e.vel.y > FACING_EPSILON_SQ) {
 					v.lastAngle = spriteAngle(e.vel.x, e.vel.y);
 				}
-				v.sprite.angle = v.lastAngle;
-
-				// walk-cycle: alternate the two pose cells by distance travelled so a
-				// faster enemy visibly steps faster and a stopped one holds a pose
+				// gait: a waddle driven by distance travelled, so a faster enemy
+				// visibly steps faster and a stopped one holds still. The atlas's two
+				// walk cells are different creatures for most families, so the
+				// sprite keeps one cell and the gait is a sway instead of a swap.
 				const dx = e.pos.x - v.lastX;
 				const dy = e.pos.y - v.lastY;
 				v.walkDist += Math.sqrt(dx * dx + dy * dy);
 				v.lastX = e.pos.x;
 				v.lastY = e.pos.y;
-				const frame = Math.floor(v.walkDist / WALK_STEP) % 2;
-				v.sprite.cellIndex = v.cells[frame];
+				v.sprite.angle =
+					v.lastAngle + Math.sin((v.walkDist / WALK_STEP) * Math.PI) * WADDLE;
 
 				// size: archetype size × scale (bosses ×2), with a slow menacing boss
 				// pulse; the locked target swells slightly so it reads as acquired
