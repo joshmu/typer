@@ -1,5 +1,6 @@
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Color3, type Vector3 } from "@babylonjs/core/Maths/math";
+import { CreateDisc } from "@babylonjs/core/Meshes/Builders/discBuilder";
 import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { Sprite } from "@babylonjs/core/Sprites/sprite";
@@ -52,9 +53,37 @@ function mat(scene: Scene, name: string, emissive: Color3) {
  * the nearest enemy on its own (explicit playtest feedback: the hero keeps
  * facing whatever it last shot at). The hero squashes briefly on each shot. Two
  * flat rings (drawn on the ground plane) survive from the old turret: a powerup
- * activation pulse and a red danger perimeter that flares as the horde presses in.
+ * activation pulse and a danger perimeter that heats from --primary to --error
+ * as the horde presses in.
  */
-export function createTurret(scene: Scene, manager: SpriteManager): Turret {
+/** Theme colours the turret is drawn in (read once per run). */
+export type TurretTint = { primary: Color3; error: Color3; plate: Color3 };
+
+export function createTurret(
+	scene: Scene,
+	manager: SpriteManager,
+	tint: TurretTint,
+): Turret {
+	// a dark mount with a --primary rim under the hero, so the grey turret
+	// reads as a clear silhouette against the deck
+	const mount = CreateDisc(
+		"turret-mount",
+		{ radius: HERO_SIZE * 0.47, tessellation: 48 },
+		scene,
+	);
+	mount.rotation.x = Math.PI / 2;
+	mount.position.y = 0.08;
+	mount.renderingGroupId = FIELD_GROUP;
+	mount.material = mat(scene, "turret-mount-mat", tint.plate.scale(0.6));
+	const rim = CreateTorus(
+		"turret-rim",
+		{ diameter: HERO_SIZE * 0.96, thickness: 0.09, tessellation: 64 },
+		scene,
+	);
+	rim.position.y = 0.1;
+	rim.renderingGroupId = FIELD_GROUP;
+	rim.material = mat(scene, "turret-rim-mat", tint.primary.scale(0.85));
+
 	const hero = new Sprite("hero", manager);
 	hero.cellIndex = CELLS.heroIdle;
 	hero.isPickable = false;
@@ -86,7 +115,8 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 	);
 	danger.renderingGroupId = FIELD_GROUP;
 	danger.position.y = 0.12; // flat on the ground (see ring above)
-	const dangerMat = mat(scene, "turret-danger-mat", new Color3(0.5, 0.4, 0.15));
+	const dangerMat = mat(scene, "turret-danger-mat", tint.primary.scale(0.5));
+	const dangerColor = new Color3();
 	danger.material = dangerMat;
 
 	// heading unit vector in world (sim) space; starts facing "north" (up-screen).
@@ -128,11 +158,9 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 			const threat = nearest < 6 ? 1 - nearest / 6 : 0;
 			const beat = 0.5 + 0.5 * Math.sin(state.tick * (0.1 + threat * 0.25));
 			const glow = 0.35 + beat * (0.25 + threat * 0.7);
-			dangerMat.emissiveColor.set(
-				(0.5 + threat * 0.5) * glow * 2,
-				(0.4 - threat * 0.35) * glow * 2,
-				(0.15 - threat * 0.12) * glow * 2,
-			);
+			// --primary at rest, heating to --error as the horde closes in
+			Color3.LerpToRef(tint.primary, tint.error, threat, dangerColor);
+			dangerColor.scaleToRef(glow * 1.4, dangerMat.emissiveColor);
 		},
 		getMuzzle(out: Vector3): Vector3 {
 			out.set(hx * MUZZLE_LEN, MUZZLE_Y, hz * MUZZLE_LEN);
@@ -151,6 +179,8 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 		},
 		dispose() {
 			hero.dispose();
+			(mount as Mesh).dispose(false, true);
+			(rim as Mesh).dispose(false, true);
 			(ring as Mesh).dispose(false, true);
 			(danger as Mesh).dispose(false, true);
 		},

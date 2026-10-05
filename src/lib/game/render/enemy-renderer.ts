@@ -25,12 +25,12 @@ import { FIELD_GROUP, type SceneView } from "./scene";
 import { spriteAngle } from "./sprite-angle";
 import { walkCells } from "./sprite-atlas";
 
-// World-unit size of a size-1 archetype sprite: ~50 CSS px on the reference
-// canvas (~13 px/unit), ~0.8 CSS px per art px. Archetype size is compressed
-// (size^0.75) so the smallest creatures stay readable and bosses don't swamp
+// World-unit size of a size-1 archetype sprite: ~61 CSS px on the reference
+// canvas (~12 px/unit), ~1 CSS px per art px. Archetype size is compressed
+// (size^0.6) so the smallest creatures stay readable and bosses don't swamp
 // the frame.
-const ENEMY_SPRITE_SCALE = 3.8;
-const SIZE_CURVE = 0.75;
+const ENEMY_SPRITE_SCALE = 5;
+const SIZE_CURVE = 0.6;
 const BOSS_SCALE = 1.05; // bosses are already large by archetype size
 const SPRITE_Y = 1.2; // lift sprites above the ground/decals
 const LABEL_Y = 2.4; // draw label planes above the sprites
