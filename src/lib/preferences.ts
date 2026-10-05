@@ -14,6 +14,8 @@ export interface UserPreferences {
 	keySound: boolean;
 	/** The mode a visit to "/" restores. Set it with reconcile: a plain set merges. */
 	lastMode: TestMode;
+	/** The book last picked in the library, typed yet or not. */
+	lastBookId: string;
 	smallScreenNoticeDismissed: boolean;
 }
 
@@ -27,6 +29,7 @@ export const defaultPreferences: UserPreferences = {
 	wordListSize: "200",
 	keySound: false,
 	lastMode: DEFAULT_MODE,
+	lastBookId: "",
 	smallScreenNoticeDismissed: false,
 };
 

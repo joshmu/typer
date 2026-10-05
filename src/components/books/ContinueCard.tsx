@@ -62,6 +62,8 @@ function ContinueButton(props: {
 	onContinue: (resumable: ResumableBook) => void;
 }): JSX.Element {
 	const meta = () => props.resumable.book.meta;
+	/** Picked but not typed yet: "Start", with no percent. */
+	const fresh = () => !props.resumable.progress;
 	const percent = () =>
 		formatBookPercent(props.resumable.percent, props.resumable.progress);
 	const chapter = () =>
@@ -71,7 +73,11 @@ function ContinueButton(props: {
 			type="button"
 			class={SHELL}
 			onClick={() => props.onContinue(props.resumable)}
-			aria-label={`Continue reading ${meta().title}, ${chapter()}, ${percent()}`}
+			aria-label={
+				fresh()
+					? `Start ${meta().title}, ${chapter()}`
+					: `Continue reading ${meta().title}, ${chapter()}, ${percent()}`
+			}
 		>
 			<div
 				class="relative aspect-[2/3] w-8 shrink-0 overflow-hidden rounded-[3px] shadow-sm ring-1 ring-text/10"
@@ -89,15 +95,17 @@ function ContinueButton(props: {
 				</Show>
 			</div>
 			<div class="min-w-0 flex-1">
-				<p class={EYEBROW}>Continue reading</p>
+				<p class={EYEBROW}>{fresh() ? "Start reading" : "Continue reading"}</p>
 				<p class="mt-0.5 flex min-w-0 items-baseline gap-1.5 text-sm text-text">
 					<span class={`${BOOK_SERIF} truncate font-semibold`}>
 						{meta().title}
 					</span>
 					<span class="shrink-0 text-text-sub">·</span>
 					<span class="truncate text-text-sub">{chapter()}</span>
-					<span class="shrink-0 text-text-sub">·</span>
-					<span class="shrink-0 tabular-nums text-primary">{percent()}</span>
+					<Show when={!fresh()}>
+						<span class="shrink-0 text-text-sub">·</span>
+						<span class="shrink-0 tabular-nums text-primary">{percent()}</span>
+					</Show>
 				</p>
 				<div class="mt-2 h-0.5 overflow-hidden rounded-full bg-text/10">
 					<div

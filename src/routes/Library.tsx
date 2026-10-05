@@ -26,6 +26,7 @@ export default function Library() {
 		} finally {
 			setLoading(false);
 		}
+		setPrefs("lastBookId", bookId);
 		setPrefs("lastMode", reconcile({ type: "book", bookId, chapterIndex: 0 }));
 		navigate("/");
 	}

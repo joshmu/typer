@@ -203,4 +203,14 @@ describe("preferences", () => {
 			expect(reloaded.smallScreenNoticeDismissed).toBe(true);
 			dispose();
 		}));
+	it("remembers the last picked book apart from the last mode", () =>
+		createRoot((dispose) => {
+			const storage = createMockStorage();
+			const [prefs, setPrefs] = createPreferences(storage);
+			expect(prefs.lastBookId).toBe("");
+			setPrefs("lastBookId", "a/b");
+			const [reloaded] = createPreferences(storage);
+			expect(reloaded.lastBookId).toBe("a/b");
+			dispose();
+		}));
 });

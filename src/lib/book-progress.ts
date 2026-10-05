@@ -82,12 +82,12 @@ export async function loadResumableBook(
 }
 
 /**
- * Reactive query: the most recently read book that can be resumed, wrapped so
+ * Reactive query: the book to resume (the given one first), wrapped so
  * "none" (null) is distinct from "not read yet" (undefined).
  */
-export function useResumableBook() {
+export function useResumableBook(preferredId?: string) {
 	return safeFrom<{ book: ResumableBook | null } | undefined>(
-		async () => ({ book: await loadResumableBook() }),
+		async () => ({ book: await loadResumableBook(preferredId) }),
 		undefined,
 	);
 }

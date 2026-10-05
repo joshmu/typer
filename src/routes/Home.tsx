@@ -73,7 +73,7 @@ export default function Home() {
 		wordListSize: () => prefs.wordListSize,
 		initialMode: landing,
 	});
-	const resumable = useResumableBook();
+	const resumable = useResumableBook(prefs.lastBookId || undefined);
 
 	// A returning visit opens the last mode; book mode resumes the book at its
 	// committed position, or falls back to the default test with none to resume.
