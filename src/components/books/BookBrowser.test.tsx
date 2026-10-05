@@ -1,5 +1,6 @@
-import { render, screen } from "@solidjs/testing-library";
+import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
+import { browseCatalog, searchBooks } from "@/lib/book-service";
 import type { BookMeta, BookProgress } from "@/lib/core/types/book";
 import BookBrowser from "./BookBrowser";
 
@@ -54,5 +55,39 @@ describe("BookBrowser", () => {
 		const titles = screen.getAllByText(/^Title /).map((el) => el.textContent);
 		expect([...new Set(titles)]).toEqual(["Title b/new", "Title a/old"]);
 		expect(allProgress.map((p) => p.bookId)).toEqual(["a/old", "b/new"]);
+	});
+});
+
+describe("BookBrowser catalogue states", () => {
+	it("holds the grid with skeleton tiles until the catalogue arrives", async () => {
+		let resolve: (books: BookMeta[]) => void = () => {};
+		vi.mocked(browseCatalog).mockReturnValueOnce(
+			new Promise((r) => {
+				resolve = r;
+			}),
+		);
+
+		render(() => <BookBrowser allProgress={[]} onSelectBook={() => {}} />);
+
+		expect(screen.getAllByTestId("book-skeleton").length).toBeGreaterThan(0);
+		resolve([progress("a/one", 0).bookMeta]);
+		expect(await screen.findAllByText("Title a/one")).not.toHaveLength(0);
+		expect(screen.queryAllByTestId("book-skeleton")).toHaveLength(0);
+	});
+
+	it("offers to clear a search that finds nothing", async () => {
+		vi.mocked(searchBooks).mockResolvedValueOnce([]);
+		render(() => <BookBrowser allProgress={[]} onSelectBook={() => {}} />);
+
+		fireEvent.input(screen.getByRole("searchbox"), {
+			target: { value: "zzzz" },
+		});
+
+		expect(
+			await screen.findByText(/No books match/, {}, { timeout: 2000 }),
+		).toBeTruthy();
+		expect(
+			screen.getAllByRole("button", { name: "Clear search" }),
+		).not.toHaveLength(0);
 	});
 });

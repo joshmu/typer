@@ -1,60 +1,66 @@
+import { chapterLabel } from "@/lib/book-format";
 import type { BookMeta, BookProgress } from "@/lib/core/types/book";
+import BookCover from "./BookCover";
+import { BOOK_SERIF } from "./typography";
 
 interface BookCardProps {
 	book: BookMeta;
 	progress?: BookProgress;
 	/** Book percent from the book reader */
 	percent: number;
-	onClick: (book: BookMeta) => void;
+	onClick: (book: BookMeta, trigger: HTMLElement) => void;
+	/** Position in its grid, for the cover fade-in stagger. */
+	index?: number;
+	/** Width classes; defaults to filling its grid cell. */
+	class?: string;
 }
 
 export default function BookCard(props: BookCardProps) {
-	const progressPercent = () => props.percent;
-
 	return (
 		<button
 			type="button"
-			class="group flex flex-col items-center gap-2 text-left transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg p-2"
-			onClick={() => props.onClick(props.book)}
+			class={`group flex min-w-0 flex-col gap-2.5 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-bg ${props.class ?? "w-full"}`}
+			onClick={(e) => props.onClick(props.book, e.currentTarget)}
 		>
-			<div class="relative w-[140px] h-[210px] rounded-md overflow-hidden bg-bg-secondary shadow-lg">
-				{props.book.coverUrl ? (
-					<img
-						src={props.book.coverUrl}
-						alt={`Cover of ${props.book.title}`}
-						class="w-full h-full object-cover transition-all group-hover:brightness-110"
-						loading="lazy"
-					/>
-				) : (
-					<div class="w-full h-full flex items-center justify-center text-text-sub text-xs p-3 text-center">
-						{props.book.title}
-					</div>
-				)}
+			<div class="relative aspect-[2/3] w-full overflow-hidden rounded-md shadow-md ring-1 ring-text/10 motion-safe:transition-[transform,box-shadow] motion-safe:duration-200 motion-safe:ease-out group-hover:shadow-xl group-hover:ring-primary/50 group-focus-visible:ring-primary/50 motion-safe:group-hover:-translate-y-1 motion-safe:group-focus-visible:-translate-y-1">
+				<BookCover
+					bookId={props.book.id}
+					title={props.book.title}
+					author={props.book.author}
+					src={props.book.coverUrl}
+					index={props.index}
+				/>
 
-				{/* Progress bar overlay */}
 				{props.progress && (
-					<div class="absolute bottom-0 left-0 right-0 h-1.5 bg-bg/60">
+					<div class="absolute inset-x-0 bottom-0 h-1 bg-bg/70">
 						<div
-							class="h-full bg-primary transition-all"
-							style={{ width: `${progressPercent()}%` }}
+							class="h-full bg-primary"
+							style={{ width: `${props.percent}%` }}
 						/>
 					</div>
 				)}
-
-				{/* Hover border glow */}
-				<div class="absolute inset-0 rounded-md border-2 border-transparent group-hover:border-primary/40 transition-colors" />
 			</div>
 
-			<div class="w-[140px]">
-				<p class="text-sm text-text truncate font-medium">{props.book.title}</p>
-				<p class="text-xs text-text-sub truncate">{props.book.author}</p>
+			<div class="min-w-0 px-0.5">
+				<p
+					class={`${BOOK_SERIF} text-[0.95rem] font-semibold leading-snug text-text line-clamp-2 motion-safe:transition-colors group-hover:text-primary`}
+					title={props.book.title}
+				>
+					{props.book.title}
+				</p>
+				<p
+					class="mt-0.5 truncate text-xs text-text-sub"
+					title={props.book.author}
+				>
+					{props.book.author}
+				</p>
 				{props.progress ? (
-					<p class="text-xs text-primary">
-						Ch.{props.progress.chapterIndex + 1} · {progressPercent()}%
+					<p class="mt-1 truncate text-xs text-primary">
+						{chapterLabel(props.progress.chapterIndex)} · {props.percent}%
 					</p>
 				) : (
 					props.book.wordCount > 0 && (
-						<p class="text-xs text-text-sub">
+						<p class="mt-1 text-xs text-text-sub">
 							{Math.round(props.book.wordCount / 1000)}k words
 						</p>
 					)
