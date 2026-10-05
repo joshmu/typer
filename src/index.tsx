@@ -1,6 +1,6 @@
 /* @refresh reload */
 
-import { Route, Router } from "@solidjs/router";
+import { Navigate, Route, Router } from "@solidjs/router";
 import { lazy } from "solid-js";
 import { render } from "solid-js/web";
 import "./styles/app.css";
@@ -28,6 +28,13 @@ render(
 			<Route path="/settings" component={Settings} />
 			<Route path="/library" component={Library} />
 			<Route path="/game" component={Game} />
+			{/* /game stays canonical; /horde keeps its query (?seed, ?testMode) */}
+			<Route
+				path="/horde"
+				component={() => (
+					<Navigate href={({ location }) => `/game${location.search}`} />
+				)}
+			/>
 		</Router>
 	),
 	root!,
