@@ -22,10 +22,12 @@ import {
 } from "./deck";
 import { createGroundDecals, type GroundDecals } from "./ground-decals";
 
-/** Rendering group for the floor and its decals; everything on the field
- * (sprites, labels, turret rings) draws in FIELD_GROUP above it. */
+/** Rendering groups, drawn in order: the floor and its decals; the field
+ * (sprites, turret rings, shots and kill effects); then word plates and
+ * score labels, so no effect ever covers a word. */
 export const FLOOR_GROUP = 0;
 export const FIELD_GROUP = 1;
+export const LABEL_GROUP = 2;
 
 /** The live camera frame plus the on-screen plate size, refreshed each frame. */
 export type SceneView = Frame & { fontPx: number };
@@ -39,6 +41,10 @@ export type GameScene = {
 	ground: GroundDecals;
 	/** Mutated in place every frame from the live canvas size. */
 	view: SceneView;
+	camera: ArcRotateCamera;
+	/** Camera feel for the next render: `zoom` scales the ortho frame (below
+	 * 1 zooms in) and the shake pans it in screen space, world units. */
+	setCameraFeel(zoom: number, shakeX: number, shakeY: number): void;
 	dispose(): void;
 };
 
@@ -79,6 +85,7 @@ export function createGameScene(
 	// The frame (shared via ../view so the shell's vignette and the label
 	// sizing agree with it) keeps world cells SQUARE on screen at any size.
 	const view: SceneView = { ...frameFor(0, 0), fontPx: plateFontPx(0, 0) };
+	let zoom = 1;
 	function applyOrtho(): void {
 		// the live canvas size in CSS px (render px × hardware scaling level);
 		// frameFor guards zero / NaN sizes with a square fallback
@@ -95,10 +102,10 @@ export function createGameScene(
 		// this exact pose, and the beta≈0 gimbal makes any drift catastrophic
 		camera.alpha = -Math.PI / 2;
 		camera.beta = 0.0001;
-		camera.orthoTop = view.halfH;
-		camera.orthoBottom = -view.halfH;
-		camera.orthoLeft = -view.halfW;
-		camera.orthoRight = view.halfW;
+		camera.orthoTop = view.halfH * zoom;
+		camera.orthoBottom = -view.halfH * zoom;
+		camera.orthoLeft = -view.halfW * zoom;
+		camera.orthoRight = view.halfW * zoom;
 	}
 	applyOrtho();
 	// recompute the ortho frustum every frame from the LIVE render size: the canvas
@@ -192,6 +199,13 @@ export function createGameScene(
 		glow,
 		ground: groundDecals,
 		view,
+		camera,
+		setCameraFeel(z, shakeX, shakeY) {
+			zoom = z;
+			// pan the projection only: moving the target would re-derive alpha
+			// and beta, and at the beta≈0 pose that spins the whole view
+			camera.targetScreenOffset.set(shakeX, shakeY);
+		},
 		dispose() {
 			window.removeEventListener("resize", onResize);
 			glow.dispose();

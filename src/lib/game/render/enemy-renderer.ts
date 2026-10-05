@@ -21,7 +21,7 @@ import {
 } from "./label";
 import { type LabelBox, layoutLabels } from "./label-layout";
 import { type LabelRow, labelRows } from "./label-rows";
-import { FIELD_GROUP, type SceneView } from "./scene";
+import { LABEL_GROUP, type SceneView } from "./scene";
 import { spriteAngle } from "./sprite-angle";
 import { walkCells } from "./sprite-atlas";
 
@@ -86,10 +86,32 @@ type EnemyVisual = {
 	// wall-clock end of the front plate's absorb flash (0 = none) and its kind
 	flashUntil: number;
 	flash: PlateFlash;
+	// last typed hit: when, and how hard it knocks the sprite back
+	hitAt: number;
+	knock: number;
+	// typed progress last frame, and when the newest letter landed
+	lastTyped: number;
+	popAt: number;
+	// set when a kill event names this enemy: its sprite plays out a death pop
+	killedAt: number;
 };
+
+/** A killed enemy's sprite, flashing and swelling before it pops. */
+type Dying = { sprite: Sprite; start: number; size: number; boss: boolean };
 
 // how long the front plate rings after an absorbed completion
 const FLASH_MS = 180;
+// a typed hit: the sprite flashes white and is knocked back, render-only
+const HIT_FLASH_MS = 60;
+const KNOCK_MS = 120;
+const KNOCK_LIGHT = 0.12;
+const KNOCK_HEAVY = 0.3;
+// the newest typed letter pops on the plate
+const POP_MS = 150;
+// a killed sprite: white flash for the first half, swelling to DIE_SCALE, then gone
+const DIE_MS = 100;
+const DIE_SCALE = 1.4;
+const BOSS_DIE_MS = 260;
 // CSS px kept clear of labels under the top HUD (wave, score, hull)
 const HUD_SAFE_TOP_PX = 120;
 
@@ -148,7 +170,7 @@ export function createEnemyRenderer(
 			scene,
 		);
 		label.parent = labelRoot;
-		label.renderingGroupId = FIELD_GROUP;
+		label.renderingGroupId = LABEL_GROUP;
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
 		// mipmaps ON: the texture renders minified, and without them the text
 		// shimmers into mud
@@ -188,12 +210,48 @@ export function createEnemyRenderer(
 			isBoss: boss,
 			flashUntil: 0,
 			flash: "none",
+			hitAt: -1,
+			knock: 0,
+			lastTyped: 0,
+			popAt: -1,
+			killedAt: -1,
 		};
+	}
+
+	const dying: Dying[] = [];
+	function animateDying(now: number): void {
+		for (let i = dying.length - 1; i >= 0; i--) {
+			const d = dying[i];
+			const ms = d.boss ? BOSS_DIE_MS : DIE_MS;
+			const t = (now - d.start) / ms;
+			if (t >= 1) {
+				d.sprite.dispose();
+				dying.splice(i, 1);
+				continue;
+			}
+			const size = d.size * (1 + (DIE_SCALE - 1) * t);
+			d.sprite.width = size;
+			d.sprite.height = size;
+			const white = t < 0.5 ? 4 : 1 + 3 * (1 - t) * 2;
+			d.sprite.color.set(white, white, white, t < 0.5 ? 1 : (1 - t) * 2);
+		}
 	}
 
 	return {
 		/** An enemy's completion was absorbed: ring its front plate, red if
 		 * armour refused it, otherwise the clang of a shield charge popping. */
+		/** A typed shot landed on this enemy. */
+		hit(id: number, heavy: boolean, now: number) {
+			const v = visuals.get(id);
+			if (!v) return;
+			v.hitAt = now;
+			v.knock = heavy ? KNOCK_HEAVY : KNOCK_LIGHT;
+		},
+		/** This enemy died: its sprite pops instead of vanishing. */
+		killed(id: number, now: number) {
+			const v = visuals.get(id);
+			if (v) v.killedAt = now;
+		},
 		absorbed(id: number, armoured: boolean, now: number) {
 			const v = visuals.get(id);
 			if (!v) return;
@@ -210,7 +268,16 @@ export function createEnemyRenderer(
 			const present = new Set(state.enemies.map((e) => e.id));
 			for (const [id, v] of visuals) {
 				if (!present.has(id)) {
-					v.sprite.dispose();
+					if (v.killedAt >= 0) {
+						dying.push({
+							sprite: v.sprite,
+							start: v.killedAt,
+							size: v.sprite.width,
+							boss: v.isBoss,
+						});
+					} else {
+						v.sprite.dispose();
+					}
 					v.labelRoot.dispose(false, true);
 					visuals.delete(id);
 				}
@@ -225,8 +292,18 @@ export function createEnemyRenderer(
 				}
 				const isTarget = state.targetId === e.id;
 
-				// position the sprite flat on the field; label floats above it on screen
-				v.sprite.position.set(e.pos.x, SPRITE_Y, e.pos.y);
+				// position the sprite flat on the field, knocked back along the
+				// shot for a moment; the label floats above it on screen
+				const hitT = v.hitAt < 0 ? 1 : (now - v.hitAt) / KNOCK_MS;
+				let kx = 0;
+				let ky = 0;
+				if (hitT < 1) {
+					const d = Math.hypot(e.pos.x, e.pos.y) || 1;
+					const k = v.knock * (1 - hitT) * (1 - hitT);
+					kx = (e.pos.x / d) * k;
+					ky = (e.pos.y / d) * k;
+				}
+				v.sprite.position.set(e.pos.x + kx, SPRITE_Y, e.pos.y + ky);
 				v.labelRoot.scaling.setAll(ls);
 				const rows = labelRows(e);
 				// natural bottom edge of the label: just above the sprite
@@ -284,18 +361,29 @@ export function createEnemyRenderer(
 					alpha *=
 						0.18 + 0.1 * (0.5 + 0.5 * Math.sin(state.tick * 0.4 + v.phase));
 				}
-				v.sprite.color.a = alpha;
+				// a typed hit flashes the sprite white
+				const flashT = v.hitAt < 0 ? 1 : (now - v.hitAt) / HIT_FLASH_MS;
+				const white = flashT < 1 ? 1 + 3 * (1 - flashT) : 1;
+				v.sprite.color.set(white, white, white, alpha);
 				v.labelMat.alpha = fade;
 
 				// target emphasis comes from the label draw itself (bigger font, --primary
 				// border, chevron) — mesh scaling would shift the bottom-anchored plate
 				if (v.flash !== "none" && now >= v.flashUntil) v.flash = "none";
-				drawStackedLabel(v, rows, isTarget, v.flash);
+				// the newest typed letter pops (scale steps, so the plate redraws a
+				// handful of times per key, not every frame)
+				const typed = rows[0]?.typed ?? 0;
+				if (typed > v.lastTyped) v.popAt = now;
+				v.lastTyped = typed;
+				const popT = v.popAt < 0 ? 1 : (now - v.popAt) / POP_MS;
+				const pop = popT < 1 ? Math.ceil((1 - popT) * 4) / 4 : 0;
+				drawStackedLabel(v, rows, isTarget, v.flash, pop);
 			}
 
 			// keep neighbouring labels apart and out from under the HUD. A plate
 			// closing in from above is held on its neighbour's top edge, so the
 			// lift grows smoothly; no easing, so every frame is overlap-free.
+			animateDying(now);
 			const ys = layoutLabels(boxes, safeTop);
 			for (let i = 0; i < laid.length; i++) {
 				laid[i].v.labelRoot.position.set(laid[i].x, LABEL_Y, ys[i] + plateDrop);
@@ -307,6 +395,8 @@ export function createEnemyRenderer(
 				v.labelRoot.dispose(false, true);
 			}
 			visuals.clear();
+			for (const d of dying) d.sprite.dispose();
+			dying.length = 0;
 		},
 	};
 }

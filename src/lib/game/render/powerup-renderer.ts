@@ -11,7 +11,7 @@ import type { Scene } from "@babylonjs/core/scene";
 import type { GameState, PowerupKind } from "../sim/state";
 import { labelScale } from "./enemy-renderer";
 import { drawLabel } from "./label";
-import { FIELD_GROUP, type SceneView } from "./scene";
+import { LABEL_GROUP, type SceneView } from "./scene";
 import { CELLS } from "./sprite-atlas";
 import { powerupVisual } from "./visuals";
 
@@ -73,7 +73,7 @@ export function createPowerupRenderer(
 			scene,
 		);
 		label.parent = root;
-		label.renderingGroupId = FIELD_GROUP;
+		label.renderingGroupId = LABEL_GROUP;
 		label.position.set(0, CRYSTAL_Y + 1, 0);
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
 		// mipmaps ON + unlit emissive/opacity material — same clarity treatment as

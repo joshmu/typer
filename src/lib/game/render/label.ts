@@ -23,7 +23,7 @@ const QUEUE_SCALE = 0.8;
 const QUEUE_ALPHA = 0.8;
 
 // the app's typing face; canvas text falls back to monospace until it loads
-const LABEL_FONT = '"Roboto Mono", ui-monospace, monospace';
+export const LABEL_FONT = '"Roboto Mono", ui-monospace, monospace';
 
 /** Theme colours the plates draw with (see refreshLabelTheme). */
 type LabelTheme = {
@@ -111,6 +111,8 @@ type PlateOpts = {
 	kind?: LabelRow["kind"];
 	// a just-absorbed completion: "clang" off a shield, "blocked" by armour
 	flash?: PlateFlash;
+	// 0..1: the newest typed letter is popping (1 = just typed)
+	pop?: number;
 };
 
 /** A short flash on the front plate after an absorbed completion. */
@@ -291,11 +293,30 @@ function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
 		c.fillText(rest, tx + typedW, ty);
 	}
 	if (typed) {
+		const pop = opts.pop ?? 0;
 		c.globalAlpha = alpha;
 		c.shadowColor = theme.primary;
 		c.shadowBlur = fontPx * 0.35;
 		c.fillStyle = theme.primary;
-		c.fillText(typed, tx, ty);
+		if (pop > 0) {
+			// the newest letter swells and flares, then settles into the prefix
+			const head = typed.slice(0, -1);
+			const last = typed.slice(-1);
+			c.fillText(head, tx, ty);
+			const lx = tx + c.measureText(head).width;
+			const lw = c.measureText(last).width;
+			const s = 1 + 0.45 * pop;
+			c.save();
+			c.translate(lx + lw / 2, cy);
+			c.scale(s, s);
+			c.shadowBlur = fontPx * (0.35 + 0.6 * pop);
+			// it lands white-hot, then cools into the ember prefix
+			c.fillStyle = pop > 0.5 ? theme.ink : theme.primary;
+			c.fillText(last, -lw / 2, ty - cy);
+			c.restore();
+		} else {
+			c.fillText(typed, tx, ty);
+		}
 		c.shadowBlur = 0;
 		c.shadowColor = "transparent";
 	}
@@ -386,6 +407,7 @@ export function drawStackedLabel(
 	rows: readonly LabelRow[],
 	isTarget: boolean,
 	flash: PlateFlash = "none",
+	pop = 0,
 ): void {
 	const visible = Math.min(MAX_STACK, rows.length);
 	const overflow = rows.length - visible;
@@ -394,7 +416,7 @@ export function drawStackedLabel(
 		shown += `${rows[i].kind[0]}${rows[i].word},`;
 	}
 	const typed = rows[0]?.typed ?? 0;
-	const key = `${shown}:${typed}:${isTarget ? 1 : 0}:${overflow}:${flash}:${fontEpoch}`;
+	const key = `${shown}:${typed}:${isTarget ? 1 : 0}:${overflow}:${flash}:${pop}:${fontEpoch}`;
 	if (key === v.lastText) return;
 	v.lastText = key;
 
@@ -420,6 +442,7 @@ export function drawStackedLabel(
 				texW: W,
 				kind: row.kind,
 				flash,
+				pop,
 			});
 		} else {
 			// queued rows: smaller + slightly dimmed, no progress (not yet started)
