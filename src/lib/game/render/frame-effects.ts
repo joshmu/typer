@@ -91,20 +91,38 @@ export function dispatchEffects(
 	if (breached) fx.coreHit();
 }
 
+/** The kill streak at the previous draw and at this one. */
+export type ComboSpan = { before: number; after: number };
+
 /**
- * Score and multiplier to show on the `nth` of a frame's `of` kills. Each
- * kill carries the multiplier of the streak it reached (`combo` is the streak
- * after the frame). Its points come from `scoreFor(streak)` when the renderer
- * knows the kill's word; otherwise the frame's score gain is split evenly.
+ * The streak the `nth` of a frame's `of` kills reached. Every kill adds one,
+ * and a miss (no event) resets to 0, so when the streak did not simply grow
+ * by `of`, the last `after` kills started afresh and any before them
+ * continued from `before`: a kill then a miss reads as before + 1, not 0.
+ */
+function killStreak(of: number, nth: number, { before, after }: ComboSpan) {
+	if (after === before + of) return before + nth + 1;
+	if (after <= of) {
+		const restart = of - after;
+		return nth >= restart ? nth - restart + 1 : before + nth + 1;
+	}
+	return Math.max(0, after - (of - 1 - nth));
+}
+
+/**
+ * Score and multiplier to show on the `nth` of a frame's `of` kills, from the
+ * streak that kill reached. Its points come from `scoreFor(streak)` when the
+ * renderer knows the kill's word; otherwise the frame's score gain is split
+ * evenly.
  */
 export function killCredit(
 	of: number,
 	scoreGain: number,
-	combo: number,
+	combo: ComboSpan,
 	nth: number,
 	scoreFor?: (streak: number) => number,
 ): { points: number; mult: number } {
-	const streak = Math.max(0, combo - (of - 1 - nth));
+	const streak = killStreak(of, nth, combo);
 	const mult = comboMultiplier(streak);
 	if (scoreFor) return { points: Math.max(0, scoreFor(streak)), mult };
 	const gain = Math.max(0, scoreGain);

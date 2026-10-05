@@ -104,6 +104,8 @@ export function createBabylonRenderer(
 	// per-draw context the effect commands read
 	let now = 0;
 	let combo = 0;
+	// the streak at the previous draw and this one, for each kill's own streak
+	const comboSpan = { before: 0, after: 0 };
 	let scoreGain = 0;
 	let feel: JuiceOutput = juice.update(0, 0);
 
@@ -134,7 +136,7 @@ export function createBabylonRenderer(
 				color,
 				boss,
 				now,
-				killCredit(of, scoreGain, combo, nth, scoreFor),
+				killCredit(of, scoreGain, comboSpan, nth, scoreFor),
 			);
 			gameScene.ground.stampCorpse(x, y, color, id);
 			// the death lands when the shot does
@@ -172,6 +174,8 @@ export function createBabylonRenderer(
 			}
 			current = state;
 			combo = state.combo;
+			comboSpan.before = comboSpan.after;
+			comboSpan.after = state.combo;
 			scoreGain = state.score - lastScore;
 			lastScore = state.score;
 			for (const ev of events) {
