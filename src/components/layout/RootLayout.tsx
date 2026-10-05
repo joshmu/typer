@@ -32,7 +32,7 @@ export default function RootLayout(props: ParentProps) {
 				>
 					typer<span class="text-primary/50">_</span>
 				</a>
-				<nav class="flex gap-6 items-center font-display text-sm">
+				<nav class="flex gap-6 items-center font-display text-sm font-medium">
 					{LINKS.map((link) => (
 						<a
 							href={link.href}
