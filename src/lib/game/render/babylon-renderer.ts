@@ -1,8 +1,10 @@
-import { Vector3 } from "@babylonjs/core/Maths/math";
+import { Color3, Vector3 } from "@babylonjs/core/Maths/math";
 import type { RunRenderer } from "../session/run-session";
+import { arenaInk } from "../view";
 import { createEffects } from "./effects";
 import { createEnemyRenderer } from "./enemy-renderer";
 import { dispatchEffects, type EffectCommands } from "./frame-effects";
+import { loadLabelFont, refreshLabelTheme } from "./label";
 import { createPowerupRenderer } from "./powerup-renderer";
 import { createGameScene } from "./scene";
 import { createSpriteAtlas } from "./sprite-atlas";
@@ -13,6 +15,11 @@ export type BabylonRenderer = RunRenderer & {
 	/** Call `frame` once per display frame until disposed. */
 	runRenderLoop(frame: () => void): void;
 };
+
+/** A theme hex colour as a Color3, or the fallback if it isn't #rrggbb. */
+function toColor3(hex: string, fallback: string): Color3 {
+	return Color3.FromHexString(/^#[0-9a-f]{6}$/i.test(hex) ? hex : fallback);
+}
 
 export function createBabylonRenderer(
 	canvas: HTMLCanvasElement,
@@ -25,14 +32,26 @@ export function createBabylonRenderer(
 		gameScene.scene,
 		gameScene.glow,
 		atlas.manager,
+		gameScene.view,
 	);
 	const powerups = createPowerupRenderer(
 		gameScene.scene,
 		gameScene.glow,
 		atlas.manager,
+		gameScene.view,
 	);
 	const effects = createEffects(gameScene.scene);
-	const turret = createTurret(gameScene.scene, atlas.manager);
+	// plates and the turret draw in the live theme
+	const css = getComputedStyle(document.documentElement);
+	const readVar = (name: string) => css.getPropertyValue(name).trim();
+	const ink = arenaInk(readVar("--bg"), readVar("--text"));
+	const turret = createTurret(gameScene.scene, atlas.manager, {
+		primary: toColor3(readVar("--primary"), "#e2b714"),
+		error: toColor3(readVar("--error"), "#ca4754"),
+		plate: toColor3(ink.plate, "#101218"),
+	});
+	refreshLabelTheme(readVar, arenaInk);
+	loadLabelFont();
 	// scratch vectors reused every frame — the hot path allocates nothing
 	const muzzle = new Vector3();
 	const shotTo = new Vector3();
@@ -64,12 +83,18 @@ export function createBabylonRenderer(
 
 	return {
 		draw(state, events) {
+			const now = performance.now();
+			for (const ev of events) {
+				if (ev.type !== "absorb") continue;
+				const e = state.enemies.find((en) => en.id === ev.id);
+				enemies.absorbed(ev.id, e?.ability?.kind === "armored-front", now);
+			}
 			turret.update(state);
 			dispatchEffects(events, fx);
 			// one GPU upload for every corpse/scar stamped this frame
 			gameScene.ground.flush();
 			effects.update(state);
-			enemies.sync(state);
+			enemies.sync(state, now);
 			powerups.sync(state);
 			gameScene.scene.render();
 		},

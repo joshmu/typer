@@ -11,29 +11,40 @@ import type { Scene } from "@babylonjs/core/scene";
 import { getArchetype, isBoss } from "../content/enemies";
 import { isCloaked } from "../sim/abilities";
 import type { GameState } from "../sim/state";
-import { drawStackedLabel } from "./label";
+import { spawnFade } from "../view";
+import {
+	drawStackedLabel,
+	FONT_IDLE,
+	FONT_TARGET,
+	MAX_STACK,
+	type PlateFlash,
+} from "./label";
+import { type LabelBox, layoutLabels } from "./label-layout";
+import { type LabelRow, labelRows } from "./label-rows";
+import { FIELD_GROUP, type SceneView } from "./scene";
 import { spriteAngle } from "./sprite-angle";
 import { walkCells } from "./sprite-atlas";
 
-// World-unit size of a size-1 archetype sprite. Tuned for top-down readability
-// under the ortho camera (playtest: enemies were "basic pixels", too small).
-// Playtest 2026-07-12: the first pass (scale 6) filled the frame with giant
-// creatures — the whole render scale read ~3× too big against the arena, so
-// sprites/labels/effects were brought down together (camera and sim untouched).
-const ENEMY_SPRITE_SCALE = 2;
-const BOSS_SCALE = 1.2; // bosses render larger on top of their bigger size (1.6 read oversized)
+// World-unit size of a size-1 archetype sprite: ~61 CSS px on the reference
+// canvas (~12 px/unit), ~1 CSS px per art px. Archetype size is compressed
+// (size^0.6) so the smallest creatures stay readable and bosses don't swamp
+// the frame.
+const ENEMY_SPRITE_SCALE = 5;
+const SIZE_CURVE = 0.6;
+const BOSS_SCALE = 1.05; // bosses are already large by archetype size
 const SPRITE_Y = 1.2; // lift sprites above the ground/decals
 const LABEL_Y = 2.4; // draw label planes above the sprites
-// world distance travelled between the two walk cells — a chunky, readable gait
-const WALK_STEP = 0.4;
+// world distance per step of the gait, and the sway (radians) at each step
+const WALK_STEP = 0.5;
+const WADDLE = 0.08;
 
 // Label plane geometry. The texture is 512×768 — six 128px rows: the CURRENT
 // word plate sits in the bottom row (its centre hangs LABEL_ROW_DROP below the
 // plane centre), up to four queued words stack above it, and the top row holds
 // the overflow chip. The plane is positioned so the bottom plate lands a small
-// gap above the sprite's top edge — under the top-down ortho camera, +z is
-// screen-up. Label planes are UI: the word must stay readable (~14px on a
-// ~970px-tall canvas) over the much smaller art.
+// gap above the sprite's top edge (under the top-down ortho camera, +z is
+// screen-up). The whole label is then scaled per frame so text keeps a fixed
+// on-screen size whatever the camera zoom (labelScale).
 const LABEL_PLANE_W = 7;
 const LABEL_TEX_W = 512;
 const LABEL_TEX_H = 768;
@@ -43,11 +54,18 @@ const LABEL_ROW_DROP = LABEL_PLANE_H / 2 - LABEL_ROW_W / 2;
 // half the plate height in world units (104px plate row)
 const LABEL_PLATE_HALF = (104 / LABEL_TEX_H) * (LABEL_PLANE_H / 2);
 const LABEL_GAP = 0.35; // clearance between sprite top edge and plate bottom
+// idle glyph em height in world units at label scale 1
+const IDLE_FONT_WORLD = (FONT_IDLE / LABEL_TEX_W) * LABEL_PLANE_W;
+
+/** Scale a label plane so its idle glyphs land at `view.fontPx` on screen. */
+export function labelScale(view: SceneView): number {
+	return view.fontPx / (IDLE_FONT_WORLD * view.ppu);
+}
 
 type EnemyVisual = {
 	sprite: Sprite;
-	cells: readonly [number, number];
 	label: Mesh;
+	labelMat: StandardMaterial;
 	labelRoot: TransformNode;
 	texture: DynamicTexture;
 	lastText: string;
@@ -61,12 +79,37 @@ type EnemyVisual = {
 	// world-unit sprite size (archetype size × scale), resolved once at create so
 	// sync never re-reads the archetype table per frame
 	baseSize: number;
-	// screen-up world offset from the enemy to the label plane centre, chosen so
-	// the bottom-row word plate floats just above the sprite (see LABEL_* consts)
-	labelUp: number;
+	// half the rendered sprite size: the label's bottom plate floats just above it
+	spriteHalf: number;
 	phase: number;
 	isBoss: boolean;
+	// wall-clock end of the front plate's absorb flash (0 = none) and its kind
+	flashUntil: number;
+	flash: PlateFlash;
 };
+
+// how long the front plate rings after an absorbed completion
+const FLASH_MS = 180;
+// CSS px kept clear of labels under the top HUD (wave, score, hull)
+const HUD_SAFE_TOP_PX = 120;
+
+/** Approximate on-screen box of a label stack, in world units at scale `ls`. */
+function labelBox(
+	x: number,
+	bottom: number,
+	rows: readonly LabelRow[],
+	isTarget: boolean,
+	ls: number,
+): LabelBox {
+	const shown = Math.min(MAX_STACK, rows.length);
+	let chars = 0;
+	for (let i = 0; i < shown; i++) chars = Math.max(chars, rows[i].word.length);
+	const em = IDLE_FONT_WORLD * ls * (isTarget ? FONT_TARGET / FONT_IDLE : 1);
+	const icon = rows[0]?.kind === "normal" ? 0 : 0.95;
+	const width = (chars * 0.62 + 0.9 + icon) * em;
+	const stack = shown + (rows.length > shown ? 1 : 0);
+	return { x, bottom, halfW: width / 2, height: stack * LABEL_ROW_W * ls };
+}
 
 // squared-velocity threshold below which facing is held (matches sprite-angle's
 // own negligible-velocity guard)
@@ -82,6 +125,7 @@ export function createEnemyRenderer(
 	scene: Scene,
 	glow: GlowLayer,
 	manager: SpriteManager,
+	view: SceneView,
 ) {
 	const visuals = new Map<number, EnemyVisual>();
 
@@ -104,9 +148,10 @@ export function createEnemyRenderer(
 			scene,
 		);
 		label.parent = labelRoot;
+		label.renderingGroupId = FIELD_GROUP;
 		label.billboardMode = TransformNode.BILLBOARDMODE_ALL;
-		// mipmaps ON: the 512px texture renders ~5-6× minified under the ortho zoom,
-		// and without them the text shimmers into mud (HUD-vs-label clarity gap)
+		// mipmaps ON: the texture renders minified, and without them the text
+		// shimmers into mud
 		const texture = new DynamicTexture(
 			`enemy-${id}-tex`,
 			{ width: LABEL_TEX_W, height: LABEL_TEX_H },
@@ -124,12 +169,12 @@ export function createEnemyRenderer(
 		label.material = labelMat;
 		glow.addExcludedMesh(label); // word plates stay crisp, never bloomed
 
-		const baseSize = arch.size * ENEMY_SPRITE_SCALE;
+		const baseSize = arch.size ** SIZE_CURVE * ENEMY_SPRITE_SCALE;
 		const renderSize = baseSize * (boss ? BOSS_SCALE : 1);
 		return {
 			sprite,
-			cells,
 			label,
+			labelMat,
 			labelRoot,
 			texture,
 			lastText: "",
@@ -138,14 +183,30 @@ export function createEnemyRenderer(
 			lastY: 0,
 			lastAngle: 0,
 			baseSize,
-			labelUp: renderSize / 2 + LABEL_GAP + LABEL_PLATE_HALF + LABEL_ROW_DROP,
+			spriteHalf: renderSize / 2,
 			phase: idPhase(id),
 			isBoss: boss,
+			flashUntil: 0,
+			flash: "none",
 		};
 	}
 
 	return {
-		sync(state: GameState) {
+		/** An enemy's completion was absorbed: ring its front plate, red if
+		 * armour refused it, otherwise the clang of a shield charge popping. */
+		absorbed(id: number, armoured: boolean, now: number) {
+			const v = visuals.get(id);
+			if (!v) return;
+			v.flash = armoured ? "blocked" : "clang";
+			v.flashUntil = now + FLASH_MS;
+		},
+		sync(state: GameState, now: number) {
+			const ls = labelScale(view);
+			const plateDrop = (LABEL_PLATE_HALF + LABEL_ROW_DROP) * ls;
+			const safeTop = view.halfH - HUD_SAFE_TOP_PX / view.ppu;
+			// labels of on-screen enemies, laid out together after the loop
+			const laid: { v: EnemyVisual; x: number }[] = [];
+			const boxes: LabelBox[] = [];
 			const present = new Set(state.enemies.map((e) => e.id));
 			for (const [id, v] of visuals) {
 				if (!present.has(id)) {
@@ -166,7 +227,23 @@ export function createEnemyRenderer(
 
 				// position the sprite flat on the field; label floats above it on screen
 				v.sprite.position.set(e.pos.x, SPRITE_Y, e.pos.y);
-				v.labelRoot.position.set(e.pos.x, LABEL_Y, e.pos.y + v.labelUp);
+				v.labelRoot.scaling.setAll(ls);
+				const rows = labelRows(e);
+				// natural bottom edge of the label: just above the sprite
+				const natural = e.pos.y + v.spriteHalf + LABEL_GAP;
+				if (e.pos.y - v.spriteHalf < view.halfH) {
+					const box = labelBox(e.pos.x, natural, rows, isTarget, ls);
+					// a label that would run up under the HUD hangs below its
+					// sprite instead, so it never detaches from the creature
+					if (natural + box.height > safeTop) {
+						box.bottom = e.pos.y - v.spriteHalf - LABEL_GAP - box.height;
+					}
+					laid.push({ v, x: e.pos.x });
+					boxes.push(box);
+				} else {
+					// above the frame: no layout, no HUD clamp
+					v.labelRoot.position.set(e.pos.x, LABEL_Y, natural + plateDrop);
+				}
 
 				// face travel direction (sim velocity) — a creature walking forward.
 				// Hold the last angle while velocity is negligible so a paused enemy
@@ -175,17 +252,17 @@ export function createEnemyRenderer(
 				if (e.vel.x * e.vel.x + e.vel.y * e.vel.y > FACING_EPSILON_SQ) {
 					v.lastAngle = spriteAngle(e.vel.x, e.vel.y);
 				}
-				v.sprite.angle = v.lastAngle;
-
-				// walk-cycle: alternate the two pose cells by distance travelled so a
-				// faster enemy visibly steps faster and a stopped one holds a pose
+				// gait: a waddle driven by distance travelled, so a faster enemy
+				// visibly steps faster and a stopped one holds still. The atlas's two
+				// walk cells are different creatures for most families, so the
+				// sprite keeps one cell and the gait is a sway instead of a swap.
 				const dx = e.pos.x - v.lastX;
 				const dy = e.pos.y - v.lastY;
 				v.walkDist += Math.sqrt(dx * dx + dy * dy);
 				v.lastX = e.pos.x;
 				v.lastY = e.pos.y;
-				const frame = Math.floor(v.walkDist / WALK_STEP) % 2;
-				v.sprite.cellIndex = v.cells[frame];
+				v.sprite.angle =
+					v.lastAngle + Math.sin((v.walkDist / WALK_STEP) * Math.PI) * WADDLE;
 
 				// size: archetype size × scale (bosses ×2), with a slow menacing boss
 				// pulse; the locked target swells slightly so it reads as acquired
@@ -198,16 +275,30 @@ export function createEnemyRenderer(
 				v.sprite.width = size;
 				v.sprite.height = size;
 
-				// cloak → alpha flutter while hidden; else fully opaque
-				if (e.ability?.kind === "cloak") {
-					v.sprite.color.a = isCloaked(e, state.tick)
-						? 0.18 + 0.1 * (0.5 + 0.5 * Math.sin(state.tick * 0.4 + v.phase))
-						: 1;
+				// fresh spawns fade in from the spawn ring; cloak flutters while hidden
+				const fade = spawnFade(
+					Math.sqrt(e.pos.x * e.pos.x + e.pos.y * e.pos.y),
+				);
+				let alpha = fade;
+				if (e.ability?.kind === "cloak" && isCloaked(e, state.tick)) {
+					alpha *=
+						0.18 + 0.1 * (0.5 + 0.5 * Math.sin(state.tick * 0.4 + v.phase));
 				}
+				v.sprite.color.a = alpha;
+				v.labelMat.alpha = fade;
 
-				// target emphasis comes from the label draw itself (bigger font, amber
+				// target emphasis comes from the label draw itself (bigger font, --primary
 				// border, chevron) — mesh scaling would shift the bottom-anchored plate
-				drawStackedLabel(v, e.words, e.wordIndex, e.typedCount, isTarget);
+				if (v.flash !== "none" && now >= v.flashUntil) v.flash = "none";
+				drawStackedLabel(v, rows, isTarget, v.flash);
+			}
+
+			// keep neighbouring labels apart and out from under the HUD. A plate
+			// closing in from above is held on its neighbour's top edge, so the
+			// lift grows smoothly; no easing, so every frame is overlap-free.
+			const ys = layoutLabels(boxes, safeTop);
+			for (let i = 0; i < laid.length; i++) {
+				laid[i].v.labelRoot.position.set(laid[i].x, LABEL_Y, ys[i] + plateDrop);
 			}
 		},
 		dispose() {

@@ -1,21 +1,15 @@
-import {
-	createEffect,
-	createMemo,
-	createSignal,
-	For,
-	onCleanup,
-	onMount,
-	Show,
-} from "solid-js";
-import { hudView } from "@/lib/game/hud-view";
+import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
 import type { GameLoop } from "@/lib/game/render/loop";
-import { PERK_DEFS } from "@/lib/game/sim/perks";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
 import type { GameState } from "@/lib/game/sim/state";
-import { vignetteGradient } from "@/lib/game/view";
+import { arenaInk, frameFor, vignetteGradient } from "@/lib/game/view";
+import { setRunLive } from "@/lib/game-chrome";
 import { getBestRun, saveGameRun, useBestRun } from "@/lib/game-runs";
 import DeathScreen from "./DeathScreen";
+import Hud from "./Hud";
+import PerkDraft from "./PerkDraft";
 import StartScreen from "./StartScreen";
+import { VEIL } from "./veil";
 
 declare global {
 	interface Window {
@@ -30,13 +24,9 @@ declare global {
 	}
 }
 
-/** Rarity accent for a perk card: slate (common) / cyan (rare) / amber glow (epic). */
-function perkAccent(rarity: "common" | "rare" | "epic"): string {
-	if (rarity === "epic")
-		return "border-amber-400 shadow-[0_0_22px_rgba(251,191,36,0.45)]";
-	if (rarity === "rare") return "border-cyan-400";
-	return "border-slate-500";
-}
+// after the core falls, ignore restart keys this long so a word typed in the
+// final moment can't skip the ending
+const DEATH_INPUT_GRACE_MS = 800;
 
 export default function GameShell() {
 	let canvasRef: HTMLCanvasElement | undefined;
@@ -51,6 +41,7 @@ export default function GameShell() {
 	let currentSeed = 0;
 	// one-shot guard: persist a run exactly once per gameover, reset on restart
 	let saved = false;
+	let gameoverAt = 0;
 	const [hud, setHud] = createSignal<GameState | null>(null);
 	const [ready, setReady] = createSignal(false);
 	const bestRun = useBestRun();
@@ -68,7 +59,29 @@ export default function GameShell() {
 	// gate typing into the sim until the player starts; testMode auto-starts so
 	// deterministic probes (window.__game) keep working without a keypress
 	const [started, setStarted] = createSignal(testMode);
+	const [paused, setPaused] = createSignal(false);
 	const [newBest, setNewBest] = createSignal(false);
+	const [previousBest, setPreviousBest] = createSignal<number | null>(null);
+
+	const isOver = () => hud()?.status === "gameover";
+	// a run is live while the sim is advancing under the player's hands: the
+	// site header gets out of the way and the arena owns the viewport
+	createEffect(() =>
+		setRunLive(ready() && started() && !paused() && !isOver()),
+	);
+	onCleanup(() => setRunLive(false));
+
+	// the arena is always dark, so a light theme's bg/text pair is swapped for
+	// everything inside the shell (plates use the same rule, see arenaInk)
+	const [ink, setInk] = createSignal<{ plate: string; ink: string } | null>(
+		null,
+	);
+	onMount(() => {
+		const css = getComputedStyle(document.documentElement);
+		setInk(
+			arenaInk(css.getPropertyValue("--bg"), css.getPropertyValue("--text")),
+		);
+	});
 
 	function nextSeed(): number {
 		return fixedSeed ?? Date.now() % 2 ** 31;
@@ -81,6 +94,7 @@ export default function GameShell() {
 		const stats = deriveRunStats(state);
 		// prior best, read before this run is added
 		const prev = await getBestRun();
+		setPreviousBest(prev?.score ?? null);
 		setNewBest(prev === undefined || stats.score > prev.score);
 		await saveGameRun({
 			...stats,
@@ -94,6 +108,7 @@ export default function GameShell() {
 			// set the guard synchronously so the effect re-running (hud() churns
 			// every frame) can never kick off a second save before the first awaits
 			saved = true;
+			gameoverAt = performance.now();
 			void persistRun(state);
 		}
 	});
@@ -138,11 +153,25 @@ export default function GameShell() {
 		await startLoop(nextSeed(), testMode);
 	});
 
+	function start() {
+		if (started() || !ready()) return;
+		setStarted(true);
+		loop?.setRunning(true);
+	}
+
+	function setPause(next: boolean) {
+		if (!started() || isOver() || paused() === next) return;
+		setPaused(next);
+		loop?.setRunning(!next);
+	}
+
 	function restart() {
 		loop?.dispose();
 		loop = undefined;
 		saved = false;
 		setNewBest(false);
+		setPreviousBest(null);
+		setPaused(false);
 		setHud(null);
 		setReady(false);
 		setStarted(true);
@@ -157,25 +186,65 @@ export default function GameShell() {
 	});
 
 	function onKeyDown(e: KeyboardEvent) {
+		if (e.metaKey || e.ctrlKey || e.altKey) {
+			// never let the browser navigate back out of the game
+			if (e.key === "Backspace") e.preventDefault();
+			return;
+		}
 		// Backspace releases the current lock. Always preventDefault so the browser
 		// never navigates back out of the game; only feed the sim a release event
-		// during live play (inert on the start overlay and the death screen).
+		// during live play (inert on every overlay).
 		if (e.key === "Backspace") {
 			e.preventDefault();
-			if (e.metaKey || e.ctrlKey || e.altKey) return;
-			if (hud()?.status === "gameover" || !started()) return;
+			if (isOver() || !started() || paused()) return;
 			loop?.pushBackspace();
 			return;
 		}
-		if (e.key.length !== 1 || e.metaKey || e.ctrlKey || e.altKey) return;
-		// death screen: R restarts, everything else is inert
-		if (hud()?.status === "gameover") {
-			if (e.key === "r" || e.key === "R") {
+		// Esc pauses a live run and resumes a paused one
+		if (e.key === "Escape") {
+			// a pause always resumes, whatever paused it (a hidden tab can pause
+			// the perk draft); a fresh pause needs a live run outside the draft
+			if (paused()) {
 				e.preventDefault();
+				setPause(false);
+			} else if (started() && !isOver() && hud()?.wavePhase !== "perk-choice") {
+				e.preventDefault();
+				setPause(true);
+			}
+			return;
+		}
+		const isStartKey = e.key === "Enter" || e.key.length === 1;
+		// death screen: R (or Enter) restarts once the ending has had a moment
+		if (isOver()) {
+			if (e.key === "r" || e.key === "R" || e.key === "Enter") {
+				e.preventDefault();
+				if (
+					!testMode &&
+					performance.now() - gameoverAt < DEATH_INPUT_GRACE_MS
+				) {
+					return;
+				}
 				restart();
 			}
 			return;
 		}
+		// the first key dismisses the start screen and starts the sim, but is
+		// itself swallowed: it must not feed a keystroke into the run
+		if (!started()) {
+			if (isStartKey) {
+				e.preventDefault();
+				start();
+			}
+			return;
+		}
+		if (paused()) {
+			if (e.key === "Enter" || e.key === " ") {
+				e.preventDefault();
+				setPause(false);
+			}
+			return;
+		}
+		if (e.key.length !== 1) return;
 		// perk-choice overlay: digits 1/2/3 pick a card; every other key is inert
 		// (the sim ignores keys in this phase anyway — swallow them for cleanliness)
 		if (hud()?.wavePhase === "perk-choice") {
@@ -187,31 +256,33 @@ export default function GameShell() {
 		}
 		// stop the browser acting on gameplay keys (space scroll, quick-find, …)
 		e.preventDefault();
-		// first keypress dismisses the start screen and resumes the sim, but is
-		// itself swallowed — it must not feed a keystroke into the run
-		if (!started()) {
-			setStarted(true);
-			loop?.setRunning(true);
-			return;
-		}
 		loop?.pushKey(e.key);
+	}
+
+	// leaving the tab mid-run pauses it rather than letting the horde walk in
+	function onVisibility() {
+		if (document.hidden) setPause(true);
 	}
 
 	onMount(() => {
 		window.addEventListener("keydown", onKeyDown);
-		onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+		document.addEventListener("visibilitychange", onVisibility);
+		onCleanup(() => {
+			window.removeEventListener("keydown", onKeyDown);
+			document.removeEventListener("visibilitychange", onVisibility);
+		});
 		// The arena has its own lighting; page-level theme atmosphere stays off.
 		document.documentElement.dataset.surface = "game";
 		onCleanup(() => delete document.documentElement.dataset.surface);
 	});
 
-	// live canvas CSS height → drives the vignette gradient's pixel radii (the
-	// ortho camera always frames 2×ORTHO_HALF world units vertically)
-	const [shellHeight, setShellHeight] = createSignal(0);
+	// live shell size drives the vignette ellipse
+	const [shellSize, setShellSize] = createSignal({ w: 0, h: 0 });
 	onMount(() => {
 		if (!shellRef) return;
 		const ro = new ResizeObserver((entries) => {
-			setShellHeight(entries[0]?.contentRect.height ?? 0);
+			const r = entries[0]?.contentRect;
+			setShellSize({ w: r?.width ?? 0, h: r?.height ?? 0 });
 		});
 		ro.observe(shellRef);
 		onCleanup(() => ro.disconnect());
@@ -220,221 +291,73 @@ export default function GameShell() {
 	return (
 		<div
 			ref={shellRef}
-			class="relative h-[calc(100vh-8rem)] w-full"
+			class="relative h-dvh w-full overflow-hidden bg-black text-text"
+			style={ink() ? { "--bg": ink()?.plate, "--text": ink()?.ink } : undefined}
 			data-testid="game-shell"
+			data-tick={hud()?.tick ?? 0}
 		>
 			<canvas ref={canvasRef} class="h-full w-full outline-none" />
-			{/* darkness past the spawn ring: enemies emerge from the dark instead of
-			    popping into view mid-screen (the ring sits inside the frame on wide
-			    viewports). Sits above the canvas, below every HUD/overlay element. */}
+			{/* frames the arena: clear over the play area, deepening toward the
+			    corners where the floor gives way to space. Above the canvas,
+			    below every HUD/overlay element. */}
 			<div
 				data-testid="game-vignette"
 				class="pointer-events-none absolute inset-0"
-				style={{ "background-image": vignetteGradient(shellHeight()) }}
+				style={{
+					"background-image": vignetteGradient(shellSize().w, shellSize().h),
+				}}
 			/>
 			<Show when={!ready()}>
-				<div class="absolute inset-0 grid place-items-center text-sm opacity-70">
+				<div class="absolute inset-0 grid place-items-center font-display text-sm uppercase tracking-[0.3em] text-text-sub">
 					Loading arena…
 				</div>
 			</Show>
-			<Show when={hud()}>
-				{(state) => {
-					const view = createMemo(() => hudView(state()));
-					return (
-						<>
-							{/* top-center: score, hearts, kills */}
-							<div class="pointer-events-none absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-6 font-mono text-sm">
-								<span data-testid="game-score">score {state().score}</span>
-								<span data-testid="game-hp" class="flex gap-0.5 text-base">
-									<For each={Array.from({ length: state().maxPlayerHp })}>
-										{(_, i) => (
-											<span
-												class={
-													i() < state().playerHp
-														? "text-rose-400"
-														: "opacity-30"
-												}
-											>
-												{i() < state().playerHp ? "♥" : "♡"}
-											</span>
-										)}
-									</For>
-								</span>
-								<span data-testid="game-kills">kills {state().kills}</span>
-							</div>
-
-							{/* top-center (below score): boss life bar — one segment per
-							    remaining word, visible while any boss is alive */}
-							<Show when={view().boss}>
-								{(boss) => (
-									<div
-										data-testid="boss-bar"
-										class="pointer-events-none absolute top-11 left-1/2 flex w-96 max-w-[80vw] -translate-x-1/2 flex-col gap-1 font-mono text-xs"
-									>
-										<div class="flex items-baseline justify-between">
-											<span class="font-bold tracking-wider text-amber-300">
-												{boss().name}
-											</span>
-											<span class="opacity-70">
-												{boss().hp}/{boss().maxHp}
-											</span>
-										</div>
-										<div class="flex gap-0.5">
-											<For each={Array.from({ length: boss().maxHp })}>
-												{(_, i) => (
-													<div
-														class="h-2 flex-1 rounded-sm"
-														classList={{
-															"bg-amber-400": i() < boss().hp,
-															"bg-white/10": i() >= boss().hp,
-														}}
-													/>
-												)}
-											</For>
-										</div>
-									</div>
-								)}
-							</Show>
-
-							{/* top-left: active wave chip + combo meter */}
-							<div class="pointer-events-none absolute top-3 left-3 flex flex-col gap-2 font-mono text-xs">
-								<Show when={view().wave}>
-									{(wave) => (
-										<Show
-											when={wave().frenzy}
-											fallback={
-												<span
-													data-testid="game-wave"
-													class="rounded bg-white/10 px-2 py-1"
-												>
-													{wave().label}
-												</span>
-											}
-										>
-											<span
-												data-testid="wave-frenzy"
-												class="animate-pulse rounded bg-red-500/25 px-2 py-1 font-bold tracking-wider text-amber-300 shadow-[0_0_12px_rgba(248,113,113,0.7)]"
-											>
-												{wave().label}
-											</span>
-										</Show>
-									)}
-								</Show>
-								<Show when={view().combo}>
-									{(combo) => (
-										<div
-											data-testid="game-combo"
-											class="w-28 rounded bg-white/10 px-2 py-1 transition-shadow"
-											classList={{
-												"shadow-[0_0_14px_rgba(251,191,36,0.75)] bg-amber-400/15":
-													combo().hot,
-											}}
-										>
-											<div class="flex justify-between">
-												<span>combo {combo().count}</span>
-												<span
-													class="text-amber-300"
-													classList={{
-														"font-bold drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]":
-															combo().hot,
-													}}
-												>
-													&times;{combo().multiplier}
-												</span>
-											</div>
-											<div class="mt-1 h-1 w-full overflow-hidden rounded bg-white/10">
-												<div
-													class="h-full bg-amber-400 transition-[width] duration-100"
-													style={{ width: `${combo().fraction * 100}%` }}
-												/>
-											</div>
-										</div>
-									)}
-								</Show>
-							</div>
-
-							{/* center: wave-incoming banner during intermission */}
-							<Show when={view().incoming}>
-								{(incoming) => (
-									<div class="pointer-events-none absolute inset-x-0 top-1/3 text-center font-mono text-2xl font-bold tracking-widest text-amber-300 animate-pulse">
-										{incoming()}
-									</div>
-								)}
-							</Show>
-
-							{/* bottom-left: owned-perk strip (short names, tiny mono chips) */}
-							<Show when={view().perkChips.length > 0}>
-								<div
-									data-testid="perk-strip"
-									class="pointer-events-none absolute bottom-3 left-3 flex max-w-[42vw] flex-wrap gap-1 font-mono text-[10px] leading-none"
-								>
-									<For each={view().perkChips}>
-										{(chip) => (
-											<span class="rounded bg-white/10 px-1.5 py-1 tracking-wide opacity-80">
-												{chip}
-											</span>
-										)}
-									</For>
-								</div>
-							</Show>
-						</>
-					);
-				}}
-			</Show>
-
-			{/* perk draft overlay: three rarity-accented cards, keys [1]/[2]/[3] */}
-			<Show when={hud()?.wavePhase === "perk-choice" ? hud() : null}>
+			<Show when={started() && !isOver() ? hud() : null}>
 				{(state) => (
-					<div
-						data-testid="perk-overlay"
-						class="absolute inset-0 z-10 grid place-items-center bg-black/80 backdrop-blur-sm"
-					>
-						<div class="flex flex-col items-center gap-6 px-4">
-							<h2 class="font-mono text-xl font-bold tracking-[0.3em] text-amber-300">
-								CHOOSE YOUR UPGRADE
-							</h2>
-							<div class="flex flex-wrap justify-center gap-4">
-								<For each={state().perkOffer ?? []}>
-									{(id, i) => (
-										<button
-											type="button"
-											data-testid={`perk-card-${i()}`}
-											onClick={() => loop?.pushPerk(i())}
-											class={`flex w-56 flex-col gap-3 rounded-lg border-2 bg-white/5 p-4 text-left transition hover:bg-white/10 ${perkAccent(
-												PERK_DEFS[id].rarity,
-											)}`}
-										>
-											<div class="flex items-center justify-between">
-												<span class="font-mono text-[10px] uppercase tracking-wider opacity-60">
-													{PERK_DEFS[id].rarity}
-												</span>
-												<kbd class="rounded bg-white/15 px-2 py-0.5 font-mono text-sm">
-													{i() + 1}
-												</kbd>
-											</div>
-											<span class="font-mono text-lg font-bold">
-												{PERK_DEFS[id].name}
-											</span>
-											<span class="text-sm opacity-80">
-												{PERK_DEFS[id].desc}
-											</span>
-										</button>
-									)}
-								</For>
-							</div>
-							<p class="font-mono text-xs opacity-50">press 1 · 2 · 3</p>
-						</div>
-					</div>
+					<Hud state={state()} frame={frameFor(shellSize().w, shellSize().h)} />
 				)}
 			</Show>
-			<Show when={ready() && !started() && hud()?.status !== "gameover"}>
-				<StartScreen bestRun={bestRun()} />
+
+			<Show when={hud()?.wavePhase === "perk-choice" ? hud() : null}>
+				{(state) => (
+					<PerkDraft
+						wave={state().wave}
+						offer={state().perkOffer ?? []}
+						onPick={(i) => loop?.pushPerk(i)}
+					/>
+				)}
 			</Show>
-			<Show when={hud()?.status === "gameover" ? hud() : null}>
+			<Show when={paused() && !isOver()}>
+				<div
+					data-testid="game-paused"
+					class={`absolute inset-0 z-10 grid place-items-center ${VEIL}`}
+				>
+					<div class="flex flex-col items-center gap-4 text-center">
+						<h2 class="pl-[0.3em] font-display text-5xl font-black uppercase tracking-[0.3em] text-text">
+							Paused
+						</h2>
+						<button
+							type="button"
+							onClick={() => setPause(false)}
+							class="font-display text-sm uppercase tracking-[0.3em] text-text-sub outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-primary"
+						>
+							<kbd class="mr-2 rounded-md border border-text/20 bg-text/10 px-2 py-0.5 text-text">
+								Esc
+							</kbd>
+							resume
+						</button>
+					</div>
+				</div>
+			</Show>
+			<Show when={ready() && !started() && !isOver()}>
+				<StartScreen bestRun={bestRun()} onStart={start} />
+			</Show>
+			<Show when={isOver() ? hud() : null}>
 				{(state) => (
 					<DeathScreen
 						stats={deriveRunStats(state())}
 						isNewBest={newBest()}
+						previousBest={previousBest()}
 						onRestart={restart}
 					/>
 				)}

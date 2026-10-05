@@ -1,6 +1,6 @@
 import { getArchetype, isBoss } from "./content/enemies";
 import { comboFraction, comboMultiplier } from "./sim/combo";
-import { PERK_DEFS } from "./sim/perks";
+import { PERK_DEFS, type PerkId, type Rarity } from "./sim/perks";
 import type { GameState } from "./sim/state";
 
 export type HudView = {
@@ -10,14 +10,71 @@ export type HudView = {
 		fraction: number;
 		hot: boolean;
 	} | null;
-	boss: { name: string; hp: number; maxHp: number } | null;
+	/** the first live boss; x/y let the shell tell whether it is on screen */
+	boss: {
+		name: string;
+		hp: number;
+		maxHp: number;
+		x: number;
+		y: number;
+	} | null;
 	wave: { label: string; frenzy: boolean } | null;
 	incoming: string | null;
-	perkChips: string[];
+	perkChips: PerkChip[];
 };
 
+/** One owned perk in the HUD strip; repeat picks stack into `count`. */
+export type PerkChip = {
+	id: PerkId;
+	name: string;
+	glyph: string;
+	rarity: Rarity;
+	count: number;
+};
+
+// text-presentation glyphs (no emoji variants) that hint at each perk's effect
+const PERK_GLYPHS: Record<PerkId, string> = {
+	"splash-rounds": "\u273A", // ✺
+	"piercing-bolt": "\u21A0", // ↠
+	"chain-arc": "\u03DF", // ϟ
+	"heavy-rounds": "\u25C9", // ◉
+	"steady-hands": "\u25CE", // ◎
+	sharpshooter: "\u2316", // ⌖
+	overclock: "\u21AF", // ↯
+	"gravity-well": "\u25CD", // ◍
+	vampiric: "\u2726", // ✦
+	plating: "\u25A3", // ▣
+	"cryo-mastery": "\u2745", // ❅
+	adrenaline: "\u00BB", // »
+	scavenger: "\u25C7", // ◇
+	greed: "\u25C8", // ◈
+};
+
+export function perkGlyph(id: PerkId): string {
+	return PERK_GLYPHS[id];
+}
+
+function perkChips(perks: readonly PerkId[]): PerkChip[] {
+	const chips: PerkChip[] = [];
+	for (const id of perks) {
+		const chip = chips.find((c) => c.id === id);
+		if (chip) {
+			chip.count += 1;
+			continue;
+		}
+		const def = PERK_DEFS[id];
+		chips.push({
+			id,
+			name: def.name,
+			glyph: PERK_GLYPHS[id],
+			rarity: def.rarity,
+			count: 1,
+		});
+	}
+	return chips;
+}
+
 const HOT_MULTIPLIER = 2;
-const PERK_CHIP_CHARS = 8;
 
 /** What the Horde HUD shows for a state. Pure: no framework or DOM. */
 export function hudView(s: GameState): HudView {
@@ -38,6 +95,8 @@ export function hudView(s: GameState): HudView {
 					name: getArchetype(boss.archetypeId).name,
 					hp: boss.hp,
 					maxHp: boss.maxHp,
+					x: boss.pos.x,
+					y: boss.pos.y,
 				}
 			: null,
 		wave:
@@ -50,8 +109,6 @@ export function hudView(s: GameState): HudView {
 			s.wavePhase === "intermission" && s.wave > 0
 				? `WAVE ${s.wave + 1} INCOMING`
 				: null,
-		perkChips: s.perks.map((id) =>
-			PERK_DEFS[id].name.slice(0, PERK_CHIP_CHARS),
-		),
+		perkChips: perkChips(s.perks),
 	};
 }

@@ -1,5 +1,6 @@
 import { useLocation } from "@solidjs/router";
 import { For, type ParentProps } from "solid-js";
+import { isRunLive } from "@/lib/game-chrome";
 import { isTypingActive } from "@/lib/typing-focus";
 
 const LINKS = [
@@ -31,9 +32,10 @@ export default function RootLayout(props: ParentProps) {
 	const current = (href: string) =>
 		location.pathname === href ? "page" : undefined;
 
-	// the game arena is a black void behind a vignette — pure-black chrome on
-	// /game lets the header/footer melt into it instead of framing it in grey
+	// /game is full-bleed: the header floats over the arena instead of taking
+	// layout space, and steps away entirely while a run is live
 	const isGame = () => location.pathname === "/game";
+	const hidden = () => isTypingActive() || (isGame() && isRunLive());
 
 	return (
 		<div
@@ -41,9 +43,13 @@ export default function RootLayout(props: ParentProps) {
 			classList={{ "bg-black": isGame(), "bg-bg": !isGame() }}
 		>
 			<header
-				class="flex items-center justify-between px-4 py-4 transition-opacity duration-500 sm:px-8"
-				classList={{ "opacity-0 pointer-events-none": isTypingActive() }}
-				inert={isTypingActive()}
+				class="flex items-center justify-between px-4 py-4 transition-[opacity,translate] duration-500 motion-reduce:transition-none sm:px-8"
+				classList={{
+					"opacity-0 pointer-events-none": hidden(),
+					"-translate-y-3": isGame() && hidden(),
+					"absolute inset-x-0 top-0 z-30": isGame(),
+				}}
+				inert={hidden()}
 			>
 				<a
 					href="/"
@@ -83,9 +89,9 @@ export default function RootLayout(props: ParentProps) {
 				class="flex justify-center px-4 pt-2 pb-5 motion-safe:transition-opacity motion-safe:duration-500"
 				classList={{
 					hidden: isGame(),
-					"opacity-0 pointer-events-none": isTypingActive(),
+					"opacity-0 pointer-events-none": hidden(),
 				}}
-				inert={isTypingActive()}
+				inert={hidden()}
 			>
 				<a
 					href="/about"

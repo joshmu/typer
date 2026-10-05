@@ -1,19 +1,28 @@
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Color3, type Vector3 } from "@babylonjs/core/Maths/math";
+import { CreateDisc } from "@babylonjs/core/Meshes/Builders/discBuilder";
 import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { Sprite } from "@babylonjs/core/Sprites/sprite";
 import type { SpriteManager } from "@babylonjs/core/Sprites/spriteManager";
 import type { Scene } from "@babylonjs/core/scene";
 import type { GameState } from "../sim/state";
+import { REF_PPU } from "../view";
+import { FIELD_GROUP } from "./scene";
 import { spriteAngle } from "./sprite-angle";
 import { CELLS } from "./sprite-atlas";
 
 const MUZZLE_Y = 1.2; // height the shots leave from (matches the sprite plane)
-const MUZZLE_LEN = 1.2; // distance from the hero to the muzzle along its heading
+// the hero's 64px art at exactly 64 CSS px on the reference canvas: an integer
+// 2 device px per art px on a 2x display
+const HERO_SIZE = 64 / REF_PPU;
+// the barrel tip sits ~45% of the sprite out from its centre
+const MUZZLE_LEN = HERO_SIZE * 0.45;
 const RING_LIFE = 22; // frames a powerup ring pulse lives
-const RECOIL_FRAMES = 3; // frames the recoil sprite cell shows after a shot
-const HERO_SIZE = 2.5; // world size of the hero sprite (playtest: 7.5 read ~3× too big)
+const RECOIL_FRAMES = 3; // frames the hero stays squashed after a shot
+// recoil squash. The atlas's recoil cell is a different turret design, so
+// the hero keeps its idle cell and kicks by scale instead.
+const RECOIL_SCALE = 0.92;
 
 export type Turret = {
 	/** Advance the recoil / ring / danger animations from the sim tick. Heading
@@ -22,7 +31,7 @@ export type Turret = {
 	/** World position of the muzzle along the CURRENT heading, into `out`. */
 	getMuzzle(out: Vector3): Vector3;
 	/** Fire toward a world point: snap the hero's heading there (last-shot
-	 * heading — never re-anchors on its own) and kick the recoil sprite cell. */
+	 * heading — never re-anchors on its own) and kick the recoil squash. */
 	fire(x: number, z: number): void;
 	/** Kick off a radial ring pulse from the hero (powerup activation). */
 	ringPulse(): void;
@@ -42,11 +51,39 @@ function mat(scene: Scene, name: string, emissive: Color3) {
  * heading is the LAST-SHOT heading — it changes ONLY when a shot fires (`fire`)
  * and simply HOLDS otherwise; it never tracks a locked target or re-anchors to
  * the nearest enemy on its own (explicit playtest feedback: the hero keeps
- * facing whatever it last shot at). A recoil cell flashes for a few frames on each shot. Two
+ * facing whatever it last shot at). The hero squashes briefly on each shot. Two
  * flat rings (drawn on the ground plane) survive from the old turret: a powerup
- * activation pulse and a red danger perimeter that flares as the horde presses in.
+ * activation pulse and a danger perimeter that heats from --primary to --error
+ * as the horde presses in.
  */
-export function createTurret(scene: Scene, manager: SpriteManager): Turret {
+/** Theme colours the turret is drawn in (read once per run). */
+export type TurretTint = { primary: Color3; error: Color3; plate: Color3 };
+
+export function createTurret(
+	scene: Scene,
+	manager: SpriteManager,
+	tint: TurretTint,
+): Turret {
+	// a dark mount with a --primary rim under the hero, so the grey turret
+	// reads as a clear silhouette against the deck
+	const mount = CreateDisc(
+		"turret-mount",
+		{ radius: HERO_SIZE * 0.47, tessellation: 48 },
+		scene,
+	);
+	mount.rotation.x = Math.PI / 2;
+	mount.position.y = 0.08;
+	mount.renderingGroupId = FIELD_GROUP;
+	mount.material = mat(scene, "turret-mount-mat", tint.plate.scale(0.6));
+	const rim = CreateTorus(
+		"turret-rim",
+		{ diameter: HERO_SIZE * 0.96, thickness: 0.09, tessellation: 64 },
+		scene,
+	);
+	rim.position.y = 0.1;
+	rim.renderingGroupId = FIELD_GROUP;
+	rim.material = mat(scene, "turret-rim-mat", tint.primary.scale(0.85));
+
 	const hero = new Sprite("hero", manager);
 	hero.cellIndex = CELLS.heroIdle;
 	hero.isPickable = false;
@@ -60,6 +97,7 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 		{ diameter: 1.2, thickness: 0.12, tessellation: 40 },
 		scene,
 	);
+	ring.renderingGroupId = FIELD_GROUP;
 	// torus lies flat in XZ by default → reads as a circle on the ground under the
 	// overhead ortho camera (a standing ring would collapse to an edge-on line)
 	ring.position.y = 0.3;
@@ -72,11 +110,13 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 	// red danger perimeter the player defends
 	const danger = CreateTorus(
 		"turret-danger",
-		{ diameter: 5, thickness: 0.1, tessellation: 64 },
+		{ diameter: HERO_SIZE * 1.5, thickness: 0.1, tessellation: 64 },
 		scene,
 	);
+	danger.renderingGroupId = FIELD_GROUP;
 	danger.position.y = 0.12; // flat on the ground (see ring above)
-	const dangerMat = mat(scene, "turret-danger-mat", new Color3(0.5, 0.4, 0.15));
+	const dangerMat = mat(scene, "turret-danger-mat", tint.primary.scale(0.5));
+	const dangerColor = new Color3();
 	danger.material = dangerMat;
 
 	// heading unit vector in world (sim) space; starts facing "north" (up-screen).
@@ -95,13 +135,11 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 
 	return {
 		update(state: GameState) {
-			// recoil cell flashes for a few frames after each shot
-			if (recoilFrames > 0) {
-				recoilFrames -= 1;
-				hero.cellIndex = CELLS.heroRecoil;
-			} else {
-				hero.cellIndex = CELLS.heroIdle;
-			}
+			// recoil: a brief squash after each shot
+			const size = recoilFrames > 0 ? HERO_SIZE * RECOIL_SCALE : HERO_SIZE;
+			if (recoilFrames > 0) recoilFrames -= 1;
+			hero.width = size;
+			hero.height = size;
 
 			if (ringLife > 0) {
 				ringLife -= 1;
@@ -120,11 +158,9 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 			const threat = nearest < 6 ? 1 - nearest / 6 : 0;
 			const beat = 0.5 + 0.5 * Math.sin(state.tick * (0.1 + threat * 0.25));
 			const glow = 0.35 + beat * (0.25 + threat * 0.7);
-			dangerMat.emissiveColor.set(
-				(0.5 + threat * 0.5) * glow * 2,
-				(0.4 - threat * 0.35) * glow * 2,
-				(0.15 - threat * 0.12) * glow * 2,
-			);
+			// --primary at rest, heating to --error as the horde closes in
+			Color3.LerpToRef(tint.primary, tint.error, threat, dangerColor);
+			dangerColor.scaleToRef(glow * 1.4, dangerMat.emissiveColor);
 		},
 		getMuzzle(out: Vector3): Vector3 {
 			out.set(hx * MUZZLE_LEN, MUZZLE_Y, hz * MUZZLE_LEN);
@@ -143,6 +179,8 @@ export function createTurret(scene: Scene, manager: SpriteManager): Turret {
 		},
 		dispose() {
 			hero.dispose();
+			(mount as Mesh).dispose(false, true);
+			(rim as Mesh).dispose(false, true);
 			(ring as Mesh).dispose(false, true);
 			(danger as Mesh).dispose(false, true);
 		},
