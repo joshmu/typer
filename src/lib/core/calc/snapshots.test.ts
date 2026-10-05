@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { CharacterState } from "../types";
 import { createCorrectChar, createIncorrectChar } from "../types/test-fixtures";
+import { calculateConsistency } from "./consistency";
 import {
 	collectPerSecondActivity,
 	collectPerSecondWPM,
+	perSecondConsistency,
+	sampleSeconds,
 	trimIdleTail,
 } from "./snapshots";
 
@@ -166,5 +169,90 @@ describe("collectPerSecondActivity", () => {
 			raw: [],
 			errors: [],
 		});
+	});
+});
+
+const DAY_MS = 24 * 3600 * 1000;
+
+describe("sampleSeconds", () => {
+	it("keeps one sample per second up to 600 seconds", () => {
+		expect(sampleSeconds(15_000)).toBe(1);
+		expect(sampleSeconds(600_000)).toBe(1);
+	});
+
+	it("widens samples so a longer session has at most 600", () => {
+		expect(sampleSeconds(601_000)).toBe(2);
+		expect(sampleSeconds(DAY_MS)).toBe(144);
+	});
+});
+
+describe("long sessions", () => {
+	it("buckets a day-long session's WPM into 600 true per-bucket rates", () => {
+		// 300 correct chars in the first minute, then idle for the rest of the day
+		const samples = collectPerSecondWPM(
+			correctBetween(300, 0, 60_000),
+			START,
+			DAY_MS,
+		);
+		expect(samples).toHaveLength(600);
+		// 300 chars = 60 words over a 144s bucket = 25 WPM
+		expect(samples[0]).toBe(25);
+		expect(samples.slice(1).every((v) => v === 0)).toBe(true);
+	});
+
+	it("buckets a day-long session's raw keys and errors the same way", () => {
+		const out = collectPerSecondActivity(
+			{ lastAt: null, seconds: [0, 86_399], keys: [12, 6], errors: [1, 0] },
+			DAY_MS,
+		);
+		expect(out.raw).toHaveLength(600);
+		expect(out.errors).toHaveLength(600);
+		// 12 keys over 144s = 1 WPM
+		expect(out.raw[0]).toBe(1);
+		expect(out.errors[0]).toBe(1);
+		expect(out.errors.reduce((a, b) => a + b, 0)).toBe(1);
+	});
+});
+
+describe("perSecondConsistency", () => {
+	/** Dense per-second WPM, the reference the sparse path must match. */
+	function dense(chars: CharacterState[], elapsedMs: number): number[] {
+		const seconds = Math.max(1, Math.round(elapsedMs / 1000));
+		const counts = new Array<number>(seconds).fill(0);
+		for (const c of chars) {
+			if (c.status !== "correct" || c.timestamp == null) continue;
+			const s = Math.floor((c.timestamp - START) / 1000);
+			counts[Math.min(Math.max(s, 0), seconds - 1)] += 1;
+		}
+		const lastMs = elapsedMs - (seconds - 1) * 1000;
+		return counts.map((n, i) =>
+			Math.round(n / 5 / ((i === seconds - 1 ? lastMs : 1000) / 60_000)),
+		);
+	}
+	// bursts of typing with gaps, across a session longer than 600 seconds
+	const chars = [
+		...correctBetween(40, 0, 9_000),
+		...correctBetween(25, 300_000, 307_000),
+		...correctBetween(60, 640_000, 655_500),
+	];
+
+	it("matches the per-second figure without building every second", () => {
+		expect(perSecondConsistency(chars, START, 700_400, null)).toBe(
+			calculateConsistency(dense(chars, 700_400)),
+		);
+	});
+
+	it("stops at the last key for a session ended by hand", () => {
+		const lastKey = START + 655_400;
+		expect(perSecondConsistency(chars, START, 900_000, lastKey)).toBe(
+			calculateConsistency(trimIdleTail(dense(chars, 900_000), lastKey, START)),
+		);
+	});
+
+	it("matches the short-test figure exactly", () => {
+		const short = correctBetween(30, 0, 9_000);
+		expect(perSecondConsistency(short, START, 15_000, null)).toBe(
+			calculateConsistency(collectPerSecondWPM(short, START, 15_000)),
+		);
 	});
 });

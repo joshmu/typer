@@ -9,6 +9,9 @@ export type { PerSecondActivity } from "./snapshots";
 export {
 	collectPerSecondActivity,
 	collectPerSecondWPM,
+	MAX_SAMPLES,
+	perSecondConsistency,
+	sampleSeconds,
 	trimIdleTail,
 } from "./snapshots";
 export { calculateRawWPM, calculateWPM, isLiveWpmReady } from "./wpm";

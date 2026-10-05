@@ -48,6 +48,7 @@ const RESULT: TestResult = {
 	breakdown: { correct: 0, incorrect: 0, missed: 0, extra: 0, total: 0 },
 	elapsed: 0,
 	wpmPerSecond: [],
+	sampleSeconds: 1,
 };
 
 describe("createInitialSession", () => {
@@ -166,6 +167,7 @@ describe("applyResult", () => {
 			},
 			elapsed: 60_000,
 			wpmPerSecond: [],
+			sampleSeconds: 1,
 		};
 		const next = applyResult(session, result);
 		expect(next.result).toBe(result);

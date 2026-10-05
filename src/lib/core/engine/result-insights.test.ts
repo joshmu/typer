@@ -45,4 +45,17 @@ describe("deriveResultInsights", () => {
 		expect(insights.rawPerSecond.slice(0, 3)).toEqual([24, 12, 0]);
 		expect(insights.errorsPerSecond.slice(0, 3)).toEqual([1, 1, 0]);
 	});
+
+	it("keeps a day-long session's per-sample detail bounded", () => {
+		const state = createTypingState("abc", { mode: { type: "zen" } });
+		applyKeystroke(state, "a", 1_000);
+		applyKeystroke(state, "x", 1_000 + 20 * 3600 * 1000);
+		state.endTime = 1_000 + 24 * 3600 * 1000;
+
+		const insights = deriveResultInsights(state, 24 * 3600 * 1000, 99);
+
+		expect(insights.rawPerSecond).toHaveLength(600);
+		expect(insights.errorsPerSecond).toHaveLength(600);
+		expect(insights.errorsPerSecond.reduce((a, b) => a + b, 0)).toBe(1);
+	});
 });

@@ -169,6 +169,26 @@ describe("completeTest", () => {
 		);
 	});
 
+	it("completes a zen run left open for a day quickly, with bounded series", () => {
+		const state = createTypingState("x".repeat(400), { mode: { type: "zen" } });
+		for (let i = 0; i < 50; i++) applyKeystroke(state, "x", START + i * 200);
+		state.endTime = START + 24 * 3600 * 1000;
+		const t0 = performance.now();
+		const { result } = completeTest(state);
+		expect(performance.now() - t0).toBeLessThan(50);
+		expect(result.sampleSeconds).toBe(144);
+		expect(result.wpmPerSecond.length).toBeLessThanOrEqual(600);
+		// a steady 60 WPM until the last key; the idle day after it is dropped
+		expect(result.consistency).toBe(100);
+	});
+
+	it("keeps one sample per second on a short test", () => {
+		const state = buildState({ correct: 20, durationMs: 15_000 });
+		const { result } = completeTest(state);
+		expect(result.sampleSeconds).toBe(1);
+		expect(result.wpmPerSecond).toHaveLength(15);
+	});
+
 	it("keeps every second of a time test in consistency", () => {
 		const state = createTypingState("x".repeat(400), {
 			mode: { type: "time", seconds: 60 },
