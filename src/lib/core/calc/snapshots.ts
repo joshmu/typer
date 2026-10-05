@@ -1,38 +1,32 @@
 import type { CharacterState } from "../types";
 
 const CHARS_PER_WORD = 5;
-const SECONDS_PER_MINUTE = 60;
+const MS_PER_MINUTE = 60_000;
 
+/**
+ * WPM for each second of a test, from correct characters by timestamp. Spans
+ * the whole duration, idle seconds included. A final fraction under half a
+ * second joins the last second; each sample is the rate over its true length.
+ */
 export function collectPerSecondWPM(
 	chars: CharacterState[],
 	startTime: number,
+	elapsedMs: number,
 ): number[] {
-	const typed = chars.filter(
-		(c): c is CharacterState & { timestamp: number } =>
-			c.status === "correct" && c.timestamp != null,
-	);
+	if (elapsedMs <= 0) return [];
 
-	if (typed.length === 0) return [];
+	const seconds = Math.max(1, Math.round(elapsedMs / 1000));
+	const counts = new Array<number>(seconds).fill(0);
 
-	const minTimestamp = Math.min(...typed.map((c) => c.timestamp));
-	const origin = Math.max(startTime, minTimestamp);
-
-	const buckets = new Map<number, number>();
-
-	for (const char of typed) {
-		const elapsed = char.timestamp - origin;
-		const bucket = Math.floor(elapsed / 1000);
-		buckets.set(bucket, (buckets.get(bucket) ?? 0) + 1);
+	for (const char of chars) {
+		if (char.status !== "correct" || char.timestamp == null) continue;
+		const second = Math.floor((char.timestamp - startTime) / 1000);
+		counts[Math.min(Math.max(second, 0), seconds - 1)]++;
 	}
 
-	const maxBucket = Math.max(...buckets.keys());
-	const result: number[] = [];
-
-	for (let i = 0; i <= maxBucket; i++) {
-		const count = buckets.get(i) ?? 0;
-		const wpm = (count / CHARS_PER_WORD) * SECONDS_PER_MINUTE;
-		result.push(wpm);
-	}
-
-	return result;
+	const lastMs = elapsedMs - (seconds - 1) * 1000;
+	return counts.map((count, i) => {
+		const ms = i === seconds - 1 ? lastMs : 1000;
+		return Math.round(count / CHARS_PER_WORD / (ms / MS_PER_MINUTE));
+	});
 }

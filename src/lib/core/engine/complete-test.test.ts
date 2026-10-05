@@ -112,9 +112,34 @@ describe("completeTest", () => {
 		expect(out.errorCount).toBe(4);
 	});
 
-	it("collects per-second WPM snapshots", () => {
-		const state = buildState({ correct: 25, durationMs: 30_000 });
+	it("samples every second of a time test, idle seconds included", () => {
+		// 45 correct chars over the first 9s, then idle until the 15s limit
+		const state = createTypingState("x".repeat(60), {
+			mode: { type: "time", seconds: 15 },
+		});
+		typeThenEnd(state, repeat("x", 45), 15_000, 200);
 		const out = completeTest(state);
-		expect(Array.isArray(out.result.wpmPerSecond)).toBe(true);
+		expect(out.result.elapsed).toBe(15_000);
+		expect(out.result.wpmPerSecond).toHaveLength(15);
+		expect(out.result.wpmPerSecond.slice(9)).toEqual([0, 0, 0, 0, 0, 0]);
+	});
+
+	it("scores idle seconds as inconsistent", () => {
+		const text = "x".repeat(80);
+		const time = { mode: { type: "time" as const, seconds: 15 as const } };
+		const steady = typeThenEnd(
+			createTypingState(text, time),
+			repeat("x", 75),
+			15_000,
+			200,
+		);
+		const stalled = typeThenEnd(
+			createTypingState(text, time),
+			repeat("x", 45),
+			15_000,
+			200,
+		);
+		expect(completeTest(steady).result.consistency).toBe(100);
+		expect(completeTest(stalled).result.consistency).toBeLessThan(50);
 	});
 });

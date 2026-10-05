@@ -33,7 +33,11 @@ export function completeTest(state: TypingState): CompletedTestPayload {
 	const wpm = calculateWPM(chars, elapsed);
 	const rawWpm = calculateRawWPM(state.keystrokes, elapsed);
 	const accuracy = calculateAccuracy(state.keystrokes);
-	const wpmPerSecond = collectPerSecondWPM(chars, state.startTime ?? 0);
+	const wpmPerSecond = collectPerSecondWPM(
+		chars,
+		state.startTime ?? 0,
+		elapsed,
+	);
 	const consistency = calculateConsistency(wpmPerSecond);
 	const breakdown = calculateCharBreakdown(state);
 
