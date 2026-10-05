@@ -1,6 +1,10 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadAverageWpm, loadBookPercents } from "./book-progress";
+import {
+	loadAverageWpm,
+	loadBookPercents,
+	loadResumableBook,
+} from "./book-progress";
 import { openBookReader } from "./core/engine/book-reader";
 import type { BookProgress, CachedBook } from "./core/types/book";
 import { TyperDB, type TypingResult } from "./db";
@@ -129,5 +133,87 @@ describe("loadAverageWpm", () => {
 		await db.results.bulkAdd([result(0, 1), result(50, 2)]);
 
 		expect(await loadAverageWpm(db)).toBe(50);
+	});
+});
+
+describe("loadResumableBook", () => {
+	let db: TyperDB;
+
+	beforeEach(() => {
+		db = new TyperDB(`Resumable_${Date.now()}_${Math.random()}`);
+	});
+
+	afterEach(async () => {
+		db.close();
+		await db.delete();
+	});
+
+	it("is null with no book in progress", async () => {
+		expect(await loadResumableBook(undefined, db)).toBeNull();
+	});
+
+	it("picks the most recently read book at its committed position", async () => {
+		const older = makeBook("a/older", [10]);
+		const recent = makeBook("a/recent", [40, 60]);
+		await db.cachedBooks.bulkPut([older, recent]);
+		await db.bookProgress.bulkAdd([
+			makeProgress(older, { wordOffset: 2, lastAccessedAt: 1 }),
+			makeProgress(recent, {
+				chapterIndex: 1,
+				wordOffset: 10,
+				lastAccessedAt: 2,
+			}),
+		]);
+
+		const found = await loadResumableBook(undefined, db);
+
+		expect(found?.book.bookId).toBe("a/recent");
+		expect(found?.progress?.wordOffset).toBe(10);
+		expect(found?.chapterIndex).toBe(1);
+		expect(found?.chapterTitle).toBe("Chapter 2");
+		expect(found?.percent).toBe(50);
+	});
+
+	it("skips finished books and books whose text is not cached", async () => {
+		const finished = makeBook("a/finished", [10]);
+		const uncached = makeBook("a/uncached", [10]);
+		const open = makeBook("a/open", [10]);
+		await db.cachedBooks.bulkPut([finished, open]);
+		await db.bookProgress.bulkAdd([
+			makeProgress(finished, { wordOffset: 10, lastAccessedAt: 3 }),
+			makeProgress(uncached, { wordOffset: 1, lastAccessedAt: 2 }),
+			makeProgress(open, { wordOffset: 1, lastAccessedAt: 1 }),
+		]);
+
+		expect((await loadResumableBook(undefined, db))?.book.bookId).toBe(
+			"a/open",
+		);
+	});
+
+	it("prefers the given book, even before any of it is typed", async () => {
+		const picked = makeBook("a/picked", [10]);
+		const recent = makeBook("a/recent", [10]);
+		await db.cachedBooks.bulkPut([picked, recent]);
+		await db.bookProgress.add(
+			makeProgress(recent, { wordOffset: 1, lastAccessedAt: 5 }),
+		);
+
+		const found = await loadResumableBook("a/picked", db);
+
+		expect(found?.book.bookId).toBe("a/picked");
+		expect(found?.progress).toBeUndefined();
+		expect(found?.percent).toBe(0);
+	});
+
+	it("falls back to the most recent book when the given one is not cached", async () => {
+		const recent = makeBook("a/recent", [10]);
+		await db.cachedBooks.put(recent);
+		await db.bookProgress.add(
+			makeProgress(recent, { wordOffset: 1, lastAccessedAt: 5 }),
+		);
+
+		expect((await loadResumableBook("a/gone", db))?.book.bookId).toBe(
+			"a/recent",
+		);
 	});
 });
