@@ -22,7 +22,7 @@ const lamplight: Theme = {
 	bg: "#1c1a17",
 	bgSecondary: "#25221d",
 	text: "#ece4d2",
-	textSub: "#8b8171",
+	textSub: "#827869",
 	primary: "#f2873d",
 	onPrimary: "#1c1a17",
 	warning: "#e8b04a",

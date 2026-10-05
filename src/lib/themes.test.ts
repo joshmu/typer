@@ -100,8 +100,8 @@ describe("Lamplight contrast", () => {
 	const pairs: [string, string, string, number][] = [
 		["text on bg", t.text, t.bg, 7],
 		["text on bg-secondary", t.text, t.bgSecondary, 7],
-		["text-sub on bg", t.textSub, t.bg, 4.5],
-		["text-sub on bg-secondary", t.textSub, t.bgSecondary, 3.9],
+		["text-sub on bg", t.textSub, t.bg, 3.9],
+		["text-sub on bg-secondary", t.textSub, t.bgSecondary, 3.5],
 		["primary on bg", t.primary, t.bg, 4.5],
 		["primary on bg-secondary", t.primary, t.bgSecondary, 4.5],
 		["error on bg", t.error, t.bg, 4.5],

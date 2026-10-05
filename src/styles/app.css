@@ -5,7 +5,7 @@
 	--bg: #1c1a17;
 	--bg-secondary: #25221d;
 	--text: #ece4d2;
-	--text-sub: #8b8171;
+	--text-sub: #827869;
 	--primary: #f2873d;
 	--on-primary: #1c1a17;
 	--warning: #e8b04a;
@@ -166,6 +166,42 @@ body::after {
 	background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 	background-repeat: repeat;
 	background-size: 256px 256px;
+}
+
+/* Lamplight: a warm pool of light from above and a soft falloff to the
+   edges. One static fixed layer, no per-frame work. The Horde arena has its
+   own vignette, so the canvas page goes without. */
+html:is(:not([data-theme]), [data-theme="lamplight"])
+body:not(:has(canvas))::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: 9998;
+	pointer-events: none;
+	background:
+		radial-gradient(
+			ellipse 70% 55% at 50% 0%,
+			color-mix(in srgb, var(--primary) 7%, transparent),
+			transparent 70%
+		),
+		radial-gradient(
+			ellipse 130% 100% at 50% 40%,
+			transparent 55%,
+			rgb(0 0 0 / 0.28) 100%
+		);
+}
+
+/* Lamplight caret: a small flame, a hot core with an ember halo */
+html:is(:not([data-theme]), [data-theme="lamplight"]) .caret:not(.caret-block) {
+	box-shadow:
+		0 0 4px color-mix(in srgb, var(--caret) 80%, transparent),
+		0 0 14px color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+/* Ember and rose sit close in luminance, so Lamplight leans on the error
+   shapes: a stronger underline under corrected chars. */
+html:is(:not([data-theme]), [data-theme="lamplight"]) .char-corrected {
+	text-decoration-color: color-mix(in srgb, var(--error) 85%, transparent);
 }
 
 /* Button hover effects */
