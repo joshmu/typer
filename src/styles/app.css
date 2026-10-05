@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
-/* Default theme: serika dark */
+/* Default theme: Lamplight. Mirrors themes.ts so first paint never flashes. */
 :root {
-	--bg: #323437;
-	--bg-secondary: #2c2e31;
-	--text: #d1d0c5;
-	--text-sub: #646669;
-	--primary: #e2b714;
-	--warning: #e8a020;
-	--error: #ca4754;
-	--error-extra: #7e2a33;
-	--caret: #e2b714;
-	--correct: #d1d0c5;
+	--bg: #1c1a17;
+	--bg-secondary: #25221d;
+	--text: #ece4d2;
+	--text-sub: #8b8171;
+	--primary: #f2873d;
+	--on-primary: #1c1a17;
+	--warning: #e8b04a;
+	--error: #f0466e;
+	--error-extra: #7a2338;
+	--caret: #ffb35c;
+	--correct: #ece4d2;
 	--typing-font-size: 24px;
 }
 
@@ -21,6 +22,7 @@
 	--color-text: var(--text);
 	--color-text-sub: var(--text-sub);
 	--color-primary: var(--primary);
+	--color-on-primary: var(--on-primary);
 	--color-warning: var(--warning);
 	--color-error: var(--error);
 	--color-error-extra: var(--error-extra);
