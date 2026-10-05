@@ -1,6 +1,7 @@
 import { createMemo, For, Show } from "solid-js";
 import { hudView, type PerkChip } from "@/lib/game/hud-view";
 import type { GameState } from "@/lib/game/sim/state";
+import { type Frame, inFrame } from "@/lib/game/view";
 
 /** Rarity accent for a perk glyph and border, all on theme tokens. */
 export function rarityText(rarity: PerkChip["rarity"]): string {
@@ -26,7 +27,7 @@ const PANEL = "rounded-lg border border-text/10 bg-bg/65 backdrop-blur-sm";
  * score (and the boss bar) top-centre, hull and kills top-right, owned perks
  * bottom-left. Pure presentation of `hudView(state)`; never takes input.
  */
-export default function Hud(props: { state: GameState }) {
+export default function Hud(props: { state: GameState; frame: Frame }) {
 	const view = createMemo(() => hudView(props.state));
 
 	return (
@@ -108,35 +109,50 @@ export default function Hud(props: { state: GameState }) {
 						</span>
 					</div>
 					<Show when={view().boss}>
-						{(boss) => (
-							<div
-								data-testid="boss-bar"
-								class={`${PANEL} flex w-[min(28rem,60vw)] flex-col gap-1.5 border-error/40 px-3 py-2`}
-							>
-								<div class="flex items-baseline justify-between">
-									<span class="font-display text-xs font-bold uppercase tracking-[0.25em] text-error">
-										{boss().name}
-									</span>
-									<span class="font-display text-xs tabular-nums text-text-sub">
-										{boss().hp}/{boss().maxHp}
-									</span>
+						{(boss) => {
+							// until the boss walks into frame the bar only warns of it
+							const incoming = () => !inFrame(boss().x, boss().y, props.frame);
+							return (
+								<div
+									data-testid="boss-bar"
+									data-incoming={incoming() ? "true" : undefined}
+									class={`${PANEL} flex w-[min(28rem,60vw)] flex-col gap-1.5 border-error/40 px-3 py-2 transition-opacity duration-300`}
+									classList={{ "opacity-60": incoming() }}
+								>
+									<div class="flex items-baseline justify-between">
+										<span class="font-display text-xs font-bold uppercase tracking-[0.25em] text-error">
+											{boss().name}
+										</span>
+										<span class="font-display text-xs tabular-nums text-text-sub">
+											<Show
+												when={!incoming()}
+												fallback={
+													<span class="uppercase tracking-[0.25em] text-error motion-safe:animate-pulse">
+														incoming
+													</span>
+												}
+											>
+												{boss().hp}/{boss().maxHp}
+											</Show>
+										</span>
+									</div>
+									<div class="flex gap-0.5">
+										<For each={Array.from({ length: boss().maxHp })}>
+											{(_, i) => (
+												<div
+													class="h-2 flex-1 rounded-sm"
+													classList={{
+														"bg-error shadow-[0_0_6px_color-mix(in_srgb,var(--error)_60%,transparent)]":
+															i() < boss().hp,
+														"bg-text/10": i() >= boss().hp,
+													}}
+												/>
+											)}
+										</For>
+									</div>
 								</div>
-								<div class="flex gap-0.5">
-									<For each={Array.from({ length: boss().maxHp })}>
-										{(_, i) => (
-											<div
-												class="h-2 flex-1 rounded-sm"
-												classList={{
-													"bg-error shadow-[0_0_6px_color-mix(in_srgb,var(--error)_60%,transparent)]":
-														i() < boss().hp,
-													"bg-text/10": i() >= boss().hp,
-												}}
-											/>
-										)}
-									</For>
-								</div>
-							</div>
-						)}
+							);
+						}}
 					</Show>
 				</div>
 

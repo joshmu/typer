@@ -2,7 +2,7 @@ import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
 import type { GameLoop } from "@/lib/game/render/loop";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
 import type { GameState } from "@/lib/game/sim/state";
-import { arenaInk, vignetteGradient } from "@/lib/game/view";
+import { arenaInk, frameFor, vignetteGradient } from "@/lib/game/view";
 import { setRunLive } from "@/lib/game-chrome";
 import { getBestRun, saveGameRun, useBestRun } from "@/lib/game-runs";
 import DeathScreen from "./DeathScreen";
@@ -313,7 +313,9 @@ export default function GameShell() {
 				</div>
 			</Show>
 			<Show when={started() && !isOver() ? hud() : null}>
-				{(state) => <Hud state={state()} />}
+				{(state) => (
+					<Hud state={state()} frame={frameFor(shellSize().w, shellSize().h)} />
+				)}
 			</Show>
 
 			<Show when={hud()?.wavePhase === "perk-choice" ? hud() : null}>

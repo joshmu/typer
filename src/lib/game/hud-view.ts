@@ -10,7 +10,14 @@ export type HudView = {
 		fraction: number;
 		hot: boolean;
 	} | null;
-	boss: { name: string; hp: number; maxHp: number } | null;
+	/** the first live boss; x/y let the shell tell whether it is on screen */
+	boss: {
+		name: string;
+		hp: number;
+		maxHp: number;
+		x: number;
+		y: number;
+	} | null;
 	wave: { label: string; frenzy: boolean } | null;
 	incoming: string | null;
 	perkChips: PerkChip[];
@@ -88,6 +95,8 @@ export function hudView(s: GameState): HudView {
 					name: getArchetype(boss.archetypeId).name,
 					hp: boss.hp,
 					maxHp: boss.maxHp,
+					x: boss.pos.x,
+					y: boss.pos.y,
 				}
 			: null,
 		wave:

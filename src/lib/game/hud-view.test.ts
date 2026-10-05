@@ -75,6 +75,8 @@ describe("hudView boss", () => {
 			name: getArchetype("boss-iron").name,
 			hp: 2,
 			maxHp: boss.maxHp,
+			x: 8,
+			y: 0,
 		});
 	});
 

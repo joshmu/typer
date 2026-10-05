@@ -3,6 +3,7 @@ import { ARENA } from "./sim/state";
 import {
 	arenaInk,
 	frameFor,
+	inFrame,
 	ORTHO_HALF,
 	plateFontPx,
 	REF_PPU,
@@ -129,5 +130,19 @@ describe("arenaInk", () => {
 		const ink = arenaInk("", "var(--x)");
 		expect(ink.plate).toMatch(/^#/);
 		expect(ink.ink).toMatch(/^#/);
+	});
+});
+
+describe("inFrame", () => {
+	const f = frameFor(1440, 900);
+	it("is true inside the camera window and false beyond it", () => {
+		expect(inFrame(0, 0, f)).toBe(true);
+		expect(inFrame(f.halfW - 1, f.halfH - 1, f)).toBe(true);
+		expect(inFrame(0, f.halfH + 1, f)).toBe(false);
+		expect(inFrame(-f.halfW - 1, 0, f)).toBe(false);
+	});
+
+	it("can require a margin inside the edge", () => {
+		expect(inFrame(0, f.halfH - 1, f, 2)).toBe(false);
 	});
 });

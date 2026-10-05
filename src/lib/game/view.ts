@@ -43,6 +43,11 @@ export function frameFor(cssW: number, cssH: number): Frame {
 	return { halfW, halfH, ppu: cssH / (2 * halfH) };
 }
 
+/** Whether a world point is on screen, at least `margin` units inside. */
+export function inFrame(x: number, y: number, f: Frame, margin = 0): boolean {
+	return Math.abs(x) <= f.halfW - margin && Math.abs(y) <= f.halfH - margin;
+}
+
 // idle word plate glyph height on the reference canvas
 const PLATE_FONT_REF = 20;
 
