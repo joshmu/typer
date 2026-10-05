@@ -6,7 +6,7 @@ export interface Theme {
 	text: string;
 	/** Secondary UI text (labels, hints), at least 4.5:1 on bg and bgSecondary. */
 	textSub: string;
-	/** Text not typed yet: large type, so dimmer than textSub is fine. */
+	/** Text not typed yet, dimmer than typed text (Lamplight: 4.5:1 on bg). */
 	textPending: string;
 	primary: string;
 	/** Text and icons on a primary fill, at least 4.5:1 against primary. */
@@ -26,7 +26,7 @@ const lamplight: Theme = {
 	bgSecondary: "#25221d",
 	text: "#ece4d2",
 	textSub: "#9a8f7f",
-	textPending: "#827869",
+	textPending: "#8b8172",
 	primary: "#f2873d",
 	onPrimary: "#1c1a17",
 	warning: "#e8b04a",

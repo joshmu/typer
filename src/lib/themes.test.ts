@@ -105,8 +105,9 @@ describe("Lamplight contrast", () => {
 		// small UI text: WCAG AA
 		["text-sub on bg", t.textSub, t.bg, 4.5],
 		["text-sub on bg-secondary", t.textSub, t.bgSecondary, 4.5],
-		// pending typing text is large: AA large, and well under typed text
-		["text-pending on bg", t.textPending, t.bg, 3],
+		// pending typing text can be set as small as 21px: AA, and well under
+		// typed text
+		["text-pending on bg", t.textPending, t.bg, 4.5],
 		["typed text over pending text", t.correct, t.textPending, 3],
 		["primary on bg", t.primary, t.bg, 4.5],
 		["primary on bg-secondary", t.primary, t.bgSecondary, 4.5],
