@@ -1,8 +1,25 @@
 import { animate, spring, stagger } from "motion";
-import { onCleanup, onMount, Show } from "solid-js";
-import type { CharBreakdown } from "@/lib/core/calc";
+import {
+	createSignal,
+	type JSX,
+	Match,
+	onCleanup,
+	onMount,
+	Show,
+	Switch,
+} from "solid-js";
+import {
+	bestScope,
+	type CharBreakdown,
+	comparePersonalBest,
+	type PersonalBestOutcome,
+} from "@/lib/core/calc";
+import type { ResultInsights } from "@/lib/core/engine/result-insights";
+import { findPreviousBest } from "@/lib/queries";
 import { prefersReducedMotion } from "@/lib/utils/reduced-motion";
+import { copyResultImage } from "./copy-image";
 import HistoryList from "./HistoryList";
+import { modeLabel } from "./mode-label";
 import WPMChart from "./WPMChart";
 
 interface ResultsScreenProps {
@@ -13,27 +30,49 @@ interface ResultsScreenProps {
 	breakdown: CharBreakdown;
 	elapsed: number;
 	wpmPerSecond: number[];
+	/** Mode, AFK verdict and per-second detail for the chart and the best. */
+	insights?: ResultInsights;
+	/** Shown above the hero, inside the first screen (book progress). */
+	header?: JSX.Element;
 	onRedo: () => void;
 	redoLabel?: string;
 	/** The result could not be recorded to history. */
 	saveFailed?: boolean;
 }
 
+/** Reveal timeline, in seconds from mount. */
+const COUNT_S = 1.1;
+const STATS_AT = 0.25;
+const PANEL_AT = 0.35;
+const CHARS_AT = 0.55;
+const ACTIONS_AT = 0.7;
+const CHART_AT = COUNT_S;
+/** History mounts once the chart has drawn, off the animation's frames. */
+const HISTORY_AFTER_MS = 1900;
+
+/** Whole seconds, rounded the same way as the chart's samples. */
 function formatTime(ms: number): string {
-	const seconds = Math.floor(ms / 1000);
+	const seconds = Math.round(ms / 1000);
 	const mins = Math.floor(seconds / 60);
 	const secs = seconds % 60;
 	return mins > 0 ? `${mins}:${secs.toString().padStart(2, "0")}` : `${secs}s`;
 }
 
-function StatCard(props: { label: string; value: string; sub?: string }) {
+function StatCell(props: {
+	label: string;
+	value: string;
+	sub?: string;
+	hidden: string;
+}) {
 	return (
-		<div class="stat-card flex flex-col gap-1 opacity-0">
-			<span class="font-display text-xs uppercase tracking-widest text-text-sub">
+		<div
+			class={`stat-cell flex flex-col items-center gap-1 py-1 sm:border-l sm:first:border-l-0 border-text-sub/15 ${props.hidden}`}
+		>
+			<span class="font-display text-[11px] uppercase tracking-[0.2em] text-text-sub">
 				{props.label}
 			</span>
 			<span
-				class="text-3xl font-bold text-text"
+				class="font-display text-3xl font-bold text-text tabular-nums leading-tight"
 				data-testid={`stat-${props.label}`}
 			>
 				{props.value}
@@ -45,20 +84,106 @@ function StatCard(props: { label: string; value: string; sub?: string }) {
 	);
 }
 
-function BreakdownItem(props: { label: string; count: number; color: string }) {
+function BreakdownItem(props: {
+	label: string;
+	count: number;
+	dot: string;
+	hidden: string;
+}) {
 	return (
-		<div class="breakdown-item flex items-center gap-3 opacity-0">
-			<span class={`w-2 h-2 rounded-full ${props.color}`} />
-			<span class="text-text-sub text-sm w-20">{props.label}</span>
-			<span class="text-text text-sm font-bold">{props.count}</span>
+		<div
+			class={`breakdown-item flex items-center justify-center gap-2 font-display text-sm ${props.hidden}`}
+		>
+			<span class={`h-2 w-2 shrink-0 rounded-full ${props.dot}`} />
+			<span class="text-text-sub">{props.label}</span>
+			<span
+				class="breakdown-count font-display font-bold text-text tabular-nums"
+				data-count={props.count}
+			>
+				{props.count}
+			</span>
 		</div>
 	);
 }
 
+function Chip(props: { tone: "primary" | "muted"; children: JSX.Element }) {
+	return (
+		<span
+			class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-display text-sm font-semibold tabular-nums"
+			classList={{
+				"bg-primary/15 text-primary ring-1 ring-primary/40":
+					props.tone === "primary",
+				"bg-text-sub/10 text-text-sub": props.tone === "muted",
+			}}
+		>
+			{props.children}
+		</span>
+	);
+}
+
+/** Near-black or near-white, whichever reads on the theme's primary. */
+const ON_PRIMARY =
+	"oklch(from var(--primary) clamp(0.2, (0.62 - l) * 1000, 0.98) 0 0)";
+
+const COPY_LABELS = {
+	idle: "Copy image",
+	busy: "Rendering…",
+	copied: "Copied",
+	downloaded: "Saved PNG",
+	failed: "Couldn't copy",
+} as const;
+
+interface Stoppable {
+	stop(): void;
+}
+
 export default function ResultsScreen(props: ResultsScreenProps) {
-	let heroRef!: HTMLSpanElement;
 	let containerRef!: HTMLDivElement;
+	let heroRef!: HTMLSpanElement;
+	let heroWrap!: HTMLDivElement;
+	let glowRef!: HTMLDivElement;
+	let chipRef!: HTMLDivElement;
 	let redoRef!: HTMLButtonElement;
+
+	// The result is read once: the reveal and the async paths below outlive
+	// the props' owner when the user redoes mid-reveal.
+	const result = {
+		wpm: props.wpm,
+		rawWpm: props.rawWpm,
+		accuracy: props.accuracy,
+		consistency: props.consistency,
+		elapsed: props.elapsed,
+		wpmPerSecond: props.wpmPerSecond,
+		insights: props.insights,
+	};
+	const insights = result.insights;
+	const reduced = prefersReducedMotion();
+	const afk = insights?.afk ?? false;
+	const scope = insights ? bestScope(insights.mode) : null;
+	const hasChart = result.wpmPerSecond.length > 1;
+
+	const [pb, setPb] = createSignal<PersonalBestOutcome | null>(
+		afk ? { kind: "afk" } : null,
+	);
+	const [showHistory, setShowHistory] = createSignal(false);
+	const [copyState, setCopyState] =
+		createSignal<keyof typeof COPY_LABELS>("idle");
+
+	let disposed = false;
+	const running: Stoppable[] = [];
+	const track = (control: Stoppable) => {
+		running.push(control);
+	};
+	const timers: ReturnType<typeof setTimeout>[] = [];
+	const later = (ms: number, fn: () => void) => {
+		timers.push(setTimeout(fn, ms));
+	};
+	onCleanup(() => {
+		disposed = true;
+		for (const control of running) control.stop();
+		for (const t of timers) clearTimeout(t);
+		void import("./pb-burst").then((m) => m.stopBurst());
+	});
 
 	// With nothing focused, Tab lands on Redo so Tab then Enter restarts.
 	// Once something has focus, Tab moves on as usual.
@@ -72,169 +197,413 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 	window.addEventListener("keydown", focusRedoOnTab);
 	onCleanup(() => window.removeEventListener("keydown", focusRedoOnTab));
 
-	onMount(() => {
-		const reduced = prefersReducedMotion();
+	// The burst waits for the count-up to land, and for the best to load.
+	let landed = reduced;
+	const celebrate = (outcome: PersonalBestOutcome | null) => {
+		if (disposed || !landed || reduced || outcome?.kind !== "new") return;
+		void import("./pb-burst").then((m) => {
+			if (!disposed) void m.burstFrom(chipRef);
+		});
+	};
 
+	if (insights && scope && !afk) {
+		findPreviousBest({ ...scope, before: insights.timestamp })
+			.then((best) => {
+				if (disposed) return;
+				const outcome = comparePersonalBest(result.wpm, best, false);
+				setPb(outcome);
+				celebrate(outcome);
+			})
+			.catch(() => {
+				if (!disposed) setPb(null);
+			});
+	}
+
+	onMount(() => {
 		if (reduced) {
-			heroRef.textContent = String(props.wpm);
-			containerRef
-				.querySelectorAll(
-					".stat-card, .breakdown-item, .chart-section, .redo-section",
-				)
-				.forEach((el) => {
-					(el as HTMLElement).style.opacity = "1";
-				});
+			track(animate(containerRef, { opacity: [0, 1] }, { duration: 0.2 }));
+			later(0, () => setShowHistory(true));
 			return;
 		}
 
-		// Animate hero WPM counter
-		animate(0, props.wpm, {
-			duration: 1,
-			ease: [0.16, 1, 0.3, 1],
-			onUpdate(value) {
-				heroRef.textContent = Math.round(value).toString();
-			},
+		const q = (selector: string) => containerRef.querySelectorAll(selector);
+		const rise = (px: number) => [`translateY(${px}px)`, "translateY(0)"];
+
+		track(
+			animate(
+				q(".hero-meta"),
+				{ opacity: [0, 1], transform: rise(6) },
+				{ duration: 0.3, ease: "easeOut" },
+			),
+		);
+
+		track(
+			animate(0, result.wpm, {
+				duration: COUNT_S,
+				ease: [0.33, 1, 0.68, 1],
+				onUpdate(value) {
+					heroRef.textContent = Math.round(value).toString();
+				},
+				onComplete() {
+					if (disposed) return;
+					heroRef.textContent = String(result.wpm);
+					landed = true;
+					track(
+						animate(
+							heroWrap,
+							{ transform: ["scale(1.06)", "scale(1)"] },
+							{ type: spring, bounce: 0.3, visualDuration: 0.35 },
+						),
+					);
+					if (!afk) {
+						track(
+							animate(
+								glowRef,
+								{
+									opacity: [0.12, 0.4, 0.14],
+									transform: ["scale(0.9)", "scale(1.15)", "scale(1)"],
+								},
+								{ duration: 0.8, ease: "easeOut" },
+							),
+						);
+					}
+					track(
+						animate(
+							chipRef,
+							{ opacity: [0, 1], transform: ["scale(0.85)", "scale(1)"] },
+							{ type: spring, bounce: 0.4, visualDuration: 0.3 },
+						),
+					);
+					celebrate(pb());
+				},
+			}),
+		);
+
+		track(
+			animate(
+				q(".stat-cell"),
+				{ opacity: [0, 1], transform: rise(10) },
+				{
+					type: spring,
+					bounce: 0.15,
+					visualDuration: 0.45,
+					delay: stagger(0.06, { startDelay: STATS_AT }),
+				},
+			),
+		);
+
+		track(
+			animate(
+				q(".panel"),
+				{ opacity: [0, 1], transform: rise(12) },
+				{ duration: 0.45, delay: PANEL_AT, ease: [0.22, 1, 0.36, 1] },
+			),
+		);
+
+		track(
+			animate(
+				q(".breakdown-item"),
+				{ opacity: [0, 1], transform: rise(6) },
+				{ duration: 0.3, delay: stagger(0.06, { startDelay: CHARS_AT }) },
+			),
+		);
+		q(".breakdown-count").forEach((el, i) => {
+			const target = Number((el as HTMLElement).dataset.count ?? 0);
+			el.textContent = "0";
+			track(
+				animate(0, target, {
+					duration: 0.7,
+					delay: CHARS_AT + i * 0.06,
+					ease: [0.22, 1, 0.36, 1],
+					onUpdate(value) {
+						el.textContent = Math.round(value).toString();
+					},
+				}),
+			);
 		});
 
-		// Stagger stat cards
-		animate(
-			containerRef.querySelectorAll(".stat-card"),
-			{ opacity: [0, 1], transform: ["translateY(12px)", "translateY(0)"] },
-			{
-				type: spring,
-				bounce: 0.15,
-				visualDuration: 0.5,
-				delay: stagger(0.08, { startDelay: 0.3 }),
-			},
+		track(
+			animate(
+				q(".actions"),
+				{ opacity: [0, 1], transform: rise(8) },
+				{ duration: 0.35, delay: ACTIONS_AT, ease: "easeOut" },
+			),
 		);
 
-		// Stagger breakdown items
-		animate(
-			containerRef.querySelectorAll(".breakdown-item"),
-			{ opacity: [0, 1], transform: ["translateY(8px)", "translateY(0)"] },
-			{
-				type: spring,
-				bounce: 0.1,
-				visualDuration: 0.4,
-				delay: stagger(0.06, { startDelay: 0.6 }),
-			},
-		);
-
-		// Chart + redo fade in
-		animate(
-			containerRef.querySelectorAll(".chart-section, .redo-section"),
-			{ opacity: [0, 1] },
-			{ duration: 0.5, delay: stagger(0.15, { startDelay: 0.8 }) },
-		);
+		later(HISTORY_AFTER_MS, () => setShowHistory(true));
 	});
+
+	const copyImage = async () => {
+		if (copyState() === "busy") return;
+		setCopyState("busy");
+		let outcome: keyof typeof COPY_LABELS;
+		try {
+			outcome = await copyResultImage({
+				wpm: result.wpm,
+				rawWpm: result.rawWpm,
+				accuracy: result.accuracy,
+				consistency: result.consistency,
+				time: formatTime(result.elapsed),
+				mode: insights ? modeLabel(insights.mode) : "",
+				wpmPerSecond: result.wpmPerSecond,
+				rawPerSecond: insights?.rawPerSecond ?? [],
+				pb: pb(),
+			});
+		} catch {
+			outcome = "failed";
+		}
+		if (disposed) return;
+		setCopyState(outcome);
+		later(1800, () => setCopyState("idle"));
+	};
+
+	const hidden = reduced ? "" : "opacity-0";
+	const outcome = <K extends PersonalBestOutcome["kind"]>(kind: K) => {
+		const o = pb();
+		return o?.kind === kind
+			? (o as Extract<PersonalBestOutcome, { kind: K }>)
+			: undefined;
+	};
 
 	return (
 		<div
 			ref={containerRef}
-			class="w-full max-w-2xl mx-auto flex flex-col items-center gap-10"
+			class="mx-auto flex w-[min(48rem,calc(100vw-2rem))] flex-col items-center"
+			data-testid="results"
 		>
-			{/* Hero WPM */}
-			<div class="relative flex flex-col items-center gap-1">
+			{/* The result fills the first screen, so history mounting below it
+			    never shifts it. */}
+			<div class="flex min-h-[calc(100svh-9.75rem)] w-full flex-col items-center justify-center gap-6">
+				{props.header}
+
+				{/* Hero */}
+				<div class="relative flex flex-col items-center">
+					<div
+						ref={glowRef}
+						class="pointer-events-none absolute left-1/2 top-1/2 h-[220px] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+						style={{
+							background:
+								"radial-gradient(closest-side, var(--primary), transparent)",
+							opacity: afk ? "0" : "0.12",
+						}}
+					/>
+					<div
+						class={`hero-meta relative flex items-center gap-2 font-display text-xs uppercase tracking-[0.25em] text-text-sub ${hidden}`}
+					>
+						<span>wpm</span>
+						<Show when={insights}>
+							{(i) => (
+								<>
+									<span class="text-text-sub/50" aria-hidden="true">
+										·
+									</span>
+									<span data-testid="result-mode">{modeLabel(i().mode)}</span>
+								</>
+							)}
+						</Show>
+					</div>
+					<div ref={heroWrap} class="relative">
+						<span
+							ref={heroRef}
+							class="block font-display text-[6.5rem] font-bold leading-none tracking-tight tabular-nums sm:text-[8rem]"
+							classList={{ "text-primary": !afk, "text-text-sub": afk }}
+							data-testid="result-wpm"
+						>
+							{reduced ? result.wpm : 0}
+						</span>
+					</div>
+					<div
+						ref={chipRef}
+						class={`relative flex items-center ${scope || afk ? "mt-3 h-8" : ""} ${hidden}`}
+						data-testid="pb-chip"
+					>
+						<Switch>
+							<Match when={outcome("new")}>
+								{(o) => <Chip tone="primary">+{o().delta} PB</Chip>}
+							</Match>
+							<Match when={outcome("first")}>
+								<Chip tone="primary">first PB</Chip>
+							</Match>
+							<Match when={outcome("held")}>
+								{(o) => <Chip tone="muted">PB {o().best}</Chip>}
+							</Match>
+							<Match when={outcome("afk")}>
+								<Chip tone="muted">AFK detected</Chip>
+							</Match>
+						</Switch>
+					</div>
+					<Show when={afk}>
+						<p class="relative mt-2 max-w-xs text-center text-xs text-text-sub">
+							No keys in the last 5 seconds, so this run doesn't count toward
+							your best.
+						</p>
+					</Show>
+				</div>
+
+				{/* Stats */}
+				<div class="grid w-full grid-cols-2 gap-y-4 sm:grid-cols-4">
+					<StatCell
+						label="accuracy"
+						value={`${props.accuracy}`}
+						sub="%"
+						hidden={hidden}
+					/>
+					<StatCell
+						label="consistency"
+						value={`${props.consistency}`}
+						sub="%"
+						hidden={hidden}
+					/>
+					<StatCell label="raw" value={`${props.rawWpm}`} hidden={hidden} />
+					<StatCell
+						label="time"
+						value={formatTime(props.elapsed)}
+						hidden={hidden}
+					/>
+				</div>
+
+				<Show when={props.saveFailed}>
+					<p role="status" class="-mt-4 text-xs text-text-sub">
+						Couldn't save this result
+					</p>
+				</Show>
+
+				{/* Chart and character breakdown */}
 				<div
-					class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[200px] pointer-events-none rounded-full"
-					style={{
-						background:
-							"radial-gradient(circle, var(--primary) 0%, transparent 70%)",
-						opacity: "0.06",
-					}}
-				/>
-				<span class="font-display text-xs uppercase tracking-widest text-text-sub">
-					wpm
-				</span>
-				<span
-					ref={heroRef}
-					class="font-display text-9xl font-light text-primary leading-none"
+					class={`panel w-full rounded-2xl border border-text-sub/10 bg-bg-secondary/50 px-4 py-4 sm:px-6 ${hidden}`}
 				>
-					0
-				</span>
-			</div>
+					<Show when={hasChart}>
+						<div class="mb-2 flex items-center justify-between gap-4 font-display text-[11px] text-text-sub">
+							<span class="uppercase tracking-[0.2em]">wpm over time</span>
+							<span class="flex items-center gap-4">
+								<span class="flex items-center gap-1.5">
+									<span class="h-0.5 w-3 rounded bg-primary" />
+									average
+								</span>
+								<Show when={insights?.rawPerSecond.length}>
+									<span class="flex items-center gap-1.5">
+										<span class="h-0.5 w-3 rounded bg-text-sub" />
+										raw
+									</span>
+								</Show>
+								<Show when={insights?.errorsPerSecond.some((n) => n > 0)}>
+									<span class="flex items-center gap-1.5">
+										<span class="h-2 w-0.5 rounded bg-error" />
+										errors
+									</span>
+								</Show>
+							</span>
+						</div>
+						<WPMChart
+							wpm={result.wpmPerSecond}
+							raw={insights?.rawPerSecond}
+							errors={insights?.errorsPerSecond}
+							height={150}
+							drawDelay={reduced ? null : CHART_AT}
+						/>
+					</Show>
 
-			{/* Stat cards row */}
-			<div class="flex gap-12 justify-center">
-				<StatCard label="accuracy" value={`${props.accuracy}`} sub="%" />
-				<StatCard label="consistency" value={`${props.consistency}`} sub="%" />
-				<StatCard label="raw" value={`${props.rawWpm}`} />
-				<StatCard label="time" value={formatTime(props.elapsed)} />
-			</div>
+					<div
+						classList={{
+							"mt-3 border-t border-text-sub/10 pt-4": hasChart,
+						}}
+					>
+						<div class="grid grid-cols-2 gap-x-8 gap-y-2 sm:grid-cols-4">
+							<BreakdownItem
+								label="correct"
+								count={props.breakdown.correct}
+								dot="bg-primary"
+								hidden={hidden}
+							/>
+							<BreakdownItem
+								label="incorrect"
+								count={props.breakdown.incorrect}
+								dot="bg-error"
+								hidden={hidden}
+							/>
+							<BreakdownItem
+								label="missed"
+								count={props.breakdown.missed}
+								dot="bg-text-sub"
+								hidden={hidden}
+							/>
+							<BreakdownItem
+								label="extra"
+								count={props.breakdown.extra}
+								dot="bg-error-extra"
+								hidden={hidden}
+							/>
+						</div>
+					</div>
+				</div>
 
-			<Show when={props.saveFailed}>
-				<p role="status" class="-mt-6 text-xs text-text-sub">
-					Couldn't save this result
-				</p>
-			</Show>
-
-			{/* WPM Chart */}
-			<Show when={props.wpmPerSecond.length > 1}>
-				<div class="chart-section w-full opacity-0">
-					<span class="font-display text-xs uppercase tracking-widest text-text-sub mb-2 block">
-						wpm over time
+				{/* Actions */}
+				<div class={`actions flex flex-col items-center gap-2 ${hidden}`}>
+					<div class="flex items-center gap-3">
+						<button
+							ref={redoRef}
+							type="button"
+							class="inline-flex items-center gap-2 rounded-lg bg-primary px-7 py-3 font-display text-sm font-semibold text-bg shadow-[0_0_24px_-6px_var(--primary)] transition-[transform,filter] hover:brightness-110 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+							style={{ color: ON_PRIMARY }}
+							onClick={() => props.onRedo()}
+						>
+							<svg
+								aria-hidden="true"
+								viewBox="0 0 24 24"
+								class="h-4 w-4"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.25"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M3 12a9 9 0 1 0 3-6.7" />
+								<path d="M3 4v5h5" />
+							</svg>
+							{props.redoLabel ?? "Redo"}
+						</button>
+						<button
+							type="button"
+							class="inline-flex items-center gap-2 rounded-lg border border-text-sub/25 px-4 py-3 font-display text-sm text-text-sub transition-colors hover:border-primary/50 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary disabled:opacity-60"
+							onClick={copyImage}
+							disabled={copyState() === "busy"}
+							data-testid="copy-image"
+						>
+							<svg
+								aria-hidden="true"
+								viewBox="0 0 24 24"
+								class="h-4 w-4"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<rect x="3" y="5" width="18" height="14" rx="2" />
+								<circle cx="9" cy="10" r="1.5" />
+								<path d="m21 16-5-5-8 8" />
+							</svg>
+							<span aria-live="polite">{COPY_LABELS[copyState()]}</span>
+						</button>
+					</div>
+					<span class="text-xs text-text-sub/70">
+						<kbd class="rounded bg-bg-secondary px-1.5 py-0.5 text-[10px] text-text-sub">
+							Tab
+						</kbd>
+						{" + "}
+						<kbd class="rounded bg-bg-secondary px-1.5 py-0.5 text-[10px] text-text-sub">
+							Enter
+						</kbd>
 					</span>
-					<WPMChart data={props.wpmPerSecond} />
 				</div>
-			</Show>
-
-			{/* Divider */}
-			<div class="w-full h-px bg-text-sub/20" />
-
-			{/* Character breakdown */}
-			<div class="flex flex-col gap-3">
-				<span class="font-display text-xs uppercase tracking-widest text-text-sub">
-					characters
-				</span>
-				<div class="flex gap-8">
-					<BreakdownItem
-						label="correct"
-						count={props.breakdown.correct}
-						color="bg-primary"
-					/>
-					<BreakdownItem
-						label="incorrect"
-						count={props.breakdown.incorrect}
-						color="bg-error"
-					/>
-					<BreakdownItem
-						label="missed"
-						count={props.breakdown.missed}
-						color="bg-text-sub"
-					/>
-					<BreakdownItem
-						label="extra"
-						count={props.breakdown.extra}
-						color="bg-error-extra"
-					/>
-				</div>
-			</div>
-
-			{/* Redo button */}
-			<div class="redo-section flex flex-col items-center gap-2 mt-4 opacity-0">
-				<button
-					ref={redoRef}
-					type="button"
-					class="px-8 py-3 bg-bg-secondary text-text-sub rounded border border-text-sub/20 hover:text-primary hover:border-primary/40 transition-colors text-sm uppercase tracking-widest btn-glow"
-					onClick={props.onRedo}
-				>
-					{props.redoLabel ?? "Redo"}
-				</button>
-				<span class="text-xs text-text-sub/60">
-					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text-sub text-[10px]">
-						Tab
-					</kbd>
-					{" + "}
-					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text-sub text-[10px]">
-						Enter
-					</kbd>
-				</span>
 			</div>
 
 			{/* History */}
-			<div class="redo-section w-full mt-4 opacity-0">
-				<HistoryList />
-			</div>
+			<Show when={showHistory()}>
+				<div class="w-full pt-10">
+					<HistoryList />
+				</div>
+			</Show>
 		</div>
 	);
 }
