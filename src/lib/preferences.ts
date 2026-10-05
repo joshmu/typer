@@ -1,6 +1,7 @@
 import { makePersisted } from "@solid-primitives/storage";
 import { createStore } from "solid-js/store";
 import type { StopOnError } from "@/lib/core/types";
+import { PREFERENCES_KEY } from "@/lib/theme-boot";
 import { DEFAULT_THEME } from "@/lib/themes";
 
 export interface UserPreferences {
@@ -34,7 +35,7 @@ export function createPreferences(storage?: Storage) {
 	return makePersisted(
 		createStore<UserPreferences>({ ...defaultPreferences }),
 		{
-			name: "typer-preferences",
+			name: PREFERENCES_KEY,
 			...(storage ? { storage } : {}),
 			deserialize: (raw: string): UserPreferences => {
 				const stored = JSON.parse(raw) as Partial<UserPreferences>;

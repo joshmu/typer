@@ -248,18 +248,25 @@ export function getTheme(name: string): Theme {
 	return themes[name] ?? themes[DEFAULT_THEME];
 }
 
+/** Theme colour to the CSS custom property it paints. Shared with the boot script. */
+export const THEME_CSS_VARS: readonly (readonly [keyof Theme, string])[] = [
+	["bg", "--bg"],
+	["bgSecondary", "--bg-secondary"],
+	["text", "--text"],
+	["textSub", "--text-sub"],
+	["primary", "--primary"],
+	["onPrimary", "--on-primary"],
+	["warning", "--warning"],
+	["error", "--error"],
+	["errorExtra", "--error-extra"],
+	["caret", "--caret"],
+	["correct", "--correct"],
+];
+
 export function applyTheme(theme: Theme): void {
 	const root = document.documentElement;
 	root.setAttribute("data-theme", theme.name);
-	root.style.setProperty("--bg", theme.bg);
-	root.style.setProperty("--bg-secondary", theme.bgSecondary);
-	root.style.setProperty("--text", theme.text);
-	root.style.setProperty("--text-sub", theme.textSub);
-	root.style.setProperty("--primary", theme.primary);
-	root.style.setProperty("--on-primary", theme.onPrimary);
-	root.style.setProperty("--warning", theme.warning);
-	root.style.setProperty("--error", theme.error);
-	root.style.setProperty("--error-extra", theme.errorExtra);
-	root.style.setProperty("--caret", theme.caret);
-	root.style.setProperty("--correct", theme.correct);
+	for (const [key, cssVar] of THEME_CSS_VARS) {
+		root.style.setProperty(cssVar, theme[key]);
+	}
 }
