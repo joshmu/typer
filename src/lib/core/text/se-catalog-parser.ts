@@ -9,14 +9,41 @@ function absoluteUrl(url: string): string {
 const ENTITIES: Record<string, string> = {
 	"&amp;": "&",
 	"&quot;": '"',
-	"&#39;": "'",
 	"&apos;": "'",
 	"&lt;": "<",
 	"&gt;": ">",
 };
 
 function decodeEntities(text: string): string {
-	return text.replace(/&(amp|quot|#39|apos|lt|gt);/g, (m) => ENTITIES[m]);
+	return text
+		.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+		.replace(/&#x([\da-f]+);/gi, (_, code) =>
+			String.fromCodePoint(Number.parseInt(code, 16)),
+		)
+		.replace(/&(amp|quot|apos|lt|gt);/g, (m) => ENTITIES[m]);
+}
+
+/**
+ * The book's long description (the page's Description section) as plain
+ * paragraphs separated by blank lines, or "" when the page has none.
+ */
+function parseLongDescription(xhtml: string): string {
+	const start = xhtml.search(/<section[^>]*id="description"/i);
+	if (start < 0) return "";
+	const rest = xhtml.slice(start + 1);
+	const end = rest.search(/<\/section>|<section/i);
+	const section = (end < 0 ? rest : rest.slice(0, end)).replace(
+		/<aside[\s\S]*?<\/aside>/gi,
+		"",
+	);
+	const paragraphs = [...section.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+		.map((m) =>
+			decodeEntities(m[1].replace(/<[^>]+>/g, ""))
+				.replace(/\s+/g, " ")
+				.trim(),
+		)
+		.filter(Boolean);
+	return paragraphs.join("\n\n");
 }
 
 /**
@@ -142,6 +169,7 @@ export function parseBookDetail(xhtml: string, bookId: string): BookMeta {
 		title,
 		author,
 		description,
+		longDescription: parseLongDescription(xhtml),
 		language,
 		wordCount,
 		coverUrl,

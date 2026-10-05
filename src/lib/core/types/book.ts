@@ -5,6 +5,8 @@ export interface BookMeta {
 	title: string;
 	author: string;
 	description: string;
+	/** Full description, paragraphs separated by blank lines. Absent on catalog entries and older caches. */
+	longDescription?: string;
 	language: string;
 	wordCount: number;
 	/** Thumbnail cover URL */
