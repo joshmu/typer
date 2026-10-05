@@ -16,6 +16,8 @@ function themeColour(name: string): string | null {
 export async function burstFrom(el: HTMLElement): Promise<void> {
 	if (prefersReducedMotion()) return;
 	loaded ??= (await import("canvas-confetti")).default;
+	// The results screen may have closed while confetti loaded.
+	if (!el.isConnected) return;
 	const rect = el.getBoundingClientRect();
 	const primary = themeColour("--primary") ?? "#e2b714";
 	await loaded({
