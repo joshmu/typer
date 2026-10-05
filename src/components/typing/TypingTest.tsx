@@ -59,6 +59,8 @@ export default function TypingTest(props: TypingTestProps) {
 		state.mode.type === "zen" || state.mode.type === "book";
 
 	const complete = () => state.endTime !== null;
+	const showEscHint = () =>
+		isContinuousMode && !complete() && state.startTime !== null;
 
 	const session = createTypingSession({
 		state,
@@ -155,19 +157,31 @@ export default function TypingTest(props: TypingTestProps) {
 			data-testid="typing-test"
 		>
 			<StatsBar wpm={wpm()} accuracy={accuracy()} elapsed={elapsed()} />
-			<Show when={capsLock() && !complete()}>
-				<div class="mb-2 text-sm text-error flex items-center gap-2">
-					<span class="w-2 h-2 rounded-full bg-error" />
-					Caps Lock is on
-				</div>
-			</Show>
-			<Show when={isContinuousMode && !complete() && state.startTime}>
-				<div class="mb-2 text-xs text-text-sub">
-					Press{" "}
-					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text">Esc</kbd>{" "}
-					to {state.mode.type === "book" ? "stop & save" : "finish"}
-				</div>
-			</Show>
+			{/* One reserved row for the Caps Lock warning and the Esc hint, so
+			    neither shifts the text when it appears. */}
+			<div class="mb-2 flex h-5 items-center text-xs">
+				<Show
+					when={capsLock() && !complete()}
+					fallback={
+						<div
+							class="text-text-sub transition-opacity duration-300"
+							classList={{ "opacity-0": !showEscHint() }}
+							aria-hidden={!showEscHint()}
+						>
+							Press{" "}
+							<kbd class="rounded bg-bg-secondary px-1 py-0.5 text-text">
+								Esc
+							</kbd>{" "}
+							to {state.mode.type === "book" ? "stop & save" : "finish"}
+						</div>
+					}
+				>
+					<div class="flex items-center gap-2 text-sm text-error">
+						<span class="h-2 w-2 rounded-full bg-error" />
+						Caps Lock is on
+					</div>
+				</Show>
+			</div>
 			<TextDisplay
 				words={state.words}
 				currentWordIndex={state.currentWordIndex}

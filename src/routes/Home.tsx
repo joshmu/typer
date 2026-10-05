@@ -1,4 +1,12 @@
-import { createMemo, lazy, Match, Show, Switch } from "solid-js";
+import {
+	createMemo,
+	type JSX,
+	lazy,
+	Match,
+	type ParentProps,
+	Show,
+	Switch,
+} from "solid-js";
 import BookBrowser from "@/components/books/BookBrowser";
 import BookHeader from "@/components/books/BookHeader";
 import ModeSelector from "@/components/typing/ModeSelector";
@@ -9,6 +17,28 @@ import { usePreferences } from "@/lib/preferences-context";
 import { useTestSession } from "@/lib/use-test-session";
 
 const ResultsScreen = lazy(() => import("@/components/results/ResultsScreen"));
+
+/**
+ * Anchors its content a little above centre: the spacers split the free
+ * height 1 : 2.4, which puts the active line near 40% of the viewport. The
+ * top spacer never shrinks below the mode bar, which floats over it.
+ */
+function Stage(props: ParentProps<{ above?: JSX.Element }>) {
+	return (
+		<div class="flex w-full flex-1 flex-col">
+			<div class="min-h-[8.5rem] flex-[1_1_0]" />
+			<div class="relative w-full">
+				<Show when={props.above}>
+					{(above) => (
+						<div class="absolute inset-x-0 bottom-full">{above()}</div>
+					)}
+				</Show>
+				{props.children}
+			</div>
+			<div class="flex-[2.4_1_0]" />
+		</div>
+	);
+}
 
 export default function Home() {
 	const [prefs, setPrefs] = usePreferences();
@@ -28,7 +58,7 @@ export default function Home() {
 	});
 
 	return (
-		<main class="flex flex-col items-center justify-center flex-1 px-8 py-12">
+		<main class="relative flex flex-1 flex-col items-center px-4 sm:px-8">
 			<Show when={!session.result()}>
 				<ModeSelector
 					mode={session.mode()}
@@ -44,7 +74,7 @@ export default function Home() {
 			<Switch>
 				<Match when={session.result()}>
 					{(r) => (
-						<div>
+						<div class="my-auto py-12">
 							<Show
 								when={session.mode().type === "book" && session.activeBook()}
 							>
@@ -87,19 +117,20 @@ export default function Home() {
 				</Match>
 				<Match when={loadedTest()} keyed>
 					{(test) => (
-						<div class="w-full">
-							<Show
-								when={session.mode().type === "book" && session.activeBook()}
-							>
-								<BookHeader
-									book={session.activeBook()!.meta}
-									chapterIndex={
-										session.bookReader()?.position.chapterIndex ?? 0
-									}
-									chapterTitle={session.bookReader()?.chapterTitle}
-									progressPercent={session.bookProgressPercent()}
-								/>
-							</Show>
+						<Stage
+							above={
+								session.mode().type === "book" && session.activeBook() ? (
+									<BookHeader
+										book={session.activeBook()!.meta}
+										chapterIndex={
+											session.bookReader()?.position.chapterIndex ?? 0
+										}
+										chapterTitle={session.bookReader()?.chapterTitle}
+										progressPercent={session.bookProgressPercent()}
+									/>
+								) : undefined
+							}
+						>
 							<TypingTest
 								text={test.text}
 								mode={test.mode}
@@ -107,11 +138,13 @@ export default function Home() {
 								onComplete={(state) => session.complete(state)}
 								feed={session.feed() ?? undefined}
 							/>
-						</div>
+						</Stage>
 					)}
 				</Match>
 				<Match when={session.mode().type === "custom" && !session.text()}>
-					<TextInputModal onSubmit={(t) => session.setCustomText(t)} />
+					<Stage>
+						<TextInputModal onSubmit={(t) => session.setCustomText(t)} />
+					</Stage>
 				</Match>
 				<Match
 					when={
@@ -120,13 +153,16 @@ export default function Home() {
 						!session.activeBook()
 					}
 				>
-					<BookBrowser
-						allProgress={session.allBookProgress() ?? []}
-						onSelectBook={(bookId, progress) =>
-							session.selectBook(bookId, progress)
-						}
-						loading={session.bookLoading()}
-					/>
+					{/* The library scrolls below the mode bar's reserved band */}
+					<div class="w-full pt-32 pb-12">
+						<BookBrowser
+							allProgress={session.allBookProgress() ?? []}
+							onSelectBook={(bookId, progress) =>
+								session.selectBook(bookId, progress)
+							}
+							loading={session.bookLoading()}
+						/>
+					</div>
 				</Match>
 			</Switch>
 		</main>
