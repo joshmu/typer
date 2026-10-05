@@ -1,4 +1,5 @@
 import {
+	createEffect,
 	createMemo,
 	type JSX,
 	lazy,
@@ -58,6 +59,11 @@ export default function Home() {
 		return text === null ? null : { text, mode: session.mode() };
 	});
 
+	// Fetch the results chunk while the test runs, so the reveal starts on time.
+	createEffect(() => {
+		if (loadedTest()) void ResultsScreen.preload();
+	});
+
 	return (
 		<main class="relative flex flex-1 flex-col items-center px-4 sm:px-8">
 			<Show when={!session.result()}>
@@ -75,29 +81,7 @@ export default function Home() {
 			<Switch>
 				<Match when={session.result()}>
 					{(r) => (
-						<div class="my-auto py-12">
-							<Show
-								when={session.mode().type === "book" && session.activeBook()}
-							>
-								<div class="text-center mb-6">
-									<p class="text-sm text-text-sub mb-2">
-										{session.activeBook()!.meta.title} ·{" "}
-										{chapterLabel(
-											session.bookReader()?.position.chapterIndex ?? 0,
-											session.bookReader()?.chapterTitle,
-										)}
-									</p>
-									<div class="w-64 mx-auto h-1.5 bg-bg-secondary rounded-full overflow-hidden">
-										<div
-											class="h-full bg-primary transition-all"
-											style={{ width: `${session.bookProgressPercent()}%` }}
-										/>
-									</div>
-									<p class="text-xs text-text-sub mt-1">
-										{session.bookProgressPercent()}% complete
-									</p>
-								</div>
-							</Show>
+						<div class="my-auto w-full py-12">
 							<ResultsScreen
 								wpm={r().wpm}
 								rawWpm={r().rawWpm}
@@ -106,6 +90,31 @@ export default function Home() {
 								breakdown={r().breakdown}
 								elapsed={r().elapsed}
 								wpmPerSecond={r().wpmPerSecond}
+								insights={r().insights}
+								header={
+									session.mode().type === "book" && session.activeBook() ? (
+										<div class="text-center">
+											<p class="text-sm text-text-sub mb-2">
+												{session.activeBook()!.meta.title} ·{" "}
+												{chapterLabel(
+													session.bookReader()?.position.chapterIndex ?? 0,
+													session.bookReader()?.chapterTitle,
+												)}
+											</p>
+											<div class="w-64 mx-auto h-1.5 bg-bg-secondary rounded-full overflow-hidden">
+												<div
+													class="h-full bg-primary transition-all"
+													style={{
+														width: `${session.bookProgressPercent()}%`,
+													}}
+												/>
+											</div>
+											<p class="text-xs text-text-sub mt-1">
+												{session.bookProgressPercent()}% complete
+											</p>
+										</div>
+									) : undefined
+								}
 								onRedo={() => session.redo()}
 								saveFailed={session.saveFailed()}
 								redoLabel={
