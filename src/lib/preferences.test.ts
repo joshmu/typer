@@ -1,6 +1,6 @@
 import { createRoot } from "solid-js";
 import { reconcile } from "solid-js/store";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
 	createPreferences,
 	defaultPreferences,
@@ -203,6 +203,21 @@ describe("preferences", () => {
 			expect(reloaded.smallScreenNoticeDismissed).toBe(true);
 			dispose();
 		}));
+	it("falls back to defaults when the stored value is not an object", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		for (const raw of ["null", "5", '"dracula"', "[1,2]", "true"]) {
+			createRoot((dispose) => {
+				const storage = createMockStorage();
+				storage.setItem("typer-preferences", raw);
+				const [prefs] = createPreferences(storage);
+				expect({ ...prefs }).toEqual(defaultPreferences);
+				dispose();
+			});
+		}
+		expect(warn).not.toHaveBeenCalled();
+		warn.mockRestore();
+	});
+
 	it("remembers the last picked book apart from the last mode", () =>
 		createRoot((dispose) => {
 			const storage = createMockStorage();

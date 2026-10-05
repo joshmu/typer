@@ -50,7 +50,14 @@ export function createPreferences(storage?: Storage) {
 			name: PREFERENCES_KEY,
 			...(storage ? { storage } : {}),
 			deserialize: (raw: string): UserPreferences => {
-				const stored = JSON.parse(raw) as Partial<UserPreferences>;
+				const parsed: unknown = JSON.parse(raw);
+				// Anything but a plain object (null, a string, an array) is ignored.
+				const stored: Partial<UserPreferences> =
+					parsed !== null &&
+					typeof parsed === "object" &&
+					!Array.isArray(parsed)
+						? parsed
+						: {};
 				return {
 					...defaultPreferences,
 					...stored,
