@@ -26,7 +26,7 @@ const ResultsScreen = lazy(() => import("@/components/results/ResultsScreen"));
 function Stage(props: ParentProps<{ above?: JSX.Element }>) {
 	return (
 		<div class="flex w-full flex-1 flex-col">
-			<div class="min-h-[8.5rem] flex-[1_1_0]" />
+			<div class="min-h-[clamp(6.5rem,20vh,8.5rem)] flex-[1_1_0]" />
 			<div class="relative w-full">
 				<Show when={props.above}>
 					{(above) => (
