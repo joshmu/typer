@@ -50,10 +50,10 @@ function OptionButton(props: {
 	return (
 		<button
 			type="button"
-			class="rounded-md px-2.5 py-1 font-display text-xs font-medium tracking-wide transition-colors"
+			class="rounded-md px-3 py-1 font-display text-sm font-medium tracking-wide tabular-nums transition-colors"
 			classList={{
 				"text-primary bg-primary/10": props.active,
-				"text-text-sub hover:text-text": !props.active,
+				"text-text/55 hover:text-text": !props.active,
 			}}
 			onClick={props.onClick}
 		>
