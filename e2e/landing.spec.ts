@@ -34,6 +34,12 @@ test("the card is reached with Shift+Tab and hides while typing", async ({
 	await expect(page.getByTestId("typing-test")).toBeFocused();
 	const link = page.getByRole("link", { name: /type a classic book/i });
 	await expect(link).toBeVisible();
+	// the card stays inert until the book lookup settles; on a slow machine
+	// that can land after the typing area takes focus
+	await expect(page.getByTestId("continue-card")).not.toHaveAttribute(
+		"inert",
+		"",
+	);
 
 	await page.keyboard.press("Shift+Tab");
 	await expect(link).toBeFocused();
