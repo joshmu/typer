@@ -147,7 +147,7 @@ export default function BookBrowser(props: BookBrowserProps) {
 	};
 
 	return (
-		<div class="mx-auto w-full max-w-5xl">
+		<div class="mx-auto min-h-[75dvh] w-full max-w-5xl">
 			<div class="group/search relative mb-10">
 				<svg
 					viewBox="0 0 24 24"
