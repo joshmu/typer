@@ -1,4 +1,4 @@
-const TIME_STEPS = [5, 10, 15, 20, 30, 60, 120, 300, 600];
+const TIME_STEPS = [5, 10, 15, 20, 30, 60, 120, 300, 600, 900, 1800, 3600];
 const MAX_TIME_BANDS = 6;
 const WPM_STEPS = [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 125, 150, 200];
 const WPM_BANDS = 4;
@@ -6,9 +6,10 @@ const WPM_BANDS = 4;
 /** X-axis ticks in seconds: the first, every tidy step, and the last. */
 export function timeTicks(seconds: number): number[] {
 	if (seconds <= 1) return [1];
+	// past the tidy steps (sessions over an hour), whole hours
 	const step =
 		TIME_STEPS.find((s) => Math.ceil(seconds / s) <= MAX_TIME_BANDS) ??
-		TIME_STEPS[TIME_STEPS.length - 1];
+		Math.ceil(seconds / MAX_TIME_BANDS / 3600) * 3600;
 	const ticks = [1];
 	for (let t = step; t < seconds; t += step) ticks.push(t);
 	const last = ticks[ticks.length - 1];
@@ -85,4 +86,78 @@ export function movingAverage(values: number[], window: number): number[] {
 /** Seconds averaged into each point of the smoothed WPM line. */
 export function smoothingWindow(seconds: number): number {
 	return seconds > 30 ? 5 : 3;
+}
+
+/** The largest sample across the series (0 with none). A loop, not a spread:
+ * an unbounded zen or book session can outgrow Math.max's argument limit. */
+export function peakOf(
+	...series: readonly (readonly number[] | undefined)[]
+): number {
+	let peak = 0;
+	for (const values of series) {
+		if (!values) continue;
+		for (const v of values) if (v > peak) peak = v;
+	}
+	return peak;
+}
+
+/**
+ * Which seconds to draw: all of them up to `maxPoints`, otherwise the lowest
+ * and highest second of each of `maxPoints / 2` equal buckets, so peaks and
+ * dips survive. Always keeps the first and last second, in order.
+ */
+export function chartIndices(
+	values: readonly number[],
+	maxPoints: number,
+): number[] {
+	const n = values.length;
+	if (n <= maxPoints) return Array.from({ length: n }, (_, i) => i);
+	const buckets = Math.max(1, Math.floor(maxPoints / 2));
+	const kept: number[] = [0];
+	for (let b = 0; b < buckets; b++) {
+		const from = Math.floor((b * n) / buckets);
+		const to = Math.floor(((b + 1) * n) / buckets);
+		let lo = from;
+		let hi = from;
+		for (let i = from + 1; i < to; i++) {
+			if (values[i] < values[lo]) lo = i;
+			if (values[i] > values[hi]) hi = i;
+		}
+		for (const i of lo < hi ? [lo, hi] : [hi, lo]) {
+			if (i > kept[kept.length - 1]) kept.push(i);
+		}
+	}
+	if (kept[kept.length - 1] !== n - 1) kept.push(n - 1);
+	return kept;
+}
+
+/**
+ * Error marks for the first `count` seconds: one per second with errors, or
+ * on a long session one per bucket (at its worst second) carrying the
+ * bucket's total.
+ */
+export function errorMarks(
+	errors: readonly number[],
+	count: number,
+	maxMarks: number,
+): { i: number; n: number }[] {
+	const n = Math.min(count, errors.length);
+	const marks: { i: number; n: number }[] = [];
+	if (n <= maxMarks) {
+		for (let i = 0; i < n; i++)
+			if (errors[i] > 0) marks.push({ i, n: errors[i] });
+		return marks;
+	}
+	for (let b = 0; b < maxMarks; b++) {
+		const from = Math.floor((b * n) / maxMarks);
+		const to = Math.floor(((b + 1) * n) / maxMarks);
+		let total = 0;
+		let worst = from;
+		for (let i = from; i < to; i++) {
+			total += errors[i];
+			if (errors[i] > errors[worst]) worst = i;
+		}
+		if (total > 0) marks.push({ i: worst, n: total });
+	}
+	return marks;
 }

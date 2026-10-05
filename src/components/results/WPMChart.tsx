@@ -9,9 +9,12 @@ import {
 	Show,
 } from "solid-js";
 import {
+	chartIndices,
+	errorMarks,
 	formatSecond,
 	monotonePath,
 	movingAverage,
+	peakOf,
 	smoothingWindow,
 	timeTicks,
 	wpmScale,
@@ -30,6 +33,9 @@ interface WPMChartProps {
 const PAD = { top: 12, right: 12, bottom: 26, left: 36 };
 const DRAW_S = 0.6;
 const FALLBACK_WIDTH = 640;
+// a long zen or book session is thinned to about this many points per line
+const MAX_POINTS = 600;
+const MAX_ERROR_MARKS = 300;
 
 export default function WPMChart(props: WPMChartProps) {
 	let containerRef!: HTMLDivElement;
@@ -49,9 +55,7 @@ export default function WPMChart(props: WPMChartProps) {
 	const baseline = () => PAD.top + chartH();
 	const count = () => props.wpm.length;
 
-	const scale = createMemo(() =>
-		wpmScale(Math.max(...props.wpm, ...(props.raw ?? []), 0)),
-	);
+	const scale = createMemo(() => wpmScale(peakOf(props.wpm, props.raw)));
 
 	const x = (i: number) =>
 		count() > 1
@@ -62,13 +66,20 @@ export default function WPMChart(props: WPMChartProps) {
 	const smoothed = createMemo(() =>
 		movingAverage(props.wpm, smoothingWindow(count())),
 	);
-	const wpmPoints = createMemo(() =>
-		smoothed().map((v, i) => [x(i), y(v)] as const),
-	);
+	const wpmPoints = createMemo(() => {
+		const values = smoothed();
+		return chartIndices(values, MAX_POINTS).map(
+			(i) => [x(i), y(values[i])] as const,
+		);
+	});
 	const wpmPath = createMemo(() => monotonePath(wpmPoints()));
 	const rawPath = createMemo(() =>
 		props.raw && props.raw.length === count()
-			? monotonePath(props.raw.map((v, i) => [x(i), y(v)] as const))
+			? monotonePath(
+					chartIndices(props.raw, MAX_POINTS).map(
+						(i) => [x(i), y(props.raw![i])] as const,
+					),
+				)
 			: "",
 	);
 	const areaPath = createMemo(() => {
@@ -78,9 +89,7 @@ export default function WPMChart(props: WPMChartProps) {
 		return `${wpmPath()} L${last},${baseline()} L${pts[0][0]},${baseline()} Z`;
 	});
 	const errorSeconds = createMemo(() =>
-		(props.errors ?? [])
-			.map((n, i) => ({ i, n }))
-			.filter(({ n, i }) => n > 0 && i < count()),
+		errorMarks(props.errors ?? [], count(), MAX_ERROR_MARKS),
 	);
 
 	const animated = () => props.drawDelay != null;
@@ -166,7 +175,7 @@ export default function WPMChart(props: WPMChartProps) {
 				viewBox={`0 0 ${width()} ${height()}`}
 				class="block overflow-visible"
 				role="img"
-				aria-label={`WPM over ${count()} seconds, peaking at ${Math.max(...props.wpm, 0)}`}
+				aria-label={`WPM over ${count()} seconds, peaking at ${peakOf(props.wpm)}`}
 			>
 				<defs>
 					<linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

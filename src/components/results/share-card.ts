@@ -1,10 +1,15 @@
 import type { PersonalBestOutcome } from "@/lib/core/calc";
 import {
+	chartIndices,
 	monotonePath,
 	movingAverage,
+	peakOf,
 	smoothingWindow,
 	wpmScale,
 } from "./chart-scale";
+
+// a long zen or book session is thinned to about this many points per line
+const MAX_POINTS = 600;
 
 export interface ShareCardData {
 	wpm: number;
@@ -166,9 +171,7 @@ function drawChart(
 ): void {
 	const n = data.wpmPerSecond.length;
 	if (n < 2) return;
-	const { max, ticks } = wpmScale(
-		Math.max(...data.wpmPerSecond, ...data.rawPerSecond, 0),
-	);
+	const { max, ticks } = wpmScale(peakOf(data.wpmPerSecond, data.rawPerSecond));
 	const x = (i: number) => box.x + (i / (n - 1)) * box.w;
 	const y = (v: number) => box.y + box.h - (v / max) * box.h;
 
@@ -182,7 +185,9 @@ function drawChart(
 	}
 
 	const smoothed = movingAverage(data.wpmPerSecond, smoothingWindow(n));
-	const wpmPts = smoothed.map((v, i) => [x(i), y(v)] as const);
+	const wpmPts = chartIndices(smoothed, MAX_POINTS).map(
+		(i) => [x(i), y(smoothed[i])] as const,
+	);
 	const line = new Path2D(monotonePath(wpmPts));
 
 	const area = new Path2D(
@@ -201,7 +206,11 @@ function drawChart(
 		ctx.lineWidth = 2.5;
 		ctx.stroke(
 			new Path2D(
-				monotonePath(data.rawPerSecond.map((v, i) => [x(i), y(v)] as const)),
+				monotonePath(
+					chartIndices(data.rawPerSecond, MAX_POINTS).map(
+						(i) => [x(i), y(data.rawPerSecond[i])] as const,
+					),
+				),
 			),
 		);
 	}
@@ -214,7 +223,7 @@ function drawChart(
 	ctx.stroke(line);
 	ctx.restore();
 
-	const [ex, ey] = wpmPts[n - 1];
+	const [ex, ey] = wpmPts[wpmPts.length - 1];
 	ctx.fillStyle = accent;
 	ctx.strokeStyle = p.bg;
 	ctx.lineWidth = 4;
