@@ -26,7 +26,7 @@
 	--color-error-extra: var(--error-extra);
 	--color-caret: var(--caret);
 	--color-correct: var(--correct);
-	--font-family-display: "Urbanist", system-ui, sans-serif;
+	--font-display: "Urbanist", system-ui, sans-serif;
 }
 
 /* Caret blink animation */
@@ -63,6 +63,11 @@
 	text-decoration-line: line-through;
 	text-decoration-thickness: 2px;
 	text-decoration-color: color-mix(in srgb, var(--error) 70%, transparent);
+}
+
+/* Display numerals line up as they change */
+.font-display {
+	font-variant-numeric: tabular-nums;
 }
 
 /* Base styles */
