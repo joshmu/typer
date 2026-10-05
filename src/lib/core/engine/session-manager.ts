@@ -2,11 +2,17 @@ import type { Feed, TestMode } from "../types";
 import type { BookProgress, CachedBook } from "../types/book";
 import { type BookReader, openBookReader } from "./book-reader";
 import type { TestResult } from "./complete-test";
+import type { ResultInsights } from "./result-insights";
+
+/** A completed test as the session shows it. */
+export interface SessionResult extends TestResult {
+	insights?: ResultInsights;
+}
 
 export interface SessionState {
 	mode: TestMode;
 	text: string | null;
-	result: TestResult | null;
+	result: SessionResult | null;
 	activeBook: CachedBook | null;
 	bookReader: BookReader | null;
 	/** Source the current test refills from. */
@@ -57,9 +63,13 @@ export function applyBookSelection(
 
 export function applyResult(
 	session: SessionState,
-	result: TestResult,
+	testResult: TestResult,
 	bookProgress?: Omit<BookProgress, "id">,
+	insights?: ResultInsights,
 ): SessionState {
+	const result: SessionResult = insights
+		? { ...testResult, insights }
+		: testResult;
 	if (!bookProgress || !session.activeBook) return { ...session, result };
 	return {
 		...session,

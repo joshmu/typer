@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Theme, getTheme, themeNames, themes } from "./themes";
+import { getTheme, type Theme, themeNames, themes } from "./themes";
 
 const REQUIRED_KEYS: (keyof Theme)[] = [
 	"name",

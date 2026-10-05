@@ -70,7 +70,7 @@ test("Tab then Enter on results restarts wherever focus is", async ({
 	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
 
 	// Move the focus start point below the Redo button.
-	await page.getByText("personal best").click();
+	await page.getByText("Enter", { exact: true }).click();
 	await page.keyboard.press("Tab");
 	await page.keyboard.press("Enter");
 	await expect(page.getByTestId("text-input")).toBeVisible();
@@ -134,7 +134,7 @@ test("time sub-options stay reachable once time text loads", async ({
 
 	await page.clock.fastForward(1_000);
 	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
-	await expect(page.getByText("1:00", { exact: true })).toBeVisible();
+	await expect(page.getByTestId("stat-time")).toHaveText("1:00");
 });
 
 test("words-count sub-options stay reachable once words text loads", async ({
