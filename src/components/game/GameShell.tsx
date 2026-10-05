@@ -1,3 +1,4 @@
+import { animate } from "motion";
 import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
 import type { GameLoop } from "@/lib/game/render/loop";
 import { deriveRunStats } from "@/lib/game/sim/run-stats";
@@ -27,10 +28,38 @@ declare global {
 // after the core falls, ignore restart keys this long so a word typed in the
 // final moment can't skip the ending
 const DEATH_INPUT_GRACE_MS = 800;
+// the final breach plays out on the field before the death screen covers it
+const DEATH_REVEAL_MS = 650;
+// and a wave's last kill lands before the perk draft covers it
+const DRAFT_REVEAL_MS = 450;
+
+/** True once `cond` has held for `ms` (at once when `immediate`); false
+ * again as soon as it stops. */
+function revealAfter(
+	cond: () => boolean,
+	ms: number,
+	immediate: boolean,
+): () => boolean {
+	const [shown, setShown] = createSignal(false);
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	createEffect(() => {
+		if (!cond()) {
+			clearTimeout(timer);
+			timer = undefined;
+			setShown(false);
+		} else if (!shown() && timer === undefined) {
+			if (immediate) setShown(true);
+			else timer = setTimeout(() => setShown(true), ms);
+		}
+	});
+	onCleanup(() => clearTimeout(timer));
+	return shown;
+}
 
 export default function GameShell() {
 	let canvasRef: HTMLCanvasElement | undefined;
 	let shellRef: HTMLDivElement | undefined;
+	let breachRef: HTMLDivElement | undefined;
 	let loop: GameLoop | undefined;
 	let disposed = false;
 	let startLoop:
@@ -64,6 +93,14 @@ export default function GameShell() {
 	const [previousBest, setPreviousBest] = createSignal<number | null>(null);
 
 	const isOver = () => hud()?.status === "gameover";
+	// the death screen and the perk draft wait a beat so the final breach or
+	// kill plays out on the field first (never in testMode)
+	const deathShown = revealAfter(isOver, DEATH_REVEAL_MS, testMode);
+	const draftShown = revealAfter(
+		() => hud()?.wavePhase === "perk-choice",
+		DRAFT_REVEAL_MS,
+		testMode,
+	);
 	// a run is live while the sim is advancing under the player's hands: the
 	// site header gets out of the way and the arena owns the viewport
 	createEffect(() =>
@@ -111,6 +148,21 @@ export default function GameShell() {
 			gameoverAt = performance.now();
 			void persistRun(state);
 		}
+	});
+
+	// a breach flashes the screen edges red. A colour flash, so it plays under
+	// reduced motion too
+	let lastHp: number | null = null;
+	createEffect(() => {
+		const hp = hud()?.playerHp ?? null;
+		if (hp !== null && lastHp !== null && hp < lastHp && breachRef) {
+			animate(
+				breachRef,
+				{ opacity: [0, 1, 0] },
+				{ duration: 0.32, times: [0, 0.25, 1], ease: "easeOut" },
+			);
+		}
+		lastHp = hp;
 	});
 
 	onMount(async () => {
@@ -249,6 +301,8 @@ export default function GameShell() {
 		// (the sim ignores keys in this phase anyway — swallow them for cleanliness)
 		if (hud()?.wavePhase === "perk-choice") {
 			e.preventDefault();
+			// no blind picks before the cards are on screen
+			if (!draftShown()) return;
 			if (e.key === "1" || e.key === "2" || e.key === "3") {
 				loop?.pushPerk(Number(e.key) - 1);
 			}
@@ -307,6 +361,11 @@ export default function GameShell() {
 					"background-image": vignetteGradient(shellSize().w, shellSize().h),
 				}}
 			/>
+			<div
+				ref={breachRef}
+				data-testid="breach-flash"
+				class="pointer-events-none absolute inset-0 opacity-0 shadow-[inset_0_0_160px_36px_color-mix(in_srgb,var(--error)_70%,transparent)]"
+			/>
 			<Show when={!ready()}>
 				<div class="absolute inset-0 grid place-items-center font-display text-sm uppercase tracking-[0.3em] text-text-sub">
 					Loading arena…
@@ -318,7 +377,9 @@ export default function GameShell() {
 				)}
 			</Show>
 
-			<Show when={hud()?.wavePhase === "perk-choice" ? hud() : null}>
+			<Show
+				when={hud()?.wavePhase === "perk-choice" && draftShown() ? hud() : null}
+			>
 				{(state) => (
 					<PerkDraft
 						wave={state().wave}
@@ -352,7 +413,7 @@ export default function GameShell() {
 			<Show when={ready() && !started() && !isOver()}>
 				<StartScreen bestRun={bestRun()} onStart={start} />
 			</Show>
-			<Show when={isOver() ? hud() : null}>
+			<Show when={isOver() && deathShown() ? hud() : null}>
 				{(state) => (
 					<DeathScreen
 						stats={deriveRunStats(state())}
