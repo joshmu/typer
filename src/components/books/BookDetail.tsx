@@ -9,6 +9,7 @@ import {
 	onMount,
 	Show,
 } from "solid-js";
+import type { BookErrorCopy } from "@/lib/book-errors";
 import {
 	chapterFills,
 	chapterLabel,
@@ -29,6 +30,8 @@ interface BookDetailProps {
 	/** Book percent from the book reader */
 	percent: number;
 	loading?: boolean;
+	/** Why the last Start failed; the sheet stays open to show it. */
+	error?: BookErrorCopy | null;
 	onStart: () => void;
 	onClose: () => void;
 }
@@ -263,18 +266,29 @@ export default function BookDetail(props: BookDetailProps) {
 					</Show>
 				</div>
 
-				<div class="flex shrink-0 items-center gap-4 border-t border-text/10 bg-bg-secondary px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8">
-					<p class="hidden flex-1 text-xs text-text-sub sm:block">
-						<kbd class="rounded border border-text/15 px-1.5 py-0.5 text-[0.65rem]">
-							esc
-						</kbd>{" "}
-						to close
-					</p>
+				<div class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-3 border-t border-text/10 bg-bg-secondary px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-nowrap sm:px-8">
+					<Show
+						when={props.error}
+						fallback={
+							<p class="hidden flex-1 text-xs text-text-sub sm:block">
+								<kbd class="rounded border border-text/15 px-1.5 py-0.5 text-[0.65rem]">
+									esc
+								</kbd>{" "}
+								to close
+							</p>
+						}
+					>
+						{(error) => <StartError error={error()} />}
+					</Show>
 					<button
 						ref={cta}
 						type="button"
 						class={`${LABEL_FACE} flex h-12 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary px-7 text-base font-semibold text-bg outline-none transition-[filter,transform] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary active:scale-[0.98] disabled:opacity-60 sm:flex-none`}
-						onClick={props.onStart}
+						onClick={() =>
+							props.error && !props.error.retryable
+								? props.onClose()
+								: props.onStart()
+						}
 						disabled={props.loading}
 						aria-busy={props.loading}
 					>
@@ -287,22 +301,88 @@ export default function BookDetail(props: BookDetailProps) {
 								</>
 							}
 						>
-							{props.progress ? "Continue reading" : "Start reading"}
-							<svg
-								viewBox="0 0 24 24"
-								class="size-4"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2.25"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
+							<Show
+								when={!props.error}
+								fallback={
+									props.error?.retryable ? (
+										<>
+											<svg
+												viewBox="0 0 24 24"
+												class="size-4"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2.25"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												aria-hidden="true"
+											>
+												<path d="M20 12a8 8 0 1 1-2.34-5.66" />
+												<path d="M20 4v4.5h-4.5" />
+											</svg>
+											Try again
+										</>
+									) : (
+										"Back to library"
+									)
+								}
 							>
-								<path d="M5 12h14M13 6l6 6-6 6" />
-							</svg>
+								{props.progress ? "Continue reading" : "Start reading"}
+								<svg
+									viewBox="0 0 24 24"
+									class="size-4"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2.25"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<path d="M5 12h14M13 6l6 6-6 6" />
+								</svg>
+							</Show>
 						</Show>
 					</button>
 				</div>
+			</div>
+		</div>
+	);
+}
+
+/** Why the book didn't open, beside the button that tries again. */
+function StartError(props: { error: BookErrorCopy }) {
+	let el: HTMLDivElement | undefined;
+	onMount(() => {
+		if (!el || prefersReducedMotion()) return;
+		animate(
+			el,
+			{ opacity: [0, 1], transform: ["translateY(4px)", "translateY(0)"] },
+			{ duration: 0.22, ease: [0.16, 1, 0.3, 1] },
+		);
+	});
+	return (
+		<div
+			ref={el}
+			role="alert"
+			class="flex min-w-0 basis-full items-start gap-2.5 sm:flex-1 sm:basis-auto"
+		>
+			<span class="grid size-6 shrink-0 place-items-center rounded-full bg-error/15 text-error ring-1 ring-error/25">
+				<svg
+					viewBox="0 0 24 24"
+					class="size-3.5"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="3"
+					stroke-linecap="round"
+					aria-hidden="true"
+				>
+					<path d="M12 7v6M12 17h.01" />
+				</svg>
+			</span>
+			<div class="min-w-0">
+				<p class="text-sm font-medium text-text">{props.error.title}</p>
+				<p class="mt-0.5 text-xs text-pretty text-text-sub">
+					{props.error.body}
+				</p>
 			</div>
 		</div>
 	);

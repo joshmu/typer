@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures/se-stub";
 
 test("homepage displays Typer heading", async ({ page }) => {
 	await page.goto("/");

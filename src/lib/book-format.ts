@@ -102,3 +102,19 @@ export function coverToneBackground(bookId: string): string {
 		TONE_STRENGTHS[Math.floor(h / TONE_TOKENS.length) % TONE_STRENGTHS.length];
 	return `color-mix(in oklab, var(${token}) ${strength}%, var(--bg-secondary))`;
 }
+
+const AGE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+	["day", 86_400_000],
+	["hour", 3_600_000],
+	["minute", 60_000],
+];
+
+/** How long ago a timestamp was, in words ("5 minutes ago", "yesterday"). */
+export function formatAge(then: number, now = Date.now()): string {
+	const elapsed = Math.max(0, now - then);
+	const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+	for (const [unit, ms] of AGE_UNITS) {
+		if (elapsed >= ms) return rtf.format(-Math.floor(elapsed / ms), unit);
+	}
+	return "just now";
+}
