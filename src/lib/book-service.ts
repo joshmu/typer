@@ -101,6 +101,24 @@ export async function fetchBookDetail(bookId: string): Promise<BookMeta> {
 	return meta;
 }
 
+const detailLoads = new Map<string, Promise<BookMeta>>();
+
+/**
+ * Full metadata for one book: the cached copy when the book is cached,
+ * otherwise one fetch per session. A failed load is forgotten so it can retry.
+ */
+export function loadBookDetail(bookId: string): Promise<BookMeta> {
+	const pending = detailLoads.get(bookId);
+	if (pending) return pending;
+	const load = (async () => {
+		const cached = await getCachedBook(bookId);
+		return cached ? cached.meta : fetchBookDetail(bookId);
+	})();
+	detailLoads.set(bookId, load);
+	load.catch(() => detailLoads.delete(bookId));
+	return load;
+}
+
 /**
  * Fetch and parse a single chapter from Standard Ebooks.
  */
