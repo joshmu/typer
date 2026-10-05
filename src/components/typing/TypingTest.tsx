@@ -49,10 +49,7 @@ export default function TypingTest(props: TypingTestProps) {
 		return calculateWPM(chars, e);
 	});
 
-	const accuracy = createMemo(() => {
-		const chars = state.words.flatMap((w) => w.characters);
-		return calculateAccuracy(chars);
-	});
+	const accuracy = createMemo(() => calculateAccuracy(state.keystrokes));
 
 	const isContinuousMode =
 		state.mode.type === "zen" || state.mode.type === "book";
@@ -151,7 +148,12 @@ export default function TypingTest(props: TypingTestProps) {
 			onKeyDown={handleKeydown}
 			data-testid="typing-test"
 		>
-			<StatsBar wpm={wpm()} accuracy={accuracy()} elapsed={elapsed()} />
+			<StatsBar
+				wpm={wpm()}
+				accuracy={accuracy()}
+				elapsed={elapsed()}
+				typed={state.keystrokes.correct + state.keystrokes.incorrect}
+			/>
 			<Show when={capsLock() && !complete()}>
 				<div class="mb-2 text-sm text-error flex items-center gap-2">
 					<span class="w-2 h-2 rounded-full bg-error" />

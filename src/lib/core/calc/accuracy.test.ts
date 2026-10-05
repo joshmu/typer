@@ -1,65 +1,39 @@
 import { describe, expect, it } from "vitest";
-import {
-	createCharState,
-	createCorrectChar,
-	createIncorrectChar,
-} from "../types/test-fixtures";
 import { calculateAccuracy } from "./accuracy";
 
 describe("calculateAccuracy", () => {
-	it("returns 100 for all correct characters", () => {
-		const chars = [
-			createCorrectChar("a"),
-			createCorrectChar("b"),
-			createCorrectChar("c"),
-		];
-		expect(calculateAccuracy(chars)).toBe(100);
+	it("returns 100 when every keystroke was correct", () => {
+		expect(calculateAccuracy({ correct: 3, incorrect: 0 })).toBe(100);
 	});
 
-	it("returns 0 for all incorrect characters", () => {
-		const chars = [
-			createIncorrectChar("a", "x"),
-			createIncorrectChar("b", "y"),
-		];
-		expect(calculateAccuracy(chars)).toBe(0);
+	it("returns 0 when every keystroke was wrong", () => {
+		expect(calculateAccuracy({ correct: 0, incorrect: 2 })).toBe(0);
 	});
 
-	it("calculates percentage for mixed results", () => {
-		const chars = [
-			createCorrectChar("a"),
-			createCorrectChar("b"),
-			createIncorrectChar("c", "x"),
-			createCorrectChar("d"),
-		];
-		// 3 correct out of 4 typed = 75%
-		expect(calculateAccuracy(chars)).toBe(75);
+	it("is correct keystrokes over all character keystrokes", () => {
+		expect(calculateAccuracy({ correct: 3, incorrect: 1 })).toBe(75);
 	});
 
-	it("returns 100 for no typed characters", () => {
-		const chars = [
-			createCharState({ expected: "a" }),
-			createCharState({ expected: "b" }),
-		];
-		expect(calculateAccuracy(chars)).toBe(100);
+	it("counts corrected typos: 10 chars right with 2 fixed mistakes is not 100", () => {
+		expect(calculateAccuracy({ correct: 10, incorrect: 2 })).toBe(83);
 	});
 
-	it("ignores pending characters", () => {
-		const chars = [
-			createCorrectChar("a"),
-			createCharState({ expected: "b" }),
-			createCharState({ expected: "c" }),
-		];
-		// 1 correct out of 1 typed = 100%
-		expect(calculateAccuracy(chars)).toBe(100);
+	it("returns 100 before any keystroke", () => {
+		expect(calculateAccuracy({ correct: 0, incorrect: 0 })).toBe(100);
 	});
 
-	it("rounds to nearest integer", () => {
-		const chars = [
-			createCorrectChar("a"),
-			createCorrectChar("b"),
-			createIncorrectChar("c", "x"),
-		];
-		// 2/3 = 66.67% → 67
-		expect(calculateAccuracy(chars)).toBe(67);
+	it("rounds down", () => {
+		expect(calculateAccuracy({ correct: 2, incorrect: 1 })).toBe(66);
+		expect(calculateAccuracy({ correct: 19, incorrect: 1 })).toBe(95);
+	});
+
+	it("is exact on whole percentages, free of float drift", () => {
+		expect(calculateAccuracy({ correct: 29, incorrect: 71 })).toBe(29);
+		expect(calculateAccuracy({ correct: 57, incorrect: 43 })).toBe(57);
+	});
+
+	it("never shows 100 after a mistake", () => {
+		expect(calculateAccuracy({ correct: 999, incorrect: 1 })).toBe(99);
+		expect(calculateAccuracy({ correct: 99_999, incorrect: 1 })).toBe(99);
 	});
 });

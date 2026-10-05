@@ -1,14 +1,15 @@
-import type { CharacterState } from "../types";
+import type { KeystrokeCounts } from "../types";
 
 /**
- * Calculate accuracy as a percentage.
- * accuracy = (correct / total typed) * 100
- * Only counts characters that have been typed (not pending).
+ * Keystroke accuracy: correct character keys over all character keys, so a
+ * typo still counts after it is corrected. Rounded down, so any mistake keeps
+ * it below 100.
  */
-export function calculateAccuracy(chars: CharacterState[]): number {
-	const typed = chars.filter((c) => c.typed !== null);
-	if (typed.length === 0) return 100;
-
-	const correct = typed.filter((c) => c.status === "correct").length;
-	return Math.round((correct / typed.length) * 100);
+export function calculateAccuracy({
+	correct,
+	incorrect,
+}: KeystrokeCounts): number {
+	const total = correct + incorrect;
+	if (total === 0) return 100;
+	return Math.floor((correct * 100) / total);
 }

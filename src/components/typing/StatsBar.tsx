@@ -1,10 +1,13 @@
 import { Show } from "solid-js";
+import { isLiveWpmReady } from "@/lib/core/calc";
 import { usePreferences } from "@/lib/preferences-context";
 
 interface StatsBarProps {
 	wpm: number;
 	accuracy: number;
 	elapsed: number;
+	/** Character keys pressed so far. */
+	typed: number;
 }
 
 function formatTime(ms: number): string {
@@ -23,7 +26,24 @@ export default function StatsBar(props: StatsBarProps) {
 		>
 			<Show when={prefs.showLiveWpm}>
 				<div>
-					<span class="text-primary text-2xl font-bold">{props.wpm}</span>{" "}
+					<Show
+						when={isLiveWpmReady(props.elapsed, props.typed)}
+						fallback={
+							<span
+								class="text-text-sub text-2xl font-bold"
+								data-testid="live-wpm"
+							>
+								–
+							</span>
+						}
+					>
+						<span
+							class="text-primary text-2xl font-bold"
+							data-testid="live-wpm"
+						>
+							{props.wpm}
+						</span>
+					</Show>{" "}
 					<span class="text-sm">wpm</span>
 				</div>
 			</Show>

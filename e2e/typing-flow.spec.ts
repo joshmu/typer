@@ -93,7 +93,9 @@ test("time mode ends at its limit with no further keystroke", async ({
 
 	await page.clock.fastForward(1_000);
 	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
-	await expect(page.getByText("30s", { exact: true })).toBeVisible();
+	const time = page.getByTestId("stat-time");
+	await expect(time).toBeVisible();
+	await expect(time).toHaveText("30s");
 });
 
 test("Tab from a focused link on results moves on as usual", async ({
