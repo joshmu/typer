@@ -1,4 +1,5 @@
 import type { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
+import type { LabelRow } from "./label-rows";
 
 /**
  * Anything carrying a word-label texture. Both the enemy and powerup renderers
@@ -25,15 +26,22 @@ const QUEUE_ALPHA = 0.8;
 const LABEL_FONT = '"Roboto Mono", ui-monospace, monospace';
 
 /** Theme colours the plates draw with (see refreshLabelTheme). */
-type LabelTheme = { plate: string; ink: string; primary: string };
+type LabelTheme = {
+	plate: string;
+	ink: string;
+	primary: string;
+	error: string;
+};
 let theme: LabelTheme = {
 	plate: "#101218",
 	ink: "#e6e6e6",
 	primary: "#e2b714",
+	error: "#ca4754",
 };
 
 /**
  * Read the plate palette from the live theme: --primary for typed progress,
+ * --error for a completion armour refused,
  * and the theme's bg/text pair arranged dark-plate/light-ink (the arena is
  * always dark). Call once per run; themes don't change mid-run.
  */
@@ -42,7 +50,8 @@ export function refreshLabelTheme(
 	arrange: (bg: string, text: string) => { plate: string; ink: string },
 ): void {
 	const primary = read("--primary").trim() || theme.primary;
-	theme = { ...arrange(read("--bg"), read("--text")), primary };
+	const error = read("--error").trim() || theme.error;
+	theme = { ...arrange(read("--bg"), read("--text")), primary, error };
 	fontEpoch += 1; // redraw every plate in the new palette
 }
 
@@ -99,7 +108,36 @@ type PlateOpts = {
 	chevron: boolean;
 	// texture width the plate must fit inside; a long word is scaled down to fit
 	texW: number;
+	kind?: LabelRow["kind"];
+	// a just-absorbed completion: "clang" off a shield, "blocked" by armour
+	flash?: PlateFlash;
 };
+
+/** A short flash on the front plate after an absorbed completion. */
+export type PlateFlash = "none" | "clang" | "blocked";
+
+/** A small heater shield outline, centred on (x, y), `s` tall. */
+function shieldIcon(c: Ctx, x: number, y: number, s: number): void {
+	const w = s * 0.78;
+	c.beginPath();
+	c.moveTo(x - w / 2, y - s / 2);
+	c.lineTo(x + w / 2, y - s / 2);
+	c.lineTo(x + w / 2, y);
+	c.quadraticCurveTo(x + w / 2, y + s * 0.32, x, y + s / 2);
+	c.quadraticCurveTo(x - w / 2, y + s * 0.32, x - w / 2, y);
+	c.closePath();
+}
+
+/** A padlock: shackle arc over a body, centred on (x, y), `s` tall. */
+function lockIcon(c: Ctx, x: number, y: number, s: number): void {
+	const bw = s * 0.72;
+	const bh = s * 0.5;
+	const by = y - s / 2 + s * 0.46;
+	c.beginPath();
+	c.arc(x, by, bw * 0.3, Math.PI, 0);
+	c.stroke();
+	roundRect(c, x - bw / 2, by, bw, bh, s * 0.08);
+}
 
 /**
  * Draw one word plate centred at (cx, cy): a rounded plate in the arena plate
@@ -109,17 +147,22 @@ type PlateOpts = {
  */
 function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
 	const { word, typedCount, plateH, alpha, isTarget, texW } = opts;
+	const kind = opts.kind ?? "normal";
+	const flash = opts.flash ?? "none";
 	let fontPx = opts.fontPx;
 	c.font = `bold ${fontPx}px ${LABEL_FONT}`;
 	const typed = word.slice(0, typedCount);
 	const rest = word.slice(typedCount);
+	// shield and armour plates carry an icon to the left of the word
+	const hasIcon = kind !== "normal";
+	const iconW = () => (hasIcon ? fontPx * 0.95 : 0);
 	let typedW = c.measureText(typed).width;
 	let totalW = typedW + c.measureText(rest).width;
 	let padX = fontPx * 0.45;
 
 	// clamp: a long (tier-4) word would overrun the texture and be clipped, so
 	// scale the font down until the whole plate fits (8px margin), then re-measure
-	const scale = Math.min(1, (texW - 8) / (totalW + padX * 2));
+	const scale = Math.min(1, (texW - 8) / (totalW + iconW() + padX * 2));
 	if (scale < 1) {
 		fontPx *= scale;
 		c.font = `bold ${fontPx}px ${LABEL_FONT}`;
@@ -128,20 +171,93 @@ function drawPlate(c: Ctx, cx: number, cy: number, opts: PlateOpts): void {
 		padX = fontPx * 0.45;
 	}
 
-	const plateW = totalW + padX * 2;
+	const plateW = totalW + iconW() + padX * 2;
 	const plateX = cx - plateW / 2;
 	const plateY = cy - plateH / 2;
-	const radius = plateH * 0.24;
+	const radius = plateH * (kind === "armoured" ? 0.12 : 0.24);
 	roundRect(c, plateX, plateY, plateW, plateH, radius);
 	c.globalAlpha = alpha * 0.9;
 	c.fillStyle = theme.plate;
 	c.fill();
-	c.globalAlpha = alpha * (isTarget ? 1 : 0.22);
-	c.lineWidth = isTarget ? 3 : 1.5;
-	c.strokeStyle = isTarget ? theme.primary : theme.ink;
-	c.stroke();
+	// absorbed completion: the plate rings (ink) or is refused (--error)
+	if (flash !== "none") {
+		c.globalAlpha = alpha * 0.35;
+		c.fillStyle = flash === "blocked" ? theme.error : theme.ink;
+		c.fill();
+	}
+	const edge =
+		flash === "blocked"
+			? theme.error
+			: flash === "clang"
+				? theme.ink
+				: isTarget
+					? theme.primary
+					: theme.ink;
+	if (kind === "armoured") {
+		// plated: a heavy border with rivets at the corners
+		c.globalAlpha = alpha * (flash !== "none" || isTarget ? 1 : 0.7);
+		c.lineWidth = 5;
+		c.strokeStyle = edge;
+		c.stroke();
+		c.fillStyle = edge;
+		const r = plateH * 0.045;
+		const inset = plateH * 0.16;
+		for (const [rx, ry] of [
+			[plateX + inset, plateY + inset],
+			[plateX + plateW - inset, plateY + inset],
+			[plateX + inset, plateY + plateH - inset],
+			[plateX + plateW - inset, plateY + plateH - inset],
+		]) {
+			c.beginPath();
+			c.arc(rx, ry, r, 0, Math.PI * 2);
+			c.fill();
+		}
+	} else if (kind === "shield") {
+		// a shield charge: bracketed ends, like a plate that will come back
+		c.globalAlpha = alpha * (flash !== "none" || isTarget ? 1 : 0.6);
+		c.lineWidth = isTarget ? 3 : 2;
+		c.strokeStyle = edge;
+		c.stroke();
+		const bw = plateH * 0.12;
+		c.lineWidth = 4;
+		c.lineCap = "square";
+		c.beginPath();
+		c.moveTo(plateX + bw * 2, plateY + 6);
+		c.lineTo(plateX + 6, plateY + 6);
+		c.lineTo(plateX + 6, plateY + plateH - 6);
+		c.lineTo(plateX + bw * 2, plateY + plateH - 6);
+		c.moveTo(plateX + plateW - bw * 2, plateY + 6);
+		c.lineTo(plateX + plateW - 6, plateY + 6);
+		c.lineTo(plateX + plateW - 6, plateY + plateH - 6);
+		c.lineTo(plateX + plateW - bw * 2, plateY + plateH - 6);
+		c.stroke();
+	} else {
+		c.globalAlpha = alpha * (isTarget || flash !== "none" ? 1 : 0.22);
+		c.lineWidth = isTarget ? 3 : 1.5;
+		c.strokeStyle = edge;
+		c.stroke();
+	}
 
-	const tx = cx - totalW / 2;
+	if (hasIcon) {
+		const ix = plateX + padX + iconW() * 0.4;
+		const s = fontPx * 0.72;
+		c.globalAlpha = alpha * 0.9;
+		c.strokeStyle = flash === "blocked" ? theme.error : theme.ink;
+		c.fillStyle = flash === "blocked" ? theme.error : theme.ink;
+		c.lineWidth = Math.max(2, fontPx * 0.08);
+		if (kind === "shield") {
+			shieldIcon(c, ix, cy, s);
+			c.globalAlpha = alpha * 0.3;
+			c.fill();
+			c.globalAlpha = alpha * 0.9;
+			c.stroke();
+		} else {
+			lockIcon(c, ix, cy, s);
+			c.fill();
+		}
+	}
+
+	const tx = plateX + padX + iconW();
 	const ty = cy + fontPx * 0.36;
 
 	// typed prefix: a --primary wash behind the glyphs
@@ -256,27 +372,29 @@ export function drawLabel(
 const MAX_STACK = 5;
 
 /**
- * Stacked word-chain label for enemies. The current word sits on the bottom
- * plate (nearest the enemy) at full brightness; queued words stack above it at
- * QUEUE_SCALE/QUEUE_ALPHA; anything beyond MAX_STACK collapses into a "+n"
- * chip at the top. Everything is drawn into ONE fixed tall texture (128px
- * rows) in a single pass — the plane height is sized once for the worst case
- * and unused upper rows stay transparent, so there is no per-completion
- * texture reallocation. Redraws only when the visible slice / progress / lock
- * changes.
+ * Stacked label for enemies: one plate per row of `labelRows`, in typing
+ * order, so shield repeats and armour read before they are typed. The front
+ * row sits on the bottom plate (nearest the enemy) at full brightness; queued
+ * rows stack above it at QUEUE_SCALE/QUEUE_ALPHA; anything beyond MAX_STACK
+ * collapses into a "+n" chip at the top. Everything is drawn into ONE fixed
+ * tall texture (128px rows) in a single pass, so there is no per-completion
+ * texture reallocation. Redraws only when the visible rows, progress, lock or
+ * flash change.
  */
 export function drawStackedLabel(
 	v: LabelTarget,
-	words: string[],
-	wordIndex: number,
-	typedCount: number,
+	rows: readonly LabelRow[],
 	isTarget: boolean,
+	flash: PlateFlash = "none",
 ): void {
-	const remaining = words.length - wordIndex;
-	const visible = Math.min(MAX_STACK, remaining);
-	const overflow = remaining - visible;
-	const shown = words.slice(wordIndex, wordIndex + visible).join(",");
-	const key = `${shown}:${typedCount}:${isTarget ? 1 : 0}:${overflow}:${fontEpoch}`;
+	const visible = Math.min(MAX_STACK, rows.length);
+	const overflow = rows.length - visible;
+	let shown = "";
+	for (let i = 0; i < visible; i++) {
+		shown += `${rows[i].kind[0]}${rows[i].word},`;
+	}
+	const typed = rows[0]?.typed ?? 0;
+	const key = `${shown}:${typed}:${isTarget ? 1 : 0}:${overflow}:${flash}:${fontEpoch}`;
 	if (key === v.lastText) return;
 	v.lastText = key;
 
@@ -287,24 +405,26 @@ export function drawStackedLabel(
 	const cx = W / 2;
 
 	for (let i = 0; i < visible; i++) {
-		const word = words[wordIndex + i];
+		const row = rows[i];
 		const cy = H - (i + 0.5) * ROW; // i = 0 → bottom row (nearest the enemy)
 		if (i === 0) {
 			drawPlate(c, cx, cy, {
-				word,
-				typedCount,
+				word: row.word,
+				typedCount: row.typed,
 				fontPx: isTarget ? FONT_TARGET : FONT_IDLE,
 				plateH: isTarget ? PLATE_TARGET : PLATE_IDLE,
 				alpha: 1,
 				isTarget,
-				underline: typedCount > 0,
+				underline: row.typed > 0,
 				chevron: isTarget,
 				texW: W,
+				kind: row.kind,
+				flash,
 			});
 		} else {
-			// queued words: smaller + slightly dimmed, no progress (not yet started)
+			// queued rows: smaller + slightly dimmed, no progress (not yet started)
 			drawPlate(c, cx, cy, {
-				word,
+				word: row.word,
 				typedCount: 0,
 				fontPx: FONT_IDLE * QUEUE_SCALE,
 				plateH: PLATE_IDLE * QUEUE_SCALE,
@@ -313,6 +433,7 @@ export function drawStackedLabel(
 				underline: false,
 				chevron: false,
 				texW: W,
+				kind: row.kind,
 			});
 		}
 	}

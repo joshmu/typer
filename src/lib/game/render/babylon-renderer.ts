@@ -74,12 +74,18 @@ export function createBabylonRenderer(
 
 	return {
 		draw(state, events) {
+			const now = performance.now();
+			for (const ev of events) {
+				if (ev.type !== "absorb") continue;
+				const e = state.enemies.find((en) => en.id === ev.id);
+				enemies.absorbed(ev.id, e?.ability?.kind === "armored-front", now);
+			}
 			turret.update(state);
 			dispatchEffects(events, fx);
 			// one GPU upload for every corpse/scar stamped this frame
 			gameScene.ground.flush();
 			effects.update(state);
-			enemies.sync(state);
+			enemies.sync(state, now);
 			powerups.sync(state);
 			gameScene.scene.render();
 		},

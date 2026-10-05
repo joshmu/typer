@@ -12,7 +12,8 @@ import { getArchetype, isBoss } from "../content/enemies";
 import { isCloaked } from "../sim/abilities";
 import type { GameState } from "../sim/state";
 import { spawnFade } from "../view";
-import { drawStackedLabel, FONT_IDLE } from "./label";
+import { drawStackedLabel, FONT_IDLE, type PlateFlash } from "./label";
+import { labelRows } from "./label-rows";
 import { FIELD_GROUP, type SceneView } from "./scene";
 import { spriteAngle } from "./sprite-angle";
 import { walkCells } from "./sprite-atlas";
@@ -75,7 +76,13 @@ type EnemyVisual = {
 	spriteHalf: number;
 	phase: number;
 	isBoss: boolean;
+	// wall-clock end of the front plate's absorb flash (0 = none) and its kind
+	flashUntil: number;
+	flash: PlateFlash;
 };
+
+// how long the front plate rings after an absorbed completion
+const FLASH_MS = 180;
 
 // squared-velocity threshold below which facing is held (matches sprite-angle's
 // own negligible-velocity guard)
@@ -153,11 +160,21 @@ export function createEnemyRenderer(
 			spriteHalf: renderSize / 2,
 			phase: idPhase(id),
 			isBoss: boss,
+			flashUntil: 0,
+			flash: "none",
 		};
 	}
 
 	return {
-		sync(state: GameState) {
+		/** An enemy's completion was absorbed: ring its front plate, red if
+		 * armour refused it, otherwise the clang of a shield charge popping. */
+		absorbed(id: number, armoured: boolean, now: number) {
+			const v = visuals.get(id);
+			if (!v) return;
+			v.flash = armoured ? "blocked" : "clang";
+			v.flashUntil = now + FLASH_MS;
+		},
+		sync(state: GameState, now: number) {
 			const ls = labelScale(view);
 			const plateDrop = (LABEL_PLATE_HALF + LABEL_ROW_DROP) * ls;
 			const present = new Set(state.enemies.map((e) => e.id));
@@ -231,7 +248,8 @@ export function createEnemyRenderer(
 
 				// target emphasis comes from the label draw itself (bigger font, --primary
 				// border, chevron) — mesh scaling would shift the bottom-anchored plate
-				drawStackedLabel(v, e.words, e.wordIndex, e.typedCount, isTarget);
+				if (v.flash !== "none" && now >= v.flashUntil) v.flash = "none";
+				drawStackedLabel(v, labelRows(e), isTarget, v.flash);
 			}
 		},
 		dispose() {
