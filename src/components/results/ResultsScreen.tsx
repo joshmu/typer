@@ -115,6 +115,10 @@ function Chip(props: { tone: "primary" | "muted"; children: JSX.Element }) {
 	);
 }
 
+/** Near-black or near-white, whichever reads on the theme's primary. */
+const ON_PRIMARY =
+	"oklch(from var(--primary) clamp(0.2, (0.62 - l) * 1000, 0.98) 0 0)";
+
 const COPY_LABELS = {
 	idle: "Copy image",
 	busy: "Rendering…",
@@ -476,6 +480,7 @@ export default function ResultsScreen(props: ResultsScreenProps) {
 							ref={redoRef}
 							type="button"
 							class="inline-flex items-center gap-2 rounded-lg bg-primary px-7 py-3 font-display text-sm font-semibold text-bg shadow-[0_0_24px_-6px_var(--primary)] transition-[transform,filter] hover:brightness-110 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+							style={{ color: ON_PRIMARY }}
 							onClick={() => props.onRedo()}
 						>
 							<svg
