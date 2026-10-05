@@ -129,6 +129,16 @@ describe("loadAverageWpm", () => {
 		expect(await loadAverageWpm(db, 2)).toBe(70);
 	});
 
+	it("leaves out AFK runs, which do not use up the limit", async () => {
+		await db.results.bulkAdd([
+			result(60, 1),
+			result(80, 2),
+			{ ...result(5, 3), afk: true },
+		]);
+
+		expect(await loadAverageWpm(db, 2)).toBe(70);
+	});
+
 	it("ignores zero-WPM results", async () => {
 		await db.results.bulkAdd([result(0, 1), result(50, 2)]);
 

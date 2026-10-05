@@ -94,6 +94,7 @@ export function useResumableBook(preferredId?: string) {
 
 /**
  * Mean WPM over the most recent typing results, or null with no history.
+ * AFK runs and zero-WPM results are left out: they are not the user's pace.
  */
 export async function loadAverageWpm(
 	database: TyperDB = db,
@@ -102,9 +103,10 @@ export async function loadAverageWpm(
 	const recent = await database.results
 		.orderBy("timestamp")
 		.reverse()
+		.filter((r) => !r.afk && r.wpm > 0)
 		.limit(limit)
 		.toArray();
-	const wpms = recent.map((r) => r.wpm).filter((wpm) => wpm > 0);
+	const wpms = recent.map((r) => r.wpm);
 	if (wpms.length === 0) return null;
 	return wpms.reduce((sum, wpm) => sum + wpm, 0) / wpms.length;
 }
