@@ -104,12 +104,11 @@
 	}
 }
 
-/* Typed character states. Wrong chars are solid --error; a faint wash keeps
-   a mistyped space visible. Corrected chars keep their colour and carry an
+/* Typed character states. Wrong chars are solid --error on a faint wash, a
+   shape cue that does not rely on hue and keeps a mistyped space visible. Corrected chars keep their colour and carry an
    error underline. Extra chars are struck through. */
 .char-wrong {
-	background-color: color-mix(in srgb, var(--error) 14%, transparent);
-	border-radius: 2px;
+	background-color: color-mix(in srgb, var(--error) 16%, transparent);
 }
 .char-corrected {
 	text-decoration-line: underline;
