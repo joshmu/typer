@@ -185,10 +185,11 @@ export default function Hud(props: { state: GameState; frame: Frame }) {
 		if (m.comboUp) {
 			if (broken()) endBreak();
 			if (comboCount && !reduced) {
-				animate(
-					comboCount,
-					{ scale: [1.25, 1] },
-					{ duration: 0.2, ease: SNAP },
+				// native WAAPI: this lands on every kill, inside the keystroke, and
+				// motion's setup reads computed style first
+				comboCount.animate?.(
+					{ scale: ["1.25", "1"] },
+					{ duration: 200, easing: `cubic-bezier(${SNAP.join(",")})` },
 				);
 			}
 		}
