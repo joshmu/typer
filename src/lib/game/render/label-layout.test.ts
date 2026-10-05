@@ -45,4 +45,20 @@ describe("layoutLabels", () => {
 		expect(y[0] + boxes[0].height).toBeLessThanOrEqual(10);
 		expect(y[1]).toBe(3);
 	});
+
+	it("keeps a pile under the HUD-safe line without overlapping", () => {
+		const boxes = [box(0, 6), box(0.5, 7), box(-0.5, 7.5)];
+		const y = layoutLabels(boxes, 10);
+		for (let i = 0; i < 3; i++) {
+			expect(y[i] + boxes[i].height).toBeLessThanOrEqual(10);
+			for (let j = i + 1; j < 3; j++) {
+				expect(overlaps(boxes[i], y[i], boxes[j], y[j])).toBe(false);
+			}
+		}
+	});
+
+	it("leaves a pile clear of the HUD line as the lift placed it", () => {
+		const boxes = [box(0, 0), box(0.5, 0.5), box(-0.5, 1)];
+		expect(layoutLabels(boxes, 10)).toEqual(layoutLabels(boxes, 100));
+	});
 });
