@@ -2,6 +2,7 @@ import { openBookReader } from "./core/engine/book-reader";
 import type { BookProgress, CachedBook } from "./core/types/book";
 import { db, type TyperDB } from "./db";
 import { safeFrom } from "./safe-query";
+import { getUnsavedBook } from "./unsaved-books";
 
 /**
  * Reactive query: get all book progress records, sorted by last accessed.
@@ -50,8 +51,9 @@ export interface ResumableBook {
 }
 
 /**
- * The book to resume: the given one if its text is cached, otherwise the most
- * recently read book that is cached and unfinished. Never touches the network.
+ * The book to resume: the given one if its text is cached (or held in memory
+ * after a failed cache write), otherwise the most recently read book that is
+ * cached and unfinished. Never touches the network.
  */
 export async function loadResumableBook(
 	preferredId?: string,
@@ -65,7 +67,8 @@ export async function loadResumableBook(
 	if (preferredId) ids.unshift(preferredId);
 
 	for (const bookId of new Set(ids)) {
-		const book = await database.cachedBooks.get(bookId);
+		const book =
+			(await database.cachedBooks.get(bookId)) ?? getUnsavedBook(bookId);
 		if (!book) continue;
 		const progress = recent.find((p) => p.bookId === bookId);
 		const reader = openBookReader(book, progress ?? null);

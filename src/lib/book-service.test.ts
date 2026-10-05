@@ -1,11 +1,13 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadResumableBook } from "./book-progress";
 import {
 	browseCatalog,
 	FETCH_TIMEOUT_MS,
 	fetchAndCacheBook,
 	fetchBookDetail,
 	fetchChapter,
+	getCachedBook,
 	loadBookDetail,
 	searchBooks,
 } from "./book-service";
@@ -336,6 +338,36 @@ describe("fetchBookDetail timing", () => {
 		expect(urls.filter((u) => u.endsWith("/p/reuse/text"))).toHaveLength(1);
 		expect(urls).toContain(
 			"https://standardebooks.org/ebooks/p/reuse/text/chapter-1",
+		);
+	});
+
+	it("still opens a book whose cache write failed, for this session", async () => {
+		const chapter = `<section epub:type="chapter"><p>It was a quiet day.</p></section>`;
+		globalThis.fetch = vi.fn((url: string) =>
+			Promise.resolve(
+				new Response(
+					url.endsWith("/text")
+						? toc
+						: url.endsWith("/chapter-1")
+							? chapter
+							: detail,
+					{ status: 200 },
+				),
+			),
+		) as never;
+		const put = vi
+			.spyOn(db.cachedBooks, "put")
+			.mockRejectedValueOnce(new Error("QuotaExceededError"));
+		const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		await fetchAndCacheBook("p/unsaved");
+		put.mockRestore();
+		log.mockRestore();
+
+		expect(await db.cachedBooks.get("p/unsaved")).toBeUndefined();
+		expect((await getCachedBook("p/unsaved"))?.bookId).toBe("p/unsaved");
+		expect((await loadResumableBook("p/unsaved"))?.book.bookId).toBe(
+			"p/unsaved",
 		);
 	});
 

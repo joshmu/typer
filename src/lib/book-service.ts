@@ -19,6 +19,11 @@ import {
 } from "./core/types/errors";
 import { db } from "./db";
 import { fetchWithRetry } from "./http-retry";
+import {
+	forgetUnsavedBook,
+	getUnsavedBook,
+	keepUnsavedBook,
+} from "./unsaved-books";
 
 const SE_BASE = `${SE_ORIGIN}/ebooks`;
 
@@ -210,9 +215,11 @@ export async function fetchAndCacheBook(bookId: string): Promise<CachedBook> {
 
 	try {
 		await db.cachedBooks.put(cachedBook);
+		forgetUnsavedBook(bookId);
 	} catch (err) {
-		// Caching is non-fatal: surface a typed error to log handlers but still
-		// return the freshly fetched book.
+		// Caching is non-fatal: the book is kept in memory for this session, so
+		// it still opens, and a typed error goes to log handlers.
+		keepUnsavedBook(cachedBook);
 		console.error(
 			new BookCacheError(`Failed to cache book ${bookId}`, { cause: err }),
 		);
@@ -222,20 +229,21 @@ export async function fetchAndCacheBook(bookId: string): Promise<CachedBook> {
 }
 
 /**
- * Get a cached book from IndexedDB.
+ * Get a cached book from IndexedDB, or this session's copy of one it failed
+ * to store.
  */
 export async function getCachedBook(
 	bookId: string,
 ): Promise<CachedBook | null> {
 	try {
 		const cached = await db.cachedBooks.get(bookId);
-		return cached ?? null;
+		return cached ?? getUnsavedBook(bookId) ?? null;
 	} catch (err) {
 		console.error(
 			new BookCacheError(`Failed to read cached book ${bookId}`, {
 				cause: err,
 			}),
 		);
-		return null;
+		return getUnsavedBook(bookId) ?? null;
 	}
 }
