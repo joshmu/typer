@@ -38,15 +38,20 @@ const CHAPTER_TIMEOUT_MS = 30_000;
 
 async function fetchText(url: string, options: FetchOptions): Promise<string> {
 	const controller = new AbortController();
+	const timeoutMs = options.timeoutMs ?? FETCH_TIMEOUT_MS;
+	const deadline = Date.now() + timeoutMs;
 	let timedOut = false;
 	const timer = setTimeout(() => {
 		timedOut = true;
 		controller.abort();
-	}, options.timeoutMs ?? FETCH_TIMEOUT_MS);
+	}, timeoutMs);
 	try {
 		let response: Response;
 		try {
-			response = await fetchWithRetry(url, { signal: controller.signal });
+			response = await fetchWithRetry(url, {
+				signal: controller.signal,
+				deadline,
+			});
 		} catch (err) {
 			throw new NetworkError(
 				timedOut

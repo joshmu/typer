@@ -420,3 +420,26 @@ describe("catalogue read-through", () => {
 		expect(readSavedCatalogue()).toBeNull();
 	});
 });
+
+describe("Retry-After within the time limit", () => {
+	const originalFetch = globalThis.fetch;
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	it("says busy at once when the server asks to wait past the limit", async () => {
+		const fetchMock = vi.fn(
+			async () =>
+				new Response("slow down", {
+					status: 429,
+					headers: { "Retry-After": String(FETCH_TIMEOUT_MS / 1000 + 1) },
+				}),
+		);
+		globalThis.fetch = fetchMock as never;
+
+		const err = await searchBooks("x").catch((e) => e);
+
+		expect(err).toMatchObject({ kind: "book-service", status: 429 });
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+});

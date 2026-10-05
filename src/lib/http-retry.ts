@@ -55,6 +55,9 @@ export interface RetryOptions {
 	fetchImpl?: (url: string, init?: RequestInit) => Promise<Response>;
 	sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 	random?: () => number;
+	/** Epoch ms the caller gives up at; a longer Retry-After is not waited for. */
+	deadline?: number;
+	now?: () => number;
 }
 
 /**
@@ -72,6 +75,8 @@ export async function fetchWithRetry(
 		fetchImpl = (u, init) => fetch(u, init),
 		sleep = abortableSleep,
 		random = Math.random,
+		deadline = Number.POSITIVE_INFINITY,
+		now = Date.now,
 	} = options;
 
 	for (let attempt = 0; ; attempt++) {
@@ -80,8 +85,13 @@ export async function fetchWithRetry(
 		try {
 			const response = await fetchImpl(url, { signal });
 			if (lastAttempt || !isRetryableStatus(response.status)) return response;
-			const asked = parseRetryAfter(response.headers.get("Retry-After"));
-			if (asked !== null && asked > MAX_RETRY_AFTER_MS) return response;
+			const asked = parseRetryAfter(response.headers.get("Retry-After"), now());
+			if (
+				asked !== null &&
+				(asked > MAX_RETRY_AFTER_MS || now() + asked >= deadline)
+			) {
+				return response;
+			}
 			wait = Math.max(asked ?? 0, backoffDelay(attempt, random));
 			// Free the connection; the body of a failed attempt is never read.
 			void response.body?.cancel().catch(() => {});

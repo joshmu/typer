@@ -125,6 +125,28 @@ describe("fetchWithRetry", () => {
 		expect(deps.fetchImpl).toHaveBeenCalledTimes(1);
 	});
 
+	it("gives up when Retry-After would outlast the caller's deadline", async () => {
+		const deps = setup(respond(429, { "Retry-After": "3" }), respond(200));
+		const res = await fetchWithRetry("/x", {
+			...deps,
+			now: () => 1000,
+			deadline: 3000,
+		});
+		expect(res.status).toBe(429);
+		expect(deps.sleep).not.toHaveBeenCalled();
+	});
+
+	it("waits for Retry-After when the deadline allows it", async () => {
+		const deps = setup(respond(503, { "Retry-After": "1" }), respond(200));
+		const res = await fetchWithRetry("/x", {
+			...deps,
+			now: () => 1000,
+			deadline: 9000,
+		});
+		expect(res.status).toBe(200);
+		expect(deps.sleep).toHaveBeenCalledWith(1000, undefined);
+	});
+
 	it("never retries once the caller has aborted", async () => {
 		const controller = new AbortController();
 		const abort = new DOMException("aborted", "AbortError");
