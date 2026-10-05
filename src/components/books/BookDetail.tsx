@@ -2,6 +2,7 @@ import { animate } from "motion";
 import {
 	createMemo,
 	createResource,
+	createSignal,
 	For,
 	type JSX,
 	onCleanup,
@@ -191,12 +192,8 @@ export default function BookDetail(props: BookDetailProps) {
 									</div>
 								}
 							>
-								<Show when={meta().description}>
-									<p
-										class={`${BOOK_SERIF} text-[0.98rem] leading-relaxed text-text/85 text-pretty sm:text-[1.05rem]`}
-									>
-										{meta().description}
-									</p>
+								<Show when={meta().longDescription || meta().description}>
+									{(text) => <Description text={text()} />}
 								</Show>
 							</Show>
 						</div>
@@ -317,6 +314,60 @@ function pickFilled(meta: BookMeta): Partial<BookMeta> {
 		Object.entries(meta).filter(([, v]) =>
 			Array.isArray(v) ? v.length > 0 : Boolean(v),
 		),
+	);
+}
+
+/** Collapsed height of the description, in lines. */
+const DESCRIPTION_LINES = 5;
+
+function Description(props: { text: string }) {
+	const [expanded, setExpanded] = createSignal(false);
+	const [overflows, setOverflows] = createSignal(false);
+	let body: HTMLDivElement | undefined;
+
+	const measure = () => {
+		if (body && !expanded()) {
+			setOverflows(body.scrollHeight > body.clientHeight + 1);
+		}
+	};
+	onMount(() => {
+		measure();
+		if (typeof ResizeObserver === "undefined" || !body) return;
+		const observer = new ResizeObserver(measure);
+		observer.observe(body);
+		onCleanup(() => observer.disconnect());
+	});
+
+	return (
+		<div>
+			<div
+				ref={body}
+				id="book-detail-description"
+				class={`${BOOK_SERIF} space-y-3 overflow-hidden text-[0.98rem] leading-relaxed text-text/85 text-pretty sm:text-[1.05rem] ${
+					overflows() && !expanded()
+						? "[mask-image:linear-gradient(to_bottom,black_55%,transparent)]"
+						: ""
+				}`}
+				style={
+					expanded()
+						? undefined
+						: { "max-height": `${DESCRIPTION_LINES * 1.625}em` }
+				}
+			>
+				<For each={props.text.split("\n\n")}>{(p) => <p>{p}</p>}</For>
+			</div>
+			<Show when={overflows() || expanded()}>
+				<button
+					type="button"
+					class="mt-2 text-xs text-primary underline-offset-4 outline-none hover:underline focus-visible:underline"
+					aria-expanded={expanded()}
+					aria-controls="book-detail-description"
+					onClick={() => setExpanded((v) => !v)}
+				>
+					{expanded() ? "Less" : "More"}
+				</button>
+			</Show>
+		</div>
 	);
 }
 
