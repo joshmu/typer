@@ -134,7 +134,7 @@ test("time sub-options stay reachable once time text loads", async ({
 
 	await page.clock.fastForward(1_000);
 	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
-	await expect(page.getByText("1:00", { exact: true })).toBeVisible();
+	await expect(page.getByTestId("stat-time")).toHaveText("1:00");
 });
 
 test("words-count sub-options stay reachable once words text loads", async ({

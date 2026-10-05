@@ -32,11 +32,8 @@ export default function HistoryList() {
 								class="grid grid-cols-[4.5rem_3.5rem_1fr_auto] items-center gap-3 px-4 py-2.5 text-sm tabular-nums"
 								classList={{ "opacity-50": result.afk }}
 							>
-								<span class="font-semibold text-text">
+								<span class="font-display font-bold text-text after:ml-1 after:font-normal after:text-xs after:text-text-sub after:content-['wpm']">
 									{result.wpm}
-									<span class="ml-1 text-xs font-normal text-text-sub">
-										wpm
-									</span>
 								</span>
 								<span class="text-text-sub">{result.accuracy}%</span>
 								<span class="flex min-w-0 items-center gap-2 text-text-sub">
