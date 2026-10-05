@@ -1,3 +1,4 @@
+import { Agent } from "node:https";
 import tailwindcss from "@tailwindcss/vite";
 import type { ProxyOptions } from "vite";
 import solidPlugin from "vite-plugin-solid";
@@ -10,6 +11,9 @@ const seProxy: Record<string, ProxyOptions> = {
 	[`${SE_PROXY_PATH}/`]: {
 		target: SE_ORIGIN,
 		changeOrigin: true,
+		// Node's 250ms default per address is too short for a slow IPv4
+		// connect when IPv6 is unreachable; every request would 502.
+		agent: new Agent({ keepAlive: true, autoSelectFamilyAttemptTimeout: 1000 }),
 		rewrite: (path) => path.slice(SE_PROXY_PATH.length),
 	},
 };
