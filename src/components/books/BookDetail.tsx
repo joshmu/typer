@@ -119,7 +119,7 @@ export default function BookDetail(props: BookDetailProps) {
 	});
 
 	return (
-		<div class="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+		<div class="fixed top-0 left-0 z-50 flex h-dvh w-dvw items-end justify-center sm:items-center sm:p-6">
 			<button
 				ref={backdrop}
 				type="button"
