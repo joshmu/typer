@@ -3,6 +3,7 @@ import {
 	parseCatalogPage,
 	parseChapterList,
 } from "./core/text/se-catalog-parser";
+import { SE_PROXY_PATH } from "./core/text/se-source";
 import {
 	extractChapterTitle,
 	extractTextFromXHTML,
@@ -15,8 +16,9 @@ import {
 	NetworkError,
 } from "./core/types/errors";
 import { db } from "./db";
+import { fetchWithRetry } from "./http-retry";
 
-const SE_BASE = "https://standardebooks.org";
+const SE_BASE = `${SE_PROXY_PATH}/ebooks`;
 
 interface FetchOptions {
 	/** Operation label, used in thrown error messages */
@@ -27,25 +29,29 @@ interface FetchOptions {
 	timeoutMs?: number;
 }
 
-/** A request (headers and body) that takes longer than this is abandoned. */
+/** A request, retries included, that takes longer than this is abandoned. */
 export const FETCH_TIMEOUT_MS = 8000;
 /** Chapters download together, so each may queue behind the others. */
 const CHAPTER_TIMEOUT_MS = 30_000;
 
 async function fetchText(url: string, options: FetchOptions): Promise<string> {
 	const controller = new AbortController();
-	const timer = setTimeout(
-		() => controller.abort(),
-		options.timeoutMs ?? FETCH_TIMEOUT_MS,
-	);
+	let timedOut = false;
+	const timer = setTimeout(() => {
+		timedOut = true;
+		controller.abort();
+	}, options.timeoutMs ?? FETCH_TIMEOUT_MS);
 	try {
 		let response: Response;
 		try {
-			response = await fetch(url, { signal: controller.signal });
+			response = await fetchWithRetry(url, { signal: controller.signal });
 		} catch (err) {
-			throw new NetworkError(`Failed to reach ${options.operation}`, {
-				cause: err,
-			});
+			throw new NetworkError(
+				timedOut
+					? `Timed out reaching ${options.operation}`
+					: `Failed to reach ${options.operation}`,
+				{ cause: err, timedOut },
+			);
 		}
 		if (!response.ok) {
 			if (response.status === 404 && options.bookId) {
@@ -58,6 +64,7 @@ async function fetchText(url: string, options: FetchOptions): Promise<string> {
 		} catch (err) {
 			throw new NetworkError(`Failed to read ${options.operation}`, {
 				cause: err,
+				timedOut,
 			});
 		}
 	} finally {
@@ -77,7 +84,7 @@ export async function searchBooks(
 		"per-page": "48",
 		page: String(page),
 	});
-	const url = `${SE_BASE}/ebooks?${params}`;
+	const url = `${SE_BASE}?${params}`;
 	const xhtml = await fetchText(url, { operation: "search catalog" });
 	return parseCatalogPage(xhtml);
 }
@@ -96,11 +103,11 @@ export async function browseCatalog(page = 1): Promise<BookMeta[]> {
  */
 export async function fetchBookDetail(bookId: string): Promise<BookMeta> {
 	const [detail, toc] = await Promise.allSettled([
-		fetchText(`${SE_BASE}/ebooks/${bookId}`, {
+		fetchText(`${SE_BASE}/${bookId}`, {
 			operation: "fetch book detail",
 			bookId,
 		}),
-		fetchText(`${SE_BASE}/ebooks/${bookId}/text`, {
+		fetchText(`${SE_BASE}/${bookId}/text`, {
 			operation: "fetch chapter list",
 			bookId,
 		}),
@@ -147,7 +154,7 @@ export async function fetchChapter(
 	chapterFile: string,
 	chapterIndex: number,
 ): Promise<BookChapter> {
-	const url = `${SE_BASE}/ebooks/${bookId}/text/${chapterFile}`;
+	const url = `${SE_BASE}/${bookId}/text/${chapterFile}`;
 	const xhtml = await fetchText(url, {
 		operation: "fetch chapter",
 		bookId,

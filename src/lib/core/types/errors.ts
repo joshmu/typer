@@ -51,10 +51,16 @@ export class BookServiceError extends AppError {
 
 export class NetworkError extends AppError {
 	readonly kind: AppErrorKind = "network";
+	/** The request was abandoned at its time limit rather than refused. */
+	readonly timedOut: boolean;
 
-	constructor(message: string, options: { cause?: unknown } = {}) {
-		super(message, { kind: "network", ...options });
+	constructor(
+		message: string,
+		options: { cause?: unknown; timedOut?: boolean } = {},
+	) {
+		super(message, { kind: "network", cause: options.cause });
 		this.name = "NetworkError";
+		this.timedOut = options.timedOut ?? false;
 	}
 }
 

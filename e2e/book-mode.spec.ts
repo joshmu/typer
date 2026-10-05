@@ -8,28 +8,38 @@ import {
 	tocXhtml,
 } from "./fixtures/standardebooks";
 
+/** Stubs the same-origin /se proxy the app reads Standard Ebooks through. */
 async function stubStandardEbooks(page: Page): Promise<void> {
-	await page.route("https://standardebooks.org/**", async (route) => {
-		const url = new URL(route.request().url());
-		const path = url.pathname;
-		const xhtml = (() => {
-			if (path === "/ebooks") return catalogXhtml;
-			if (path === `/ebooks/${SE_BOOK_ID}`) return bookDetailXhtml;
-			if (path === `/ebooks/${SE_BOOK_ID}/text`) return tocXhtml;
-			if (path === `/ebooks/${SE_BOOK_ID}/text/chapter-1`) return chapter1Xhtml;
-			if (path === `/ebooks/${SE_BOOK_ID}/text/chapter-2`) return chapter2Xhtml;
-			return null;
-		})();
-		if (xhtml === null) {
-			await route.fulfill({ status: 404, body: "not found" });
-			return;
-		}
-		await route.fulfill({
-			status: 200,
-			contentType: "application/xhtml+xml",
-			body: xhtml,
-		});
-	});
+	// Covers load straight from Standard Ebooks; keep the run off the network.
+	await page.route("https://standardebooks.org/**", (route) =>
+		route.fulfill({ status: 404, body: "not found" }),
+	);
+	await page.route(
+		(url) => url.pathname.startsWith("/se/"),
+		async (route) => {
+			const url = new URL(route.request().url());
+			const path = url.pathname.replace(/^\/se/, "");
+			const xhtml = (() => {
+				if (path === "/ebooks") return catalogXhtml;
+				if (path === `/ebooks/${SE_BOOK_ID}`) return bookDetailXhtml;
+				if (path === `/ebooks/${SE_BOOK_ID}/text`) return tocXhtml;
+				if (path === `/ebooks/${SE_BOOK_ID}/text/chapter-1`)
+					return chapter1Xhtml;
+				if (path === `/ebooks/${SE_BOOK_ID}/text/chapter-2`)
+					return chapter2Xhtml;
+				return null;
+			})();
+			if (xhtml === null) {
+				await route.fulfill({ status: 404, body: "not found" });
+				return;
+			}
+			await route.fulfill({
+				status: 200,
+				contentType: "application/xhtml+xml",
+				body: xhtml,
+			});
+		},
+	);
 }
 
 async function clearIndexedDb(page: Page): Promise<void> {

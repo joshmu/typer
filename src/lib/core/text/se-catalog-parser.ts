@@ -1,9 +1,8 @@
 import type { BookMeta } from "../types/book";
-
-const SE_BASE = "https://standardebooks.org";
+import { SE_ORIGIN } from "./se-source";
 
 function absoluteUrl(url: string): string {
-	return url.startsWith("/") ? `${SE_BASE}${url}` : url;
+	return url.startsWith("/") ? `${SE_ORIGIN}${url}` : url;
 }
 
 const ENTITIES: Record<string, string> = {
@@ -89,7 +88,7 @@ export function parseCatalogPage(xhtml: string): BookMeta[] {
 				description: "",
 				language: "en",
 				wordCount: 0,
-				coverUrl: coverUrl ? `${SE_BASE}${coverUrl}` : "",
+				coverUrl: coverUrl ? `${SE_ORIGIN}${coverUrl}` : "",
 				coverHeroUrl: "",
 				chapters: [],
 				datePublished: "",
