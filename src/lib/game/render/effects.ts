@@ -590,30 +590,20 @@ export function createEffects(
 		b.live = true;
 		b.at.set(x, FX_Y, y);
 		// white-hot streaks cooling to the family colour
-		b.sparks.color1 = new Color4(1, 1, 1, 1);
-		b.sparks.color2 = new Color4(
+		b.sparks.color1.set(1, 1, 1, 1);
+		b.sparks.color2.set(
 			0.5 + color[0] * 0.5,
 			0.5 + color[1] * 0.5,
 			0.5 + color[2] * 0.5,
 			1,
 		);
-		b.sparks.colorDead = new Color4(color[0], color[1], color[2], 0);
+		b.sparks.colorDead.set(color[0], color[1], color[2], 0);
 		b.sparks.manualEmitCount = boss ? 36 : 13;
 		b.sparks.minEmitPower = boss ? 20 : 14;
 		b.sparks.maxEmitPower = boss ? 34 : 24;
-		b.gibs.color1 = new Color4(color[0], color[1], color[2], 1);
-		b.gibs.color2 = new Color4(
-			color[0] * 0.55,
-			color[1] * 0.55,
-			color[2] * 0.55,
-			1,
-		);
-		b.gibs.colorDead = new Color4(
-			color[0] * 0.2,
-			color[1] * 0.2,
-			color[2] * 0.2,
-			0,
-		);
+		b.gibs.color1.set(color[0], color[1], color[2], 1);
+		b.gibs.color2.set(color[0] * 0.55, color[1] * 0.55, color[2] * 0.55, 1);
+		b.gibs.colorDead.set(color[0] * 0.2, color[1] * 0.2, color[2] * 0.2, 0);
 		b.gibs.manualEmitCount = boss ? 24 : 10;
 
 		const w = acquire(waves, now);
