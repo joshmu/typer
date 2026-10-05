@@ -18,6 +18,7 @@ interface CaretProps {
 	currentCharIndex: number;
 	style?: CaretStyle;
 	smooth?: boolean;
+	ref?: (el: HTMLDivElement) => void;
 }
 
 export default function Caret(props: CaretProps) {
@@ -43,35 +44,43 @@ export default function Caret(props: CaretProps) {
 		}),
 	);
 
+	// Positioned by transform only, so a move never touches layout.
 	const styleProps = () => {
 		const p = position();
 		const left = p?.left ?? 0;
 		const top = p?.top ?? 0;
 		const width = p?.width ?? 0;
-		const base = { left: `${left}px`, top: `${top}px` };
 
 		switch (caretStyle()) {
 			case "block":
-				return { ...base, width: `${width || 10}px`, height: "1.5em" };
+				return {
+					transform: `translate3d(${left}px, ${top}px, 0)`,
+					width: `${width || 10}px`,
+					height: "1.5em",
+				};
 			case "underline":
 				return {
-					...base,
-					top: `calc(${top}px + 1.35em)`,
+					transform: `translate3d(${left}px, calc(${top}px + 1.35em), 0)`,
 					width: `${width || 10}px`,
 					height: "2px",
 				};
 			default:
-				return { ...base, width: "2px", height: "1.5em" };
+				return {
+					transform: `translate3d(${left}px, ${top}px, 0)`,
+					width: "2px",
+					height: "1.5em",
+				};
 		}
 	};
 
 	return (
 		<div
-			class="absolute bg-caret will-change-transform"
+			ref={props.ref}
+			class="caret absolute left-0 top-0 will-change-transform"
 			classList={{
-				"animate-blink": isIdle(),
-				"transition-[left,top] duration-[80ms]": smooth(),
-				"opacity-50": caretStyle() === "block",
+				"caret-idle": isIdle(),
+				"caret-glide transition-transform": smooth(),
+				"caret-block": caretStyle() === "block",
 			}}
 			style={styleProps()}
 			data-testid="caret"

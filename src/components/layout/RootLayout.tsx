@@ -23,7 +23,7 @@ export default function RootLayout(props: ParentProps) {
 			classList={{ "bg-black": isGame(), "bg-bg": !isGame() }}
 		>
 			<header
-				class="flex items-center justify-between px-8 py-4 transition-opacity duration-500"
+				class="flex items-center justify-between px-4 py-4 transition-opacity duration-500 sm:px-8"
 				classList={{ "opacity-0 pointer-events-none": isTypingActive() }}
 			>
 				<a
@@ -32,7 +32,7 @@ export default function RootLayout(props: ParentProps) {
 				>
 					typer<span class="text-primary/50">_</span>
 				</a>
-				<nav class="flex gap-6 items-center font-display text-sm">
+				<nav class="flex gap-6 items-center font-display text-sm font-medium">
 					{LINKS.map((link) => (
 						<a
 							href={link.href}
