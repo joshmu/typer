@@ -49,7 +49,7 @@ export function initTypingState(
 		startTime: null,
 		endTime: null,
 		keystrokes: { correct: 0, incorrect: 0 },
-		activity: { lastAt: null },
+		activity: { lastAt: null, keysPerSecond: [], errorsPerSecond: [] },
 		mode,
 		config: {
 			punctuation: false,

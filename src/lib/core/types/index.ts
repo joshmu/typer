@@ -42,6 +42,10 @@ export interface TestConfig {
 export interface KeyActivity {
 	/** Time of the last character key, null before the first. */
 	lastAt: number | null;
+	/** Character keys, right or wrong, in each whole second from the start. */
+	keysPerSecond: number[];
+	/** Mistyped character keys in each whole second, same length as keysPerSecond. */
+	errorsPerSecond: number[];
 }
 
 /** Character keys pressed this test, kept even when later corrected. */

@@ -145,7 +145,8 @@ Result stats:
 - **Accuracy** is keystroke accuracy: correct character keys over all character keys, so a corrected typo still costs accuracy. It is rounded down, so any mistake keeps it below 100.
 - **Raw WPM** counts every character key, including ones later backspaced; **WPM** counts correct characters left in the text.
 - **Per-second WPM** has one sample per second of the test's duration, idle seconds included, so the chart covers the whole test.
-- **Consistency** is computed from correct-character WPM per second (Monkeytype uses raw). Time tests keep every second; tests ended by Esc or by the text running out drop the idle tail after the last keystroke.
+- **Key activity** (`state.activity`) is counted as keys land: the last character key's time, and character keys and mistakes per second. Backspace and stop-on-error word resets do not erase it, so the raw and error chart lines, AFK and the idle tail all see keys whose characters were later erased.
+- **Consistency** is computed from correct-character WPM per second (Monkeytype uses raw). Time tests keep every second; tests ended by Esc or by the text running out drop the idle tail after the last character key.
 - **errorCount** (complete-test.ts) counts only uncorrected errors: incorrect and extra characters left in the text.
 - **Missed** characters are ones the user skipped: untyped characters behind the cursor. Text the user never reached is not counted, and the breakdown total is only the characters covered.
 

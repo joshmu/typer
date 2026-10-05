@@ -1,4 +1,4 @@
-import type { CharacterState } from "../types";
+import type { CharacterState, KeyActivity } from "../types";
 
 const CHARS_PER_WORD = 5;
 const MS_PER_MINUTE = 60_000;
@@ -27,30 +27,29 @@ export interface PerSecondActivity {
 }
 
 /**
- * Raw WPM and mistakes for each second, bucketed like `collectPerSecondWPM`.
- * Only each character's last keystroke has a time, so its earlier mistyped
- * keys count in that same second; characters erased and left untyped drop out.
+ * Raw WPM and mistakes for each second, bucketed like `collectPerSecondWPM`,
+ * from the keys counted as they landed, so erased ones still show.
  */
 export function collectPerSecondActivity(
-	chars: CharacterState[],
-	startTime: number,
+	{ keysPerSecond, errorsPerSecond }: KeyActivity,
 	elapsedMs: number,
 ): PerSecondActivity {
-	const typed = countPerSecond(chars, startTime, elapsedMs, keysOn);
-	const errors = countPerSecond(chars, startTime, elapsedMs, (char) =>
-		char.status === "incorrect" || char.status === "extra"
-			? Math.max(char.mistakeCount, 1)
-			: char.mistakeCount,
-	);
-	return { raw: toWpm(typed, elapsedMs), errors };
+	if (elapsedMs <= 0) return { raw: [], errors: [] };
+	const keys = fold(keysPerSecond, elapsedMs);
+	return {
+		raw: toWpm(keys, elapsedMs),
+		errors: fold(errorsPerSecond, elapsedMs),
+	};
 }
 
-/** Character keys spent on a typed character: its mistakes plus a final right key. */
-function keysOn(char: CharacterState): number {
-	if (char.status === "pending" || char.status === "missed") return 0;
-	return char.status === "correct"
-		? 1 + char.mistakeCount
-		: Math.max(char.mistakeCount, 1);
+/** Per-second counts spread over the test's seconds; any past the end join the last. */
+function fold(perSecond: number[], elapsedMs: number): number[] {
+	const seconds = secondsIn(elapsedMs);
+	const counts = new Array<number>(seconds).fill(0);
+	perSecond.forEach((n, i) => {
+		counts[Math.min(i, seconds - 1)] += n;
+	});
+	return counts;
 }
 
 function secondsIn(elapsedMs: number): number {

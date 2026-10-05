@@ -488,3 +488,36 @@ describe("key activity", () => {
 		expect(state.activity.lastAt).toBeNull();
 	});
 });
+
+describe("per-second key activity", () => {
+	it("counts character keys and mistakes in each second, erased ones included", () => {
+		const state = createTypingState("ab cd");
+		applyKeystroke(state, "a", 1000);
+		applyKeystroke(state, "x", 1500);
+		applyKeystroke(state, "Backspace", 1600);
+		applyKeystroke(state, "b", 2100);
+		applyKeystroke(state, "Shift", 2200);
+		applyKeystroke(state, "q", 4200);
+		expect(state.activity.keysPerSecond).toEqual([2, 1, 0, 1]);
+		expect(state.activity.errorsPerSecond).toEqual([1, 0, 0, 1]);
+	});
+
+	it("keeps keys a stop on error word reset wipes from the word", () => {
+		const state = createTypingState("ab cd");
+		state.config.stopOnError = "word";
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "b", 1100);
+		applyKeystroke(state, " ", 1200);
+		expect(state.activity.keysPerSecond).toEqual([3]);
+		expect(state.activity.errorsPerSecond).toEqual([1]);
+	});
+
+	it("leaves the input's counts untouched in the pure form", () => {
+		const state = createTypingState("ab");
+		const first = processKeystroke(state, "a", 1000);
+		const second = processKeystroke(first, "b", 1100);
+		expect(second.activity.keysPerSecond).toEqual([2]);
+		expect(first.activity.keysPerSecond).toEqual([1]);
+		expect(state.activity.keysPerSecond).toEqual([]);
+	});
+});

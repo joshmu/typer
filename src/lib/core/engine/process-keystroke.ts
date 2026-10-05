@@ -44,7 +44,11 @@ export function processKeystroke(
 	const next: TypingState = {
 		...state,
 		keystrokes: { ...state.keystrokes },
-		activity: { ...state.activity },
+		activity: {
+			lastAt: state.activity.lastAt,
+			keysPerSecond: [...state.activity.keysPerSecond],
+			errorsPerSecond: [...state.activity.errorsPerSecond],
+		},
 		words: state.words.map((w) => ({
 			...w,
 			characters: w.characters.map((c) => ({ ...c })),
@@ -83,7 +87,7 @@ export function applyKeystroke(
 		char.mistakeCount++;
 	}
 	if (state.startTime === null) state.startTime = timestamp;
-	state.activity.lastAt = timestamp;
+	recordKey(state, timestamp, isCorrect);
 
 	// Letter mode: block cursor on incorrect unless auto-advance threshold reached
 	if (
@@ -96,6 +100,26 @@ export function applyKeystroke(
 
 	advanceCursor(state, timestamp);
 	return isCorrect ? "correct" : "incorrect";
+}
+
+/** Counts a character key in its second. O(1) amortised: idle seconds fill once. */
+function recordKey(
+	state: TypingState,
+	timestamp: number,
+	isCorrect: boolean,
+): void {
+	const activity = state.activity;
+	activity.lastAt = timestamp;
+	const second = Math.max(
+		0,
+		Math.floor((timestamp - (state.startTime ?? timestamp)) / 1000),
+	);
+	while (activity.keysPerSecond.length <= second) {
+		activity.keysPerSecond.push(0);
+		activity.errorsPerSecond.push(0);
+	}
+	activity.keysPerSecond[second]++;
+	if (!isCorrect) activity.errorsPerSecond[second]++;
 }
 
 function advanceCursor(state: TypingState, timestamp: number): void {

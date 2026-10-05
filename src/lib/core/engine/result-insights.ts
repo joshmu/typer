@@ -16,12 +16,7 @@ export function deriveResultInsights(
 	elapsed: number,
 	now: number,
 ): ResultInsights {
-	const chars = state.words.flatMap((w) => w.characters);
-	const { raw, errors } = collectPerSecondActivity(
-		chars,
-		state.startTime ?? 0,
-		elapsed,
-	);
+	const { raw, errors } = collectPerSecondActivity(state.activity, elapsed);
 	return {
 		mode: state.mode,
 		timestamp: now,

@@ -64,7 +64,7 @@ export function createTypingState(
 		startTime: null,
 		endTime: null,
 		keystrokes: { correct: 0, incorrect: 0 },
-		activity: { lastAt: null },
+		activity: { lastAt: null, keysPerSecond: [], errorsPerSecond: [] },
 		mode: createTestMode(),
 		config: createTestConfig(),
 		...overrides,

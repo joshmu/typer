@@ -105,54 +105,41 @@ describe("trimIdleTail", () => {
 });
 
 describe("collectPerSecondActivity", () => {
-	it("counts a corrected character's mistyped keys toward raw WPM", () => {
-		const fixed: CharacterState = {
-			...createCorrectChar("a"),
-			timestamp: START + 500,
-			mistakeCount: 5,
-		};
-		const chars = [...correctBetween(4, 0, 1000), fixed];
-		// 4 + 1 final key + 5 mistyped keys = 10 keys = 120 WPM
-		expect(collectPerSecondActivity(chars, START, 1000).raw).toEqual([120]);
+	const activity = (keysPerSecond: number[], errorsPerSecond: number[]) => ({
+		lastAt: null,
+		keysPerSecond,
+		errorsPerSecond,
 	});
 
-	it("counts every typed character per second as raw WPM", () => {
-		const chars = [
-			...correctBetween(5, 0, 1000),
-			{ ...createIncorrectChar("a", "b"), timestamp: START + 1100 },
-			...correctBetween(4, 1200, 2000),
-		];
-		expect(collectPerSecondActivity(chars, START, 2000).raw).toEqual([60, 60]);
+	it("turns character keys per second into raw WPM", () => {
+		// 10 keys in a second = 2 words = 120 WPM
+		expect(
+			collectPerSecondActivity(activity([10, 5], [0, 0]), 2000).raw,
+		).toEqual([120, 60]);
 	});
 
-	it("marks the seconds that held a mistake, corrected ones included", () => {
-		const corrected: CharacterState = {
-			...createCorrectChar("a"),
-			timestamp: START + 2500,
-			mistakeCount: 1,
-		};
-		const chars = [
-			...correctBetween(5, 0, 1000),
-			{ ...createIncorrectChar("a", "b"), timestamp: START + 1100 },
-			corrected,
-		];
-		expect(collectPerSecondActivity(chars, START, 3000).errors).toEqual([
-			0, 1, 1,
-		]);
+	it("carries mistakes per second through", () => {
+		expect(
+			collectPerSecondActivity(activity([5, 6, 2], [0, 1, 1]), 3000).errors,
+		).toEqual([0, 1, 1]);
 	});
 
-	it("spans the whole duration like the WPM samples", () => {
-		const activity = collectPerSecondActivity(
-			correctBetween(5, 0, 1000),
-			START,
-			15_000,
-		);
-		expect(activity.raw).toHaveLength(15);
-		expect(activity.errors).toHaveLength(15);
+	it("folds a final fraction under half a second into the last second", () => {
+		// 2.4s rounds to 2 samples; the last spans 1.4s with 10 keys
+		const out = collectPerSecondActivity(activity([5, 5, 5], [0, 1, 1]), 2400);
+		expect(out.raw).toEqual([60, 86]);
+		expect(out.errors).toEqual([0, 2]);
+	});
+
+	it("spans the whole duration, idle seconds included", () => {
+		const out = collectPerSecondActivity(activity([5], [0]), 15_000);
+		expect(out.raw).toHaveLength(15);
+		expect(out.raw.slice(1)).toEqual(Array(14).fill(0));
+		expect(out.errors).toHaveLength(15);
 	});
 
 	it("returns no samples for a test with no duration", () => {
-		expect(collectPerSecondActivity([], START, 0)).toEqual({
+		expect(collectPerSecondActivity(activity([], []), 0)).toEqual({
 			raw: [],
 			errors: [],
 		});
