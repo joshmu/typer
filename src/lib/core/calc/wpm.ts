@@ -1,4 +1,4 @@
-import type { CharacterState } from "../types";
+import type { CharacterState, KeystrokeCounts } from "../types";
 
 /**
  * Calculate words per minute.
@@ -18,18 +18,13 @@ export function calculateWPM(
 }
 
 /**
- * Calculate raw words per minute.
- * Counts ALL typed characters (correct + incorrect + extra), excluding pending and missed.
+ * Raw words per minute: every character keystroke, right or wrong, including
+ * ones later backspaced.
  */
 export function calculateRawWPM(
-	chars: CharacterState[],
+	{ correct, incorrect }: KeystrokeCounts,
 	elapsedMs: number,
 ): number {
-	if (elapsedMs === 0 || chars.length === 0) return 0;
-
-	const typedChars = chars.filter(
-		(c) => c.status !== "pending" && c.status !== "missed",
-	).length;
-
-	return Math.round(typedChars / 5 / (elapsedMs / 60_000));
+	if (elapsedMs === 0) return 0;
+	return Math.round((correct + incorrect) / 5 / (elapsedMs / 60_000));
 }

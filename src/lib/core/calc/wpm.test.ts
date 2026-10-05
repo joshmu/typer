@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CharacterState } from "../types";
-import {
-	createCharState,
-	createCorrectChar,
-	createIncorrectChar,
-} from "../types/test-fixtures";
+import { createCorrectChar, createIncorrectChar } from "../types/test-fixtures";
 import { calculateRawWPM, calculateWPM } from "./wpm";
 
 describe("calculateWPM", () => {
@@ -49,43 +45,21 @@ describe("calculateWPM", () => {
 });
 
 describe("calculateRawWPM", () => {
-	it("counts all typed chars (correct + incorrect + extra)", () => {
-		// 5 correct + 2 incorrect + 1 extra = 8 typed chars in 60s
-		// Math.round(8/5/1) = 2
-		const chars: CharacterState[] = [
-			...Array.from({ length: 5 }, (_, i) =>
-				createCorrectChar(String.fromCharCode(97 + i)),
-			),
-			createIncorrectChar("f", "x"),
-			createIncorrectChar("g", "y"),
-			createCharState({ expected: "", typed: "x", status: "extra" }),
-		];
-		expect(calculateRawWPM(chars, 60_000)).toBe(2);
+	it("counts every character keystroke, right or wrong", () => {
+		// 10 keystrokes in 60s = 10/5 / 1 = 2
+		expect(calculateRawWPM({ correct: 7, incorrect: 3 }, 60_000)).toBe(2);
 	});
 
-	it("excludes pending and missed chars", () => {
-		const chars: CharacterState[] = [
-			createCorrectChar("a"),
-			createCorrectChar("b"),
-			createCorrectChar("c"),
-			createCorrectChar("d"),
-			createCorrectChar("e"),
-			createIncorrectChar("f", "x"),
-			createCharState({ expected: "", typed: "z", status: "extra" }),
-			createCharState({ expected: "g", status: "pending" }),
-			createCharState({ expected: "h", status: "missed" }),
-		];
-		// 5 correct + 1 incorrect + 1 extra = 7 typed, pending/missed excluded
-		// Math.round(7/5/1) = 1
-		expect(calculateRawWPM(chars, 60_000)).toBe(1);
+	it("keeps keystrokes that were later backspaced", () => {
+		// 25 keystrokes in 30s = 25/5 / 0.5 = 10, whatever is left on screen
+		expect(calculateRawWPM({ correct: 20, incorrect: 5 }, 30_000)).toBe(10);
 	});
 
 	it("returns 0 for zero elapsed time", () => {
-		const chars = [createCorrectChar("a")];
-		expect(calculateRawWPM(chars, 0)).toBe(0);
+		expect(calculateRawWPM({ correct: 5, incorrect: 0 }, 0)).toBe(0);
 	});
 
-	it("returns 0 for empty array", () => {
-		expect(calculateRawWPM([], 60_000)).toBe(0);
+	it("returns 0 with no keystrokes", () => {
+		expect(calculateRawWPM({ correct: 0, incorrect: 0 }, 60_000)).toBe(0);
 	});
 });

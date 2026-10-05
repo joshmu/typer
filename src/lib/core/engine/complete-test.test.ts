@@ -77,6 +77,8 @@ describe("completeTest", () => {
 		const out = completeTest(state);
 		expect(out.result.breakdown.incorrect).toBe(0);
 		expect(out.result.accuracy).toBe(71); // 5 correct of 7 character keys
+		expect(out.result.rawWpm).toBe(8); // 7 keys / 5 / (10s / 60)
+		expect(out.result.wpm).toBe(6); // 5 correct chars / 5 / (10s / 60)
 	});
 
 	it("populates breakdown counts", () => {
