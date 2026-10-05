@@ -1,5 +1,6 @@
 import { createEffect, createSignal, For } from "solid-js";
 import { getWordTop } from "@/lib/core/layout/layout-cache";
+import { lineScrollOffset } from "@/lib/core/layout/line-scroll";
 import type { WordState } from "@/lib/core/types";
 import { typingFontSize } from "@/lib/preferences";
 import { usePreferences } from "@/lib/preferences-context";
@@ -31,11 +32,13 @@ export default function TextDisplay(props: TextDisplayProps) {
 	// Read wordTop from the cache, not offsetTop — the keystroke hot path
 	// must not force a layout recalc.
 	createEffect(() => {
-		const wordTop = getWordTop(layoutCache(), props.currentWordIndex);
-		if (wordTop === null) return;
-		if (wordTop > lineHeight() + translateY()) {
-			setTranslateY(wordTop - lineHeight());
-		}
+		const cache = layoutCache();
+		const wordTop = getWordTop(cache, props.currentWordIndex);
+		const firstTop = getWordTop(cache, 0);
+		if (wordTop === null || firstTop === null) return;
+		setTranslateY(
+			lineScrollOffset(wordTop, firstTop, lineHeight(), translateY()),
+		);
 	});
 
 	return (
