@@ -101,10 +101,11 @@ export default function GameShell() {
 		DRAFT_REVEAL_MS,
 		testMode,
 	);
-	// a run is live while the sim is advancing under the player's hands: the
-	// site header gets out of the way and the arena owns the viewport
+	// a run is live while the sim is advancing under the player's hands (and
+	// through the final beat before the death screen): the site header gets
+	// out of the way and the arena owns the viewport
 	createEffect(() =>
-		setRunLive(ready() && started() && !paused() && !isOver()),
+		setRunLive(ready() && started() && !paused() && !deathShown()),
 	);
 	onCleanup(() => setRunLive(false));
 
@@ -371,7 +372,8 @@ export default function GameShell() {
 					Loading arena…
 				</div>
 			</Show>
-			<Show when={started() && !isOver() ? hud() : null}>
+			{/* the HUD stays up through the final beat, so the last heart breaks */}
+			<Show when={started() && !deathShown() ? hud() : null}>
 				{(state) => (
 					<Hud state={state()} frame={frameFor(shellSize().w, shellSize().h)} />
 				)}
