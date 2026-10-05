@@ -13,7 +13,7 @@ interface ContinueCardProps {
 }
 
 const SHELL =
-	"group mx-auto flex w-full max-w-md items-center gap-4 rounded-xl font-display bg-bg-secondary/50 px-4 py-3 text-left no-underline ring-1 ring-text/[0.07] outline-none motion-safe:transition-[background-color,box-shadow,transform] motion-safe:duration-200 hover:bg-bg-secondary hover:ring-primary/35 focus-visible:ring-2 focus-visible:ring-primary motion-safe:active:scale-[0.99]";
+	"group mx-auto flex w-full max-w-md items-center gap-4 rounded-xl font-display bg-bg-secondary/50 px-4 py-3 text-left no-underline ring-1 ring-text/[0.07] outline-none motion-safe:transition-[background-color,box-shadow,transform] motion-safe:duration-200 hover:bg-bg-secondary hover:shadow-[0_0_28px_-12px_var(--primary)] hover:ring-primary/35 focus-visible:ring-2 focus-visible:ring-primary motion-safe:active:scale-[0.99]";
 const EYEBROW =
 	"font-display text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-text-sub";
 
