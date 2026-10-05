@@ -13,48 +13,44 @@ export function collectPerSecondWPM(
 	startTime: number,
 	elapsedMs: number,
 ): number[] {
-	const counts = countPerSecond(
-		chars,
-		startTime,
-		elapsedMs,
-		(char) => char.status === "correct",
+	const counts = countPerSecond(chars, startTime, elapsedMs, (char) =>
+		char.status === "correct" ? 1 : 0,
 	);
 	return toWpm(counts, elapsedMs);
 }
 
 export interface PerSecondActivity {
-	/** WPM from every typed character, right or wrong, per second. */
+	/** WPM from every character key, right or wrong, per second. */
 	raw: number[];
-	/** Characters per second that were mistyped, corrected or not. */
+	/** Mistyped keys per second, corrected or not. */
 	errors: number[];
 }
 
 /**
  * Raw WPM and mistakes for each second, bucketed like `collectPerSecondWPM`.
- * Only each character's last keystroke is known, so keys later erased by
- * Backspace are not counted.
+ * Only each character's last keystroke has a time, so its earlier mistyped
+ * keys count in that same second; characters erased and left untyped drop out.
  */
 export function collectPerSecondActivity(
 	chars: CharacterState[],
 	startTime: number,
 	elapsedMs: number,
 ): PerSecondActivity {
-	const typed = countPerSecond(
-		chars,
-		startTime,
-		elapsedMs,
-		(char) => char.status !== "pending" && char.status !== "missed",
-	);
-	const errors = countPerSecond(
-		chars,
-		startTime,
-		elapsedMs,
-		(char) =>
-			char.status === "incorrect" ||
-			char.status === "extra" ||
-			char.mistakeCount > 0,
+	const typed = countPerSecond(chars, startTime, elapsedMs, keysOn);
+	const errors = countPerSecond(chars, startTime, elapsedMs, (char) =>
+		char.status === "incorrect" || char.status === "extra"
+			? Math.max(char.mistakeCount, 1)
+			: char.mistakeCount,
 	);
 	return { raw: toWpm(typed, elapsedMs), errors };
+}
+
+/** Character keys spent on a typed character: its mistakes plus a final right key. */
+function keysOn(char: CharacterState): number {
+	if (char.status === "pending" || char.status === "missed") return 0;
+	return char.status === "correct"
+		? 1 + char.mistakeCount
+		: Math.max(char.mistakeCount, 1);
 }
 
 function secondsIn(elapsedMs: number): number {
@@ -65,15 +61,17 @@ function countPerSecond(
 	chars: CharacterState[],
 	startTime: number,
 	elapsedMs: number,
-	include: (char: CharacterState) => boolean,
+	weigh: (char: CharacterState) => number,
 ): number[] {
 	if (elapsedMs <= 0) return [];
 	const seconds = secondsIn(elapsedMs);
 	const counts = new Array<number>(seconds).fill(0);
 	for (const char of chars) {
-		if (char.timestamp == null || !include(char)) continue;
+		if (char.timestamp == null) continue;
+		const weight = weigh(char);
+		if (weight === 0) continue;
 		const second = Math.floor((char.timestamp - startTime) / 1000);
-		counts[Math.min(Math.max(second, 0), seconds - 1)]++;
+		counts[Math.min(Math.max(second, 0), seconds - 1)] += weight;
 	}
 	return counts;
 }

@@ -108,6 +108,17 @@ describe("trimIdleTail", () => {
 });
 
 describe("collectPerSecondActivity", () => {
+	it("counts a corrected character's mistyped keys toward raw WPM", () => {
+		const fixed: CharacterState = {
+			...createCorrectChar("a"),
+			timestamp: START + 500,
+			mistakeCount: 5,
+		};
+		const chars = [...correctBetween(4, 0, 1000), fixed];
+		// 4 + 1 final key + 5 mistyped keys = 10 keys = 120 WPM
+		expect(collectPerSecondActivity(chars, START, 1000).raw).toEqual([120]);
+	});
+
 	it("counts every typed character per second as raw WPM", () => {
 		const chars = [
 			...correctBetween(5, 0, 1000),
