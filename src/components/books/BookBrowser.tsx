@@ -569,13 +569,13 @@ function InlineNotice(props: {
 		<div
 			role="status"
 			data-testid={props.testId}
-			class={`flex items-center justify-center gap-3 text-sm text-text-sub ${props.class ?? ""}`}
+			class={`flex items-center gap-3 rounded-lg bg-bg-secondary/60 py-2 pr-2 pl-4 text-sm text-text-sub ring-1 ring-text/10 ring-inset ${props.class ?? ""}`}
 		>
 			<span
 				class="size-1.5 shrink-0 rounded-full bg-error"
 				aria-hidden="true"
 			/>
-			<span>{props.text}</span>
+			<span class="min-w-0 flex-1 text-pretty">{props.text}</span>
 			<button
 				type="button"
 				class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-primary outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-70"

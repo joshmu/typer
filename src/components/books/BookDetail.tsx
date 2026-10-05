@@ -365,10 +365,10 @@ function StartError(props: { error: BookErrorCopy }) {
 			role="alert"
 			class="flex min-w-0 basis-full items-start gap-2.5 sm:flex-1 sm:basis-auto"
 		>
-			<span class="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-error/15 text-error">
+			<span class="grid size-6 shrink-0 place-items-center rounded-full bg-error/15 text-error ring-1 ring-error/25">
 				<svg
 					viewBox="0 0 24 24"
-					class="size-3"
+					class="size-3.5"
 					fill="none"
 					stroke="currentColor"
 					stroke-width="3"
