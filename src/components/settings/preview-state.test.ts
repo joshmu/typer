@@ -14,7 +14,7 @@ describe("preview state", () => {
 	it("starts empty with the cursor at zero", () => {
 		const s = createPreviewState("ab");
 		expect(s.cursor).toBe(0);
-		expect(charClasses(s)).toEqual(["text-text-sub", "text-text-sub"]);
+		expect(charClasses(s)).toEqual(["text-text-pending", "text-text-pending"]);
 	});
 
 	it("marks a right key correct and a wrong key wrong", () => {
@@ -27,7 +27,7 @@ describe("preview state", () => {
 		expect(charClasses(second.state)).toEqual([
 			"text-correct",
 			"text-error char-wrong",
-			"text-text-sub",
+			"text-text-pending",
 		]);
 	});
 
@@ -36,7 +36,7 @@ describe("preview state", () => {
 		expect(charClasses(s)).toEqual([
 			"text-correct",
 			"text-correct char-corrected",
-			"text-text-sub",
+			"text-text-pending",
 		]);
 	});
 
@@ -55,7 +55,7 @@ describe("preview state", () => {
 	it("starts over after the last char", () => {
 		const s = typeAll(createPreviewState("ab"), ["a", "b"]);
 		expect(s.cursor).toBe(0);
-		expect(charClasses(s)).toEqual(["text-text-sub", "text-text-sub"]);
+		expect(charClasses(s)).toEqual(["text-text-pending", "text-text-pending"]);
 	});
 
 	it("can be built from a replayed key sequence", () => {
@@ -64,7 +64,7 @@ describe("preview state", () => {
 		expect(charClasses(s)).toEqual([
 			"text-correct",
 			"text-correct char-corrected",
-			"text-text-sub",
+			"text-text-pending",
 		]);
 	});
 });

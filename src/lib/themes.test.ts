@@ -17,6 +17,7 @@ const REQUIRED_KEYS: (keyof Theme)[] = [
 	"bgSecondary",
 	"text",
 	"textSub",
+	"textPending",
 	"primary",
 	"onPrimary",
 	"warning",
@@ -32,6 +33,7 @@ const CSS_VARS: [keyof Theme, string][] = [
 	["bgSecondary", "--bg-secondary"],
 	["text", "--text"],
 	["textSub", "--text-sub"],
+	["textPending", "--text-pending"],
 	["primary", "--primary"],
 	["onPrimary", "--on-primary"],
 	["warning", "--warning"],
@@ -100,8 +102,12 @@ describe("Lamplight contrast", () => {
 	const pairs: [string, string, string, number][] = [
 		["text on bg", t.text, t.bg, 7],
 		["text on bg-secondary", t.text, t.bgSecondary, 7],
-		["text-sub on bg", t.textSub, t.bg, 3.9],
-		["text-sub on bg-secondary", t.textSub, t.bgSecondary, 3.5],
+		// small UI text: WCAG AA
+		["text-sub on bg", t.textSub, t.bg, 4.5],
+		["text-sub on bg-secondary", t.textSub, t.bgSecondary, 4.5],
+		// pending typing text is large: AA large, and well under typed text
+		["text-pending on bg", t.textPending, t.bg, 3],
+		["typed text over pending text", t.correct, t.textPending, 3],
 		["primary on bg", t.primary, t.bg, 4.5],
 		["primary on bg-secondary", t.primary, t.bgSecondary, 4.5],
 		["error on bg", t.error, t.bg, 4.5],

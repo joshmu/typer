@@ -14,6 +14,7 @@ function tileVars(theme: Theme): Record<string, string> {
 		"--t-bg": theme.bg,
 		"--t-text": theme.text,
 		"--t-sub": theme.textSub,
+		"--t-pending": theme.textPending,
 		"--t-primary": theme.primary,
 		"--t-error": theme.error,
 		"--t-caret": theme.caret,
@@ -62,7 +63,7 @@ function ThemeTile(props: {
 						class="relative -mx-px inline-block h-[1.15em] w-[2px] translate-y-[0.18em] rounded-[1px] bg-[var(--t-caret)] shadow-[0_0_8px_var(--t-caret)]"
 						classList={{ "caret-idle": props.active }}
 					/>
-					<span class="text-[var(--t-sub)]">er</span>
+					<span class="text-[var(--t-pending)]">er</span>
 				</span>
 				<span class="flex shrink-0 gap-1 pt-1">
 					<span class="size-2 rounded-full bg-[var(--t-primary)]" />

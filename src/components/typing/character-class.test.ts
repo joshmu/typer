@@ -30,8 +30,8 @@ describe("characterClass", () => {
 			expect(characterClass("missed", 0)).toBe("text-error opacity-50");
 		});
 
-		it("returns text-text-sub for pending characters", () => {
-			expect(characterClass("pending", 0)).toBe("text-text-sub");
+		it("returns text-text-pending for pending characters", () => {
+			expect(characterClass("pending", 0)).toBe("text-text-pending");
 		});
 	});
 });

@@ -4,7 +4,10 @@ export interface Theme {
 	bg: string;
 	bgSecondary: string;
 	text: string;
+	/** Secondary UI text (labels, hints), at least 4.5:1 on bg and bgSecondary. */
 	textSub: string;
+	/** Text not typed yet: large type, so dimmer than textSub is fine. */
+	textPending: string;
 	primary: string;
 	/** Text and icons on a primary fill, at least 4.5:1 against primary. */
 	onPrimary: string;
@@ -22,7 +25,8 @@ const lamplight: Theme = {
 	bg: "#1c1a17",
 	bgSecondary: "#25221d",
 	text: "#ece4d2",
-	textSub: "#827869",
+	textSub: "#9a8f7f",
+	textPending: "#827869",
 	primary: "#f2873d",
 	onPrimary: "#1c1a17",
 	warning: "#e8b04a",
@@ -39,6 +43,7 @@ const serikaDark: Theme = {
 	bgSecondary: "#2c2e31",
 	text: "#d1d0c5",
 	textSub: "#646669",
+	textPending: "#646669",
 	primary: "#e2b714",
 	onPrimary: "#323437",
 	warning: "#e8a020",
@@ -55,6 +60,7 @@ const serikaLight: Theme = {
 	bgSecondary: "#d1d1d3",
 	text: "#323437",
 	textSub: "#aaaeb3",
+	textPending: "#aaaeb3",
 	primary: "#e2b714",
 	onPrimary: "#323437",
 	warning: "#d4921a",
@@ -71,6 +77,7 @@ const dracula: Theme = {
 	bgSecondary: "#21222c",
 	text: "#f8f8f2",
 	textSub: "#6272a4",
+	textPending: "#6272a4",
 	primary: "#bd93f9",
 	onPrimary: "#282a36",
 	warning: "#ffb86c",
@@ -87,6 +94,7 @@ const monokai: Theme = {
 	bgSecondary: "#1e1f1c",
 	text: "#f8f8f2",
 	textSub: "#75715e",
+	textPending: "#75715e",
 	primary: "#a6e22e",
 	onPrimary: "#272822",
 	warning: "#e6db74",
@@ -103,6 +111,7 @@ const nord: Theme = {
 	bgSecondary: "#272c36",
 	text: "#d8dee9",
 	textSub: "#4c566a",
+	textPending: "#4c566a",
 	primary: "#88c0d0",
 	onPrimary: "#2e3440",
 	warning: "#ebcb8b",
@@ -119,6 +128,7 @@ const solarizedDark: Theme = {
 	bgSecondary: "#073642",
 	text: "#839496",
 	textSub: "#586e75",
+	textPending: "#586e75",
 	primary: "#b58900",
 	onPrimary: "#002b36",
 	warning: "#cb4b16",
@@ -135,6 +145,7 @@ const tokyoNight: Theme = {
 	bgSecondary: "#16161e",
 	text: "#a9b1d6",
 	textSub: "#565f89",
+	textPending: "#565f89",
 	primary: "#7aa2f7",
 	onPrimary: "#1a1b26",
 	warning: "#e0af68",
@@ -151,6 +162,7 @@ const catppuccinMocha: Theme = {
 	bgSecondary: "#181825",
 	text: "#cdd6f4",
 	textSub: "#585b70",
+	textPending: "#585b70",
 	primary: "#cba6f7",
 	onPrimary: "#1e1e2e",
 	warning: "#fab387",
@@ -167,6 +179,7 @@ const gruvboxDark: Theme = {
 	bgSecondary: "#1d2021",
 	text: "#ebdbb2",
 	textSub: "#665c54",
+	textPending: "#665c54",
 	primary: "#fabd2f",
 	onPrimary: "#282828",
 	warning: "#fe8019",
@@ -183,6 +196,7 @@ const oneDark: Theme = {
 	bgSecondary: "#21252b",
 	text: "#abb2bf",
 	textSub: "#5c6370",
+	textPending: "#5c6370",
 	primary: "#61afef",
 	onPrimary: "#282c34",
 	warning: "#e5c07b",
@@ -199,6 +213,7 @@ const rosePine: Theme = {
 	bgSecondary: "#1f1d2e",
 	text: "#e0def4",
 	textSub: "#6e6a86",
+	textPending: "#6e6a86",
 	primary: "#c4a7e7",
 	onPrimary: "#191724",
 	warning: "#f6c177",
@@ -215,6 +230,7 @@ const carbonDark: Theme = {
 	bgSecondary: "#1e1e1e",
 	text: "#f4f4f4",
 	textSub: "#525252",
+	textPending: "#525252",
 	primary: "#0f62fe",
 	onPrimary: "#ffffff",
 	warning: "#f1c21b",
@@ -254,6 +270,7 @@ export const THEME_CSS_VARS: readonly (readonly [keyof Theme, string])[] = [
 	["bgSecondary", "--bg-secondary"],
 	["text", "--text"],
 	["textSub", "--text-sub"],
+	["textPending", "--text-pending"],
 	["primary", "--primary"],
 	["onPrimary", "--on-primary"],
 	["warning", "--warning"],

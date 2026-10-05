@@ -18,6 +18,6 @@ export function characterClass(status: string, mistakeCount: number): string {
 		case "missed":
 			return "text-error opacity-50";
 		default:
-			return "text-text-sub";
+			return "text-text-pending";
 	}
 }

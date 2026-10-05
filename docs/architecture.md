@@ -256,7 +256,8 @@ Themes are pure CSS custom property overrides:
 :root {
   --bg: #323437;
   --text: #d1d0c5;
-  --text-sub: #646669;
+  --text-sub: #646669;      /* secondary UI text, 4.5:1 on bg and bg-secondary */
+  --text-pending: #646669;  /* text not typed yet (large type) */
   --primary: #e2b714;
   --error: #ca4754;
   --error-extra: #7e2a33;

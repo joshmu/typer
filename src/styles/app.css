@@ -5,7 +5,8 @@
 	--bg: #1c1a17;
 	--bg-secondary: #25221d;
 	--text: #ece4d2;
-	--text-sub: #827869;
+	--text-sub: #9a8f7f;
+	--text-pending: #827869;
 	--primary: #f2873d;
 	--on-primary: #1c1a17;
 	--warning: #e8b04a;
@@ -21,6 +22,7 @@
 	--color-bg-secondary: var(--bg-secondary);
 	--color-text: var(--text);
 	--color-text-sub: var(--text-sub);
+	--color-text-pending: var(--text-pending);
 	--color-primary: var(--primary);
 	--color-on-primary: var(--on-primary);
 	--color-warning: var(--warning);
