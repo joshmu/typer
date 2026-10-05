@@ -6,7 +6,11 @@ import { typingFontSize } from "@/lib/preferences";
 import { usePreferences } from "@/lib/preferences-context";
 import Caret from "./Caret";
 import { pulseClass } from "./pulse-class";
-import { domMeasurer, useLayoutCache } from "./use-layout-cache";
+import {
+	domMeasurer,
+	useLayoutCache,
+	WORD_MISS_CLASS,
+} from "./use-layout-cache";
 import Word from "./Word";
 
 /** Imperative feedback the typing test triggers from its key handler. */
@@ -41,7 +45,7 @@ export default function TextDisplay(props: TextDisplayProps) {
 		miss: (wordIndex) => {
 			pulseClass(caretEl, "caret-miss", "caret-miss");
 			if (!reducedMotion?.matches) {
-				pulseClass(wordEls[wordIndex], "word-miss", "word-shake");
+				pulseClass(wordEls[wordIndex], WORD_MISS_CLASS, "word-shake");
 			}
 		},
 	});

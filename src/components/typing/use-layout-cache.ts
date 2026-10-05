@@ -18,12 +18,24 @@ export interface Measurer {
 }
 
 /**
+ * Class that shakes a word after a miss. It makes the word position: relative,
+ * so it is stripped before measuring (ending that shake early) to keep letter
+ * offsets relative to the container.
+ */
+export const WORD_MISS_CLASS = "word-miss";
+
+/**
  * Default measurer that reads offsetLeft/offsetTop/offsetWidth from the
  * container's word and char spans. Runs once per layout change — never
  * during keystroke processing.
  */
 export const domMeasurer: Measurer = {
 	measure: (container) => {
+		for (const el of container.querySelectorAll(
+			`:scope > .${WORD_MISS_CLASS}`,
+		)) {
+			el.classList.remove(WORD_MISS_CLASS);
+		}
 		const wordEls = container.querySelectorAll<HTMLElement>(":scope > span");
 		const words = Array.from(wordEls).map((wordEl) => {
 			const charEls = wordEl.querySelectorAll<HTMLElement>(":scope > span");
