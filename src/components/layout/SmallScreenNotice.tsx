@@ -3,7 +3,7 @@ import { usePreferences } from "@/lib/preferences-context";
 
 /**
  * Under 640px, a one-time note that Typer wants a keyboard. CSS decides when
- * it shows; dismissing it is remembered.
+ * it shows; dismissing it is remembered. It sits under dialogs (z-50).
  */
 export default function SmallScreenNotice() {
 	const [prefs, setPrefs] = usePreferences();
@@ -21,7 +21,7 @@ export default function SmallScreenNotice() {
 			<div
 				role="note"
 				data-testid="small-screen-notice"
-				class="fixed inset-x-3 bottom-3 z-50 flex items-center gap-3 rounded-xl bg-bg-secondary px-4 py-3 font-display text-sm text-text shadow-lg ring-1 ring-text/10 sm:hidden"
+				class="fixed inset-x-3 bottom-3 z-40 flex items-center gap-3 rounded-xl bg-bg-secondary px-4 py-3 font-display text-sm text-text shadow-lg ring-1 ring-text/10 sm:hidden"
 			>
 				<svg
 					viewBox="0 0 24 24"

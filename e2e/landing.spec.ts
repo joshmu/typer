@@ -111,6 +111,25 @@ test.describe("on a narrow screen", () => {
 		await page.goto("/library");
 		await expect(page.getByText("Test Book").first()).toBeVisible();
 	});
+
+	test("the note never covers the book sheet's Start button", async ({
+		page,
+	}) => {
+		await page.goto("/library");
+		await page.getByText("Test Book").first().click();
+		const start = page.getByRole("button", { name: /start reading/i });
+		await expect(start).toBeVisible();
+		await expect(page.getByTestId("small-screen-notice")).toBeVisible();
+		const onTop = await start.evaluate((button) => {
+			const box = button.getBoundingClientRect();
+			const hit = document.elementFromPoint(
+				box.left + box.width / 2,
+				box.top + box.height / 2,
+			);
+			return hit !== null && button.contains(hit);
+		});
+		expect(onTop).toBe(true);
+	});
 });
 
 test("a wide screen shows no keyboard note", async ({ page }) => {
