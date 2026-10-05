@@ -88,7 +88,7 @@ export default function DeathScreen(props: DeathScreenProps) {
 						}
 					>
 						<span
-							class="rounded-full bg-primary px-3 py-1 font-display text-xs font-bold uppercase tracking-[0.25em] text-bg"
+							class="rounded-full bg-primary px-3 py-1 font-display text-xs font-bold uppercase tracking-[0.25em] text-on-primary"
 							data-testid="game-new-best"
 						>
 							New best
@@ -125,10 +125,12 @@ export default function DeathScreen(props: DeathScreenProps) {
 						type="button"
 						onClick={() => props.onRestart()}
 						data-testid="game-restart"
-						class="rounded-lg bg-primary px-6 py-2.5 font-display text-sm font-bold uppercase tracking-[0.25em] text-bg outline-none transition-[filter] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-text"
+						class="rounded-lg bg-primary px-6 py-2.5 font-display text-sm font-bold uppercase tracking-[0.25em] text-on-primary outline-none transition-[filter] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-text"
 					>
 						Play again{" "}
-						<kbd class="ml-1 rounded bg-bg/20 px-1.5 py-0.5 text-xs">R</kbd>
+						<kbd class="ml-1 rounded bg-on-primary/15 px-1.5 py-0.5 text-xs">
+							R
+						</kbd>
 					</button>
 					<a
 						href="/"

@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
-/* Default theme: serika dark */
+/* Default theme: Lamplight. Mirrors themes.ts so first paint never flashes. */
 :root {
-	--bg: #323437;
-	--bg-secondary: #2c2e31;
-	--text: #d1d0c5;
-	--text-sub: #646669;
-	--primary: #e2b714;
-	--warning: #e8a020;
-	--error: #ca4754;
-	--error-extra: #7e2a33;
-	--caret: #e2b714;
-	--correct: #d1d0c5;
+	--bg: #1c1a17;
+	--bg-secondary: #25221d;
+	--text: #ece4d2;
+	--text-sub: #827869;
+	--primary: #f2873d;
+	--on-primary: #1c1a17;
+	--warning: #e8b04a;
+	--error: #f0466e;
+	--error-extra: #7a2338;
+	--caret: #ffb35c;
+	--correct: #ece4d2;
 	--typing-font-size: 24px;
 }
 
@@ -21,6 +22,7 @@
 	--color-text: var(--text);
 	--color-text-sub: var(--text-sub);
 	--color-primary: var(--primary);
+	--color-on-primary: var(--on-primary);
 	--color-warning: var(--warning);
 	--color-error: var(--error);
 	--color-error-extra: var(--error-extra);
@@ -164,6 +166,91 @@ body::after {
 	background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 	background-repeat: repeat;
 	background-size: 256px 256px;
+}
+
+/* Lamplight atmosphere: a warm pool of lamplight behind the text, a deep falloff to the corners and a faint paper grain. One static
+   fixed layer behind all content, so nothing is tinted and nothing repaints
+   per frame. Off on the Horde arena, which has its own lighting. */
+html:is(:not([data-theme]), [data-theme="lamplight"]):not([data-surface="game"])
+	#root
+	> .bg-bg {
+	background-color: transparent;
+}
+html:is(:not([data-theme]), [data-theme="lamplight"]):not([data-surface="game"])
+	body::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background:
+		/* paper grain: sparse static dark fibres, tiled */
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .07 0 0 0 0 .05 0 0 0 0 .03 0 0 0 .34 -.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E")
+		0 0 / 180px 180px,
+		/* the pool of light the text sits in */
+		radial-gradient(
+			ellipse 58% 46% at 50% 44%,
+			color-mix(in srgb, var(--primary) 9%, transparent),
+			color-mix(in srgb, var(--primary) 3%, transparent) 55%,
+			transparent 78%
+		),
+		/* the dark room */
+		radial-gradient(
+			ellipse 90% 85% at 50% 44%,
+			transparent 38%,
+			oklch(from var(--bg) calc(l * 0.45) c h / 0.75) 100%
+		);
+}
+
+/* Lamplight caret: a hot core with an ember halo on its own layer, so the
+   idle breath animates opacity and transform only. */
+html:is(:not([data-theme]), [data-theme="lamplight"]) .caret:not(.caret-block) {
+	box-shadow: 0 0 3px color-mix(in srgb, var(--caret) 85%, transparent);
+}
+html:is(:not([data-theme]), [data-theme="lamplight"])
+	.caret:not(.caret-block)::before {
+	content: "";
+	position: absolute;
+	inset: -1px -5px;
+	border-radius: 9999px;
+	box-shadow: 0 0 14px 3px color-mix(in srgb, var(--primary) 45%, transparent);
+	opacity: 0.85;
+	pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+	html:is(:not([data-theme]), [data-theme="lamplight"]) .caret.caret-idle {
+		animation: ember-breath 2.8s ease-in-out infinite;
+	}
+	html:is(:not([data-theme]), [data-theme="lamplight"])
+		.caret.caret-idle::before {
+		animation: ember-halo 2.8s ease-in-out infinite;
+	}
+}
+@keyframes ember-breath {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+@keyframes ember-halo {
+	0%,
+	100% {
+		opacity: 0.95;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.35;
+		transform: scale(0.8);
+	}
+}
+
+/* Ember and rose sit close in luminance, so Lamplight leans on the error
+   shapes: a stronger underline under corrected chars. */
+html:is(:not([data-theme]), [data-theme="lamplight"]) .char-corrected {
+	text-decoration-color: color-mix(in srgb, var(--error) 85%, transparent);
 }
 
 /* Button hover effects */

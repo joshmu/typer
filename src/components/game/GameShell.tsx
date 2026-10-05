@@ -266,6 +266,9 @@ export default function GameShell() {
 			window.removeEventListener("keydown", onKeyDown);
 			document.removeEventListener("visibilitychange", onVisibility);
 		});
+		// The arena has its own lighting; page-level theme atmosphere stays off.
+		document.documentElement.dataset.surface = "game";
+		onCleanup(() => delete document.documentElement.dataset.surface);
 	});
 
 	// live shell size drives the vignette ellipse

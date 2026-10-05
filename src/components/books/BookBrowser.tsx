@@ -545,7 +545,7 @@ function ErrorState(props: {
 			</p>
 			<button
 				type="button"
-				class={`${LABEL_FACE} mt-7 inline-flex h-11 items-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-bg outline-none transition-[filter,transform] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-bg active:scale-[0.98] disabled:opacity-70`}
+				class={`${LABEL_FACE} mt-7 inline-flex h-11 items-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-on-primary outline-none transition-[filter,transform] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-bg active:scale-[0.98] disabled:opacity-70`}
 				onClick={props.onRetry}
 				disabled={props.retrying}
 				aria-busy={props.retrying}

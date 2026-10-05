@@ -32,7 +32,7 @@ describe("preferences", () => {
 			const storage = createMockStorage();
 			const [prefs] = createPreferences(storage);
 
-			expect(prefs.theme).toBe("serika-dark");
+			expect(prefs.theme).toBe("lamplight");
 			expect(prefs.fontSize).toBe(16);
 			expect(prefs.smoothCaret).toBe(true);
 			expect(prefs.caretStyle).toBe("line");
@@ -127,7 +127,7 @@ describe("preferences", () => {
 			const stored = JSON.parse(
 				storage.getItem("typer-preferences")!,
 			) as UserPreferences;
-			expect(stored.theme).toBe("serika-dark");
+			expect(stored.theme).toBe("lamplight");
 			expect(stored.smoothCaret).toBe(true);
 			expect(stored.fontSize).toBe(24);
 

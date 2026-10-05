@@ -109,6 +109,39 @@ describe("coverToneBackground", () => {
 		expect(a).not.toMatch(/#[0-9a-f]{3,8}\b/i);
 	});
 
+	it("mixes toward a neutral copy of the background, so its hue cannot drift", () => {
+		const tone = coverToneBackground("author/book-a");
+		expect(tone).toContain("oklch(from var(--bg-secondary) l 0 0)");
+	});
+
+	it("keeps the tone saturated, with a chroma floor", () => {
+		const tone = coverToneBackground("author/book-a");
+		expect(tone).toMatch(
+			/ l clamp\(0\.\d+, calc\(c \* [\d.]+\), 0\.\d+\) h\)$/,
+		);
+	});
+
+	it("uses no muted text tone, which reads as mud on cool themes", () => {
+		for (let i = 0; i < 64; i++) {
+			expect(coverToneBackground(`author/book-${i}`)).not.toContain(
+				"--text-sub",
+			);
+		}
+	});
+
+	it("draws tones from more than the accent tokens", () => {
+		const tones = new Set(
+			Array.from(
+				{ length: 64 },
+				(_, i) =>
+					coverToneBackground(`author/book-${i}`).match(
+						/oklab, (.+?) \d+%/,
+					)?.[1],
+			),
+		);
+		expect(tones.size).toBeGreaterThanOrEqual(5);
+	});
+
 	it("varies between books", () => {
 		const tones = new Set(
 			["a/1", "b/2", "c/3", "d/4", "e/5", "f/6"].map(coverToneBackground),

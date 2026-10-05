@@ -283,7 +283,7 @@ export default function BookDetail(props: BookDetailProps) {
 					<button
 						ref={cta}
 						type="button"
-						class={`${LABEL_FACE} flex h-12 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary px-7 text-base font-semibold text-bg outline-none transition-[filter,transform] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary active:scale-[0.98] disabled:opacity-60 sm:flex-none`}
+						class={`${LABEL_FACE} flex h-12 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary px-7 text-base font-semibold text-on-primary outline-none transition-[filter,transform] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary active:scale-[0.98] disabled:opacity-60 sm:flex-none`}
 						onClick={() =>
 							props.error && !props.error.retryable
 								? props.onClose()
@@ -296,7 +296,7 @@ export default function BookDetail(props: BookDetailProps) {
 							when={!props.loading}
 							fallback={
 								<>
-									<span class="size-4 rounded-full border-2 border-bg/30 border-t-bg motion-safe:animate-spin" />
+									<span class="size-4 rounded-full border-2 border-on-primary/30 border-t-on-primary motion-safe:animate-spin" />
 									Opening book
 								</>
 							}
