@@ -15,8 +15,9 @@ export type JuiceOutput = {
 	zoom: number;
 	/** Chromatic aberration amount (DefaultRenderingPipeline units). */
 	aberration: number;
-	/** Bloom weight. */
+	/** Bloom weight and the brightness it starts at. */
 	bloom: number;
+	bloomThreshold: number;
 	/** Light pool radius around the core, world units. */
 	light: number;
 	/** Light pool brightness, 0..1. */
@@ -34,6 +35,8 @@ export type Juice = {
 	kill(now: number, combo: number, boss: boolean): void;
 	/** An enemy broke through to the core. */
 	breach(now: number): void;
+	/** The core fell: a last shake while the light goes out. */
+	collapse(now: number): void;
 	/** The output for this frame. The returned object is reused. */
 	update(now: number, combo: number): JuiceOutput;
 };
@@ -54,7 +57,10 @@ const ABERRATION_SPIKE = 30;
 const ABERRATION_MS = 250;
 
 const BLOOM_BASE = 0.32;
-const BLOOM_OVERDRIVE = 0.3;
+const BLOOM_OVERDRIVE = 0.55;
+const BLOOM_THRESHOLD = 0.72;
+// overdrive lets warmer, dimmer pixels bloom too
+const BLOOM_THRESHOLD_OVERDRIVE = 0.58;
 const OVERDRIVE_ZOOM = 0.06;
 const OVERDRIVE_ABERRATION = 4;
 const OVERDRIVE_TIER = 3;
@@ -71,6 +77,14 @@ const BREATH = 0.1;
 const BREATH_MS = 200;
 const LIGHT_GAIN = 0.6;
 const BREATH_GAIN = 0.3;
+// overdrive: the light pulses on its own, fast, like a held breath
+const OVERDRIVE_PULSE_MS = 420;
+const OVERDRIVE_PULSE = 0.1;
+// a faint flicker so the light never sits dead still
+const FLICKER = 0.05;
+const COLLAPSE_MS = 520;
+const COLLAPSE_SHAKE = 1.1;
+const COLLAPSE_SHAKE_MS = 450;
 
 /** Deterministic jitter in [-1, 1] for an integer step. */
 function jitter(k: number): number {
@@ -101,6 +115,7 @@ export function createJuice({
 		zoom: 1,
 		aberration: 0,
 		bloom: BLOOM_BASE,
+		bloomThreshold: BLOOM_THRESHOLD,
 		light: LIGHT_BASE,
 		lightGain: LIGHT_GAIN,
 		overdrive: 0,
@@ -117,6 +132,7 @@ export function createJuice({
 	let killShakeMs = KILL_SHAKE_MS;
 	let punch = 0;
 	let breachAt = -1;
+	let collapseAt = -1;
 
 	return {
 		keystroke(now) {
@@ -131,6 +147,9 @@ export function createJuice({
 		},
 		breach(now) {
 			breachAt = now;
+		},
+		collapse(now) {
+			collapseAt = now;
 		},
 		update(now, combo) {
 			const dt = Number.isNaN(last) ? 0 : Math.max(0, now - last);
@@ -149,6 +168,14 @@ export function createJuice({
 			);
 			out.overdrive = overdrive;
 			out.bloom = BLOOM_BASE + BLOOM_OVERDRIVE * overdrive;
+			out.bloomThreshold =
+				BLOOM_THRESHOLD +
+				(BLOOM_THRESHOLD_OVERDRIVE - BLOOM_THRESHOLD) * overdrive;
+			// the core's light going out after a collapse, 1 -> 0
+			const lit =
+				collapseAt < 0 || now < collapseAt
+					? 1
+					: Math.max(0, 1 - (now - collapseAt) / COLLAPSE_MS);
 
 			if (reducedMotion) {
 				out.shakeX = 0;
@@ -156,7 +183,7 @@ export function createJuice({
 				out.zoom = 1;
 				out.aberration = 0;
 				out.light = LIGHT_BASE;
-				out.lightGain = LIGHT_GAIN;
+				out.lightGain = LIGHT_GAIN * lit;
 				return out;
 			}
 
@@ -164,7 +191,8 @@ export function createJuice({
 			// 60Hz step grid so its texture doesn't depend on the refresh rate
 			const k = decay(now, killAt, killShakeMs) * killShake;
 			const b = decay(now, breachAt, BREACH_SHAKE_MS) * BREACH_SHAKE;
-			const m = Math.max(k, b);
+			const c = decay(now, collapseAt, COLLAPSE_SHAKE_MS) * COLLAPSE_SHAKE;
+			const m = Math.max(k, b, c);
 			if (m > 0) {
 				const step = Math.floor(now / (1000 / 60));
 				out.shakeX = jitter(step) * m;
@@ -177,7 +205,11 @@ export function createJuice({
 			const p = decay(now, killAt, PUNCH_MS) * punch;
 			out.zoom = (1 - p) * (1 - OVERDRIVE_ZOOM * overdrive);
 			out.aberration =
-				decay(now, breachAt, ABERRATION_MS) * ABERRATION_SPIKE +
+				Math.max(
+					decay(now, breachAt, ABERRATION_MS),
+					decay(now, collapseAt, ABERRATION_MS * 2),
+				) *
+					ABERRATION_SPIKE +
 				OVERDRIVE_ABERRATION * overdrive;
 
 			const target =
@@ -185,8 +217,20 @@ export function createJuice({
 				(1 + LIGHT_GROWTH * (1 - Math.exp(-combo / LIGHT_COMBO_SCALE)));
 			light = approach(light, target, dt, LIGHT_EASE_MS);
 			const breath = decay(now, breathAt, BREATH_MS);
-			out.light = light * (1 + BREATH * breath);
-			out.lightGain = LIGHT_GAIN + BREATH_GAIN * breath + 0.1 * overdrive;
+			const pulse =
+				0.5 + 0.5 * Math.sin((now / OVERDRIVE_PULSE_MS) * Math.PI * 2);
+			const flicker =
+				Math.sin(now * 0.011) * 0.6 + Math.sin(now * 0.037 + 1.3) * 0.4;
+			out.light =
+				light *
+				(1 + BREATH * breath + OVERDRIVE_PULSE * overdrive * pulse) *
+				(0.35 + 0.65 * lit);
+			out.lightGain =
+				(LIGHT_GAIN +
+					BREATH_GAIN * breath +
+					0.25 * overdrive * pulse +
+					FLICKER * flicker) *
+				lit;
 			return out;
 		},
 	};

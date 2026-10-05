@@ -136,4 +136,36 @@ describe("createJuice", () => {
 		// the colour of overdrive (bloom) still comes through
 		expect(out.bloom).toBeGreaterThan(0);
 	});
+
+	it("overdrive breathes the light continuously and warms the bloom", () => {
+		const j = createJuice({ reducedMotion: false });
+		j.update(0, 0);
+		sample(j, 12, 0, 2000, 60);
+		const seen: number[] = [];
+		for (let t = 2000; t <= 2600; t += 1000 / 60)
+			seen.push(j.update(t, 12).light);
+		expect(Math.max(...seen) - Math.min(...seen)).toBeGreaterThan(1);
+		const od = j.update(2616, 12);
+		const rest = createJuice({ reducedMotion: false }).update(0, 0);
+		expect(od.bloomThreshold).toBeLessThan(rest.bloomThreshold);
+	});
+
+	it("a core collapse shakes and puts the light out", () => {
+		const j = createJuice({ reducedMotion: false });
+		j.update(0, 5);
+		j.collapse(100);
+		const hit = { ...j.update(150, 5) };
+		expect(Math.hypot(hit.shakeX, hit.shakeY)).toBeGreaterThan(0);
+		expect(j.update(800, 5).lightGain).toBeLessThan(0.05);
+	});
+
+	it("reduced motion: a collapse dims the light without shaking", () => {
+		const j = createJuice({ reducedMotion: true });
+		j.update(0, 5);
+		j.collapse(0);
+		const o = j.update(100, 5);
+		expect(o.shakeX).toBe(0);
+		expect(o.shakeY).toBe(0);
+		expect(j.update(800, 5).lightGain).toBeLessThan(0.05);
+	});
 });
