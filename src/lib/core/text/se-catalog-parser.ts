@@ -1,6 +1,49 @@
 import type { BookMeta } from "../types/book";
+import { SE_ORIGIN } from "./se-source";
 
-const SE_BASE = "https://standardebooks.org";
+function absoluteUrl(url: string): string {
+	return url.startsWith("/") ? `${SE_ORIGIN}${url}` : url;
+}
+
+const ENTITIES: Record<string, string> = {
+	"&amp;": "&",
+	"&quot;": '"',
+	"&apos;": "'",
+	"&lt;": "<",
+	"&gt;": ">",
+};
+
+function decodeEntities(text: string): string {
+	return text
+		.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+		.replace(/&#x([\da-f]+);/gi, (_, code) =>
+			String.fromCodePoint(Number.parseInt(code, 16)),
+		)
+		.replace(/&(amp|quot|apos|lt|gt);/g, (m) => ENTITIES[m]);
+}
+
+/**
+ * The book's long description (the page's Description section) as plain
+ * paragraphs separated by blank lines, or "" when the page has none.
+ */
+function parseLongDescription(xhtml: string): string {
+	const start = xhtml.search(/<section[^>]*id="description"/i);
+	if (start < 0) return "";
+	const rest = xhtml.slice(start + 1);
+	const end = rest.search(/<\/section>|<section/i);
+	const section = (end < 0 ? rest : rest.slice(0, end)).replace(
+		/<aside[\s\S]*?<\/aside>/gi,
+		"",
+	);
+	const paragraphs = [...section.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+		.map((m) =>
+			decodeEntities(m[1].replace(/<[^>]+>/g, ""))
+				.replace(/\s+/g, " ")
+				.trim(),
+		)
+		.filter(Boolean);
+	return paragraphs.join("\n\n");
+}
 
 /**
  * Parse the Standard Ebooks catalog listing page XHTML into BookMeta[].
@@ -45,7 +88,7 @@ export function parseCatalogPage(xhtml: string): BookMeta[] {
 				description: "",
 				language: "en",
 				wordCount: 0,
-				coverUrl: coverUrl ? `${SE_BASE}${coverUrl}` : "",
+				coverUrl: coverUrl ? `${SE_ORIGIN}${coverUrl}` : "",
 				coverHeroUrl: "",
 				chapters: [],
 				datePublished: "",
@@ -58,24 +101,37 @@ export function parseCatalogPage(xhtml: string): BookMeta[] {
 }
 
 /**
- * Parse the chapter list from a book's /text endpoint (TOC page).
- * Returns only chapter filenames, excluding front/back matter.
+ * Parse the chapter list from a book's /text endpoint (TOC page): its
+ * chapter files, or for a collection with none, every piece's file. Front
+ * and back matter is left out.
  */
 export function parseChapterList(xhtml: string): string[] {
-	const chapters: string[] = [];
-
-	// Match links to chapter files: href="text/chapter-N"
-	const linkRegex = /href="text\/(chapter-[^"]+)"/gi;
-
-	for (const match of xhtml.matchAll(linkRegex)) {
-		const filename = match[1];
-		if (!chapters.includes(filename)) {
-			chapters.push(filename);
-		}
+	const files = new Set<string>();
+	for (const match of xhtml.matchAll(/href="text\/([^"#]+)/gi)) {
+		files.add(match[1]);
 	}
-
-	return chapters;
+	const all = [...files];
+	const chapters = all.filter((f) => /^chapter-/i.test(f));
+	// Collections (stories, poems, plays) have one file per piece instead.
+	return chapters.length > 0
+		? chapters
+		: all.filter((f) => !MATTER_FILES.has(f.toLowerCase()));
 }
+
+/** Standard Ebooks front and back matter: never typed. */
+const MATTER_FILES = new Set([
+	"titlepage",
+	"halftitlepage",
+	"imprint",
+	"dedication",
+	"epigraph",
+	"endnotes",
+	"colophon",
+	"uncopyright",
+	"loi",
+	"glossary",
+	"bibliography",
+]);
 
 /**
  * Parse the book detail page for full metadata.
@@ -107,20 +163,25 @@ export function parseBookDetail(xhtml: string, bookId: string): BookMeta {
 		author = authorName?.[1]?.trim() ?? "";
 	}
 
-	const description = schemaContent("description");
+	// Newer pages carry the summary as schema:abstract; later
+	// schema:description metas name download formats ("epub").
+	const description = decodeEntities(
+		schemaContent("abstract") || schemaContent("description"),
+	);
 	const wordCountStr = schemaContent("wordCount");
 	const wordCount = wordCountStr ? Number.parseInt(wordCountStr, 10) : 0;
 	const language = schemaContent("inLanguage");
 	const datePublished = schemaContent("datePublished");
 	const dateModified = schemaContent("dateModified");
-	const coverHeroUrl = schemaContent("image");
-	const coverUrl = schemaContent("thumbnailUrl");
+	const coverHeroUrl = absoluteUrl(schemaContent("image"));
+	const coverUrl = absoluteUrl(schemaContent("thumbnailUrl"));
 
 	return {
 		id: bookId,
 		title,
 		author,
 		description,
+		longDescription: parseLongDescription(xhtml),
 		language,
 		wordCount,
 		coverUrl,

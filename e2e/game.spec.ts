@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures/se-stub";
 
 test.describe("horde game mode", () => {
 	test("loads arena and kills first enemy by typing", async ({ page }) => {
@@ -31,21 +31,18 @@ test.describe("horde game mode", () => {
 			kills = (await page.evaluate(() => window.__game?.getState().kills)) ?? 0;
 		}
 
-		await expect(page.getByTestId("game-kills")).toHaveText("kills 1");
+		await expect(page.getByTestId("game-kills")).toHaveText("1");
 		const state = await page.evaluate(() => window.__game?.getState());
 		expect(state?.kills).toBe(1);
 	});
 
-	test("spawn-ring vignette overlays the arena and tracks canvas size", async ({
-		page,
-	}) => {
+	test("vignette frames the arena and tracks canvas size", async ({ page }) => {
 		await page.goto("/game?seed=42&testMode=1");
 		await page.waitForFunction(() => window.__game !== undefined);
 		const vignette = page.getByTestId("game-vignette");
 		await expect(vignette).toBeVisible();
-		// a world-radius radial gradient: transparent centre, near-opaque past the
-		// spawn ring, so enemies emerge from darkness instead of popping in
-		// the gradient waits on the ResizeObserver's first measure, so poll for it
+		// an elliptical gradient sized from the shell: clear over the play area,
+		// deepening toward the corners. It waits on the ResizeObserver's first measure, so poll for it
 		const background = () =>
 			vignette.evaluate((el) => getComputedStyle(el).backgroundImage);
 		await expect.poll(background).toContain("radial-gradient");
@@ -59,15 +56,81 @@ test.describe("horde game mode", () => {
 	test("holds the sim at tick 0 behind the start overlay", async ({ page }) => {
 		// NON-testMode load (a real session): the loop renders the scene but must
 		// not advance the sim until the player starts. window.__game is
-		// testMode-only, so assert on the DOM instead — a running sim flips to an
-		// active wave (mounting the wave chip) within ~1s, so if it stays hidden
-		// across a 2s wait the sim never advanced.
+		// testMode-only, so read the tick the shell exposes on its root.
 		await page.goto("/game?seed=42");
+		const shell = page.getByTestId("game-shell");
 		await expect(page.getByTestId("game-start")).toBeVisible();
 		await page.waitForTimeout(2000);
 		await expect(page.getByTestId("game-start")).toBeVisible();
-		await expect(page.getByTestId("game-wave")).toBeHidden();
+		await expect(shell).toHaveAttribute("data-tick", "0");
 		await expect(page.getByTestId("game-over")).toBeHidden();
+		// and the same shell does report a live tick once the run starts
+		await page.keyboard.press("Enter");
+		await expect(shell).not.toHaveAttribute("data-tick", "0");
+	});
+
+	test("Enter starts the run full-bleed; Esc pauses and brings the header back", async ({
+		page,
+	}) => {
+		await page.goto("/game?seed=42");
+		const header = page.locator("header");
+		await expect(page.getByTestId("game-start")).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Horde" })).toBeVisible();
+		await expect(header).toHaveCSS("opacity", "1");
+
+		await page.keyboard.press("Enter");
+		await expect(page.getByTestId("game-start")).toBeHidden();
+		// the run owns the viewport: the header steps away
+		await expect(header).toHaveCSS("opacity", "0");
+		await expect(page.getByTestId("game-wave")).toBeVisible({ timeout: 10000 });
+		const shell = await page.getByTestId("game-shell").boundingBox();
+		const viewport = page.viewportSize();
+		expect(shell?.height).toBe(viewport?.height);
+
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("game-paused")).toBeVisible();
+		await expect(header).toHaveCSS("opacity", "1");
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("game-paused")).toBeHidden();
+		await expect(header).toHaveCSS("opacity", "0");
+	});
+
+	test("a hidden tab pauses the perk draft, and Esc resumes it", async ({
+		page,
+	}) => {
+		await page.goto("/game?seed=42&testMode=1");
+		await page.waitForFunction(() => window.__game !== undefined);
+		await page.evaluate(() => {
+			const g = window.__game;
+			if (!g) return;
+			for (let i = 0; i < 2000; i++) {
+				const s = g.getState();
+				if (s.wavePhase === "perk-choice") return;
+				const alive = s.enemies.filter((e) => e.alive);
+				if (alive.length === 0) {
+					g.stepTicks(20);
+					continue;
+				}
+				const t = alive.find((e) => e.id === s.targetId) ?? alive[0];
+				const w = t.words[t.wordIndex];
+				g.sendKeys(w[t.typedCount] ?? w[0]);
+			}
+		});
+		await expect(page.getByTestId("perk-overlay")).toBeVisible();
+
+		// the tab goes hidden mid-draft
+		await page.evaluate(() => {
+			Object.defineProperty(document, "hidden", {
+				configurable: true,
+				get: () => true,
+			});
+			document.dispatchEvent(new Event("visibilitychange"));
+		});
+		await expect(page.getByTestId("game-paused")).toBeVisible();
+
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("game-paused")).toBeHidden();
+		await expect(page.getByTestId("perk-overlay")).toBeVisible();
 	});
 
 	test("shows the death screen with run stats and restarts", async ({
@@ -105,6 +168,8 @@ test.describe("horde game mode", () => {
 		await expect(page.getByTestId("game-over-score")).toBeVisible();
 		await expect(page.getByTestId("game-over-wpm")).toBeVisible();
 		await expect(page.getByTestId("game-restart")).toBeVisible();
+		// the run is over: the site header comes back
+		await expect(page.locator("header")).toHaveCSS("opacity", "1");
 
 		// restart via keyboard R — fresh loop, HUD reset to a running tick-0 state
 		await page.keyboard.press("r");
@@ -113,8 +178,8 @@ test.describe("horde game mode", () => {
 			return s?.status === "running" && s.tick === 0;
 		});
 		await expect(page.getByTestId("game-over")).toBeHidden();
-		await expect(page.getByTestId("game-kills")).toHaveText("kills 0");
-		await expect(page.getByTestId("game-score")).toHaveText("score 0");
+		await expect(page.getByTestId("game-kills")).toHaveText("0");
+		await expect(page.getByTestId("game-score")).toHaveText("0");
 	});
 
 	test("free-flow: switch mid-word to another enemy, then return and finish both", async ({
@@ -293,11 +358,19 @@ test.describe("horde game mode", () => {
 		await expect(page.getByTestId("perk-card-1")).toBeVisible();
 		await expect(page.getByTestId("perk-card-2")).toBeVisible();
 
+		const pickedName =
+			(await page
+				.getByTestId("perk-card-0")
+				.getByTestId("perk-card-name")
+				.textContent()) ?? "";
+		expect(pickedName.length).toBeGreaterThan(0);
 		await page.evaluate(() => window.__game?.sendPerk(0));
 
 		await expect(page.getByTestId("perk-overlay")).toBeHidden();
 		const after = await page.evaluate(() => window.__game?.getState());
 		expect(after?.perks.length).toBe(1);
+		// the owned perk shows under its full name, never truncated
+		await expect(page.getByTestId("perk-strip")).toContainText(pickedName);
 		expect(after?.wavePhase).toBe("intermission");
 	});
 

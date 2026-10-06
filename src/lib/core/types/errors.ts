@@ -2,6 +2,7 @@ export type AppErrorKind =
 	| "app"
 	| "book-not-found"
 	| "book-service"
+	| "book-unsupported"
 	| "network"
 	| "database"
 	| "book-cache";
@@ -49,12 +50,34 @@ export class BookServiceError extends AppError {
 	}
 }
 
+/** The book loaded, but its contents list has nothing this app can type. */
+export class BookUnsupportedError extends AppError {
+	readonly kind: AppErrorKind = "book-unsupported";
+
+	constructor(
+		readonly bookId: string,
+		options: { cause?: unknown } = {},
+	) {
+		super(`Nothing to type in ${bookId}`, {
+			kind: "book-unsupported",
+			...options,
+		});
+		this.name = "BookUnsupportedError";
+	}
+}
+
 export class NetworkError extends AppError {
 	readonly kind: AppErrorKind = "network";
+	/** The request was abandoned at its time limit rather than refused. */
+	readonly timedOut: boolean;
 
-	constructor(message: string, options: { cause?: unknown } = {}) {
-		super(message, { kind: "network", ...options });
+	constructor(
+		message: string,
+		options: { cause?: unknown; timedOut?: boolean } = {},
+	) {
+		super(message, { kind: "network", cause: options.cause });
 		this.name = "NetworkError";
+		this.timedOut = options.timedOut ?? false;
 	}
 }
 

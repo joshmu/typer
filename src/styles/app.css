@@ -1,17 +1,19 @@
 @import "tailwindcss";
 
-/* Default theme: serika dark */
+/* Default theme: Lamplight. Mirrors themes.ts so first paint never flashes. */
 :root {
-	--bg: #323437;
-	--bg-secondary: #2c2e31;
-	--text: #d1d0c5;
-	--text-sub: #646669;
-	--primary: #e2b714;
-	--warning: #e8a020;
-	--error: #ca4754;
-	--error-extra: #7e2a33;
-	--caret: #e2b714;
-	--correct: #d1d0c5;
+	--bg: #1c1a17;
+	--bg-secondary: #25221d;
+	--text: #ece4d2;
+	--text-sub: #9a8f7f;
+	--text-pending: #8b8172;
+	--primary: #f2873d;
+	--on-primary: #1c1a17;
+	--warning: #e8b04a;
+	--error: #f0466e;
+	--error-extra: #7a2338;
+	--caret: #ffb35c;
+	--correct: #ece4d2;
 	--typing-font-size: 24px;
 }
 
@@ -20,47 +22,127 @@
 	--color-bg-secondary: var(--bg-secondary);
 	--color-text: var(--text);
 	--color-text-sub: var(--text-sub);
+	--color-text-pending: var(--text-pending);
 	--color-primary: var(--primary);
+	--color-on-primary: var(--on-primary);
 	--color-warning: var(--warning);
 	--color-error: var(--error);
 	--color-error-extra: var(--error-extra);
 	--color-caret: var(--caret);
 	--color-correct: var(--correct);
-	--font-family-display: "Urbanist", system-ui, sans-serif;
+	--font-display: "Urbanist", system-ui, sans-serif;
 }
 
-/* Caret blink animation */
-@keyframes blink {
+/* Caret: glides on transform, breathes while idle, flashes on a miss */
+.caret {
+	border-radius: 1px;
+	background-color: var(--caret);
+	box-shadow: 0 0 10px color-mix(in srgb, var(--caret) 35%, transparent);
+}
+.caret-block {
+	background-color: color-mix(in srgb, var(--caret) 45%, transparent);
+	box-shadow: none;
+}
+.caret-glide {
+	transition-duration: 100ms;
+	transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.caret-idle {
+	animation: caret-blink 1s ease-in-out infinite;
+}
+/* The miss flash is an --error overlay fading out on opacity alone */
+.caret::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background-color: var(--error);
+	opacity: 0;
+	pointer-events: none;
+}
+.caret-miss::after {
+	animation: caret-miss 120ms ease-out;
+}
+@keyframes caret-blink {
 	0%,
 	100% {
 		opacity: 1;
 	}
 	50% {
+		opacity: 0.15;
+	}
+}
+@keyframes caret-miss {
+	0%,
+	50% {
+		opacity: 1;
+	}
+	100% {
 		opacity: 0;
 	}
 }
 
-.animate-blink {
-	animation: blink 1s step-end infinite;
+/* Shake the word that took a miss. Words are inline (transform does not
+   apply), so this nudges the relative offset for 180ms. */
+.word-miss {
+	position: relative;
+	animation: word-shake 180ms ease-in-out;
+}
+@keyframes word-shake {
+	0%,
+	100% {
+		left: 0;
+	}
+	17% {
+		left: -2px;
+	}
+	33% {
+		left: 2px;
+	}
+	50% {
+		left: -2px;
+	}
+	67% {
+		left: 2px;
+	}
+	83% {
+		left: -1px;
+	}
 }
 
-/* Progressive error tiers — warning (amber) → error (red) */
-.text-error-1 {
-	color: var(--warning);
-}
-.text-error-2 {
-	color: color-mix(in srgb, var(--error) 50%, var(--warning));
-}
-.text-error-3 {
-	color: var(--error);
+@media (prefers-reduced-motion: reduce) {
+	.caret-glide {
+		transition: none;
+	}
+	.caret-idle,
+	.word-miss {
+		animation: none;
+	}
 }
 
-/* Correct characters with prior mistakes — warning-tinted */
-.text-correct-tint {
-	color: color-mix(in srgb, var(--correct) 70%, var(--warning));
+/* Typed character states. Wrong chars are solid --error on a faint wash, a
+   shape cue that does not rely on hue and keeps a mistyped space visible. Corrected chars keep their colour and carry an
+   error underline. Extra chars are struck through. */
+.char-wrong {
+	background-color: color-mix(in srgb, var(--error) 16%, transparent);
 }
-.text-correct-tint-heavy {
-	color: color-mix(in srgb, var(--correct) 50%, var(--warning));
+.char-corrected {
+	text-decoration-line: underline;
+	text-decoration-thickness: 2px;
+	text-decoration-color: color-mix(in srgb, var(--error) 60%, transparent);
+	text-underline-offset: 0.3em;
+	text-decoration-skip-ink: none;
+}
+.char-extra {
+	opacity: 0.75;
+	text-decoration-line: line-through;
+	text-decoration-thickness: 2px;
+	text-decoration-color: color-mix(in srgb, var(--error) 70%, transparent);
+}
+
+/* Display numerals line up as they change */
+.font-display {
+	font-variant-numeric: tabular-nums;
 }
 
 /* Base styles */
@@ -88,6 +170,101 @@ body::after {
 	background-size: 256px 256px;
 }
 
+/* Lamplight atmosphere: a warm pool of lamplight behind the text, a deep falloff to the corners and a faint paper grain. One static
+   fixed layer behind all content, so nothing is tinted and nothing repaints
+   per frame. Off on the Horde arena, which has its own lighting. */
+html:is(:not([data-theme]), [data-theme="lamplight"]):not([data-surface="game"])
+	#root
+	> .bg-bg {
+	background-color: transparent;
+}
+html:is(:not([data-theme]), [data-theme="lamplight"]):not([data-surface="game"])
+	body::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background:
+		/* paper grain: sparse static dark fibres, tiled */
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .07 0 0 0 0 .05 0 0 0 0 .03 0 0 0 .34 -.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E")
+		0 0 / 180px 180px,
+		/* the pool of light the text sits in */
+		radial-gradient(
+			ellipse 58% 46% at 50% 44%,
+			color-mix(in srgb, var(--primary) 9%, transparent),
+			color-mix(in srgb, var(--primary) 3%, transparent) 55%,
+			transparent 78%
+		),
+		/* the dark room */
+		radial-gradient(
+			ellipse 90% 85% at 50% 44%,
+			transparent 38%,
+			oklch(from var(--bg) calc(l * 0.45) c h / 0.75) 100%
+		);
+}
+
+/* Lamplight caret: a hot core with an ember halo on its own layer, so the
+   idle breath animates opacity and transform only. */
+html:is(:not([data-theme]), [data-theme="lamplight"]) .caret:not(.caret-block) {
+	box-shadow: 0 0 3px color-mix(in srgb, var(--caret) 85%, transparent);
+}
+html:is(:not([data-theme]), [data-theme="lamplight"])
+	.caret:not(.caret-block)::before {
+	content: "";
+	position: absolute;
+	inset: -1px -5px;
+	border-radius: 9999px;
+	box-shadow: 0 0 14px 3px color-mix(in srgb, var(--primary) 45%, transparent);
+	opacity: 0.85;
+	pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+	html:is(:not([data-theme]), [data-theme="lamplight"]) .caret.caret-idle {
+		animation: ember-breath 2.8s ease-in-out infinite;
+	}
+	html:is(:not([data-theme]), [data-theme="lamplight"])
+		.caret.caret-idle::before {
+		animation: ember-halo 2.8s ease-in-out infinite;
+	}
+}
+/* Horde overdrive: the ember edge glow smoulders */
+@keyframes ember-smoulder {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.7;
+	}
+}
+@keyframes ember-breath {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+@keyframes ember-halo {
+	0%,
+	100% {
+		opacity: 0.95;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.35;
+		transform: scale(0.8);
+	}
+}
+
+/* Ember and rose sit close in luminance, so Lamplight leans on the error
+   shapes: a stronger underline under corrected chars. */
+html:is(:not([data-theme]), [data-theme="lamplight"]) .char-corrected {
+	text-decoration-color: color-mix(in srgb, var(--error) 85%, transparent);
+}
+
 /* Button hover effects */
 @media (prefers-reduced-motion: no-preference) {
 	.btn-glow {
@@ -103,19 +280,86 @@ body::after {
 }
 
 /* Nav link hover underline */
+/* Header nav: text-sub at rest, a short primary bar under the current page. */
 .nav-link {
 	position: relative;
+	display: inline-flex;
+	align-items: center;
+	padding: 0.25rem 0.125rem;
+	color: var(--text-sub);
+	transition: color 150ms ease-out;
+}
+.nav-link:hover {
+	color: var(--text);
+}
+.nav-link:focus-visible {
+	outline: 2px solid var(--primary);
+	outline-offset: 3px;
+	border-radius: 4px;
 }
 .nav-link::after {
 	content: "";
 	position: absolute;
-	bottom: -2px;
-	left: 0;
+	bottom: -5px;
+	left: 50%;
 	width: 0;
-	height: 1px;
+	height: 2px;
+	border-radius: 9999px;
 	background: var(--primary);
-	transition: width 200ms ease-out;
+	opacity: 0;
+	transform: translateX(-50%);
+	transition:
+		width 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		opacity 220ms ease-out;
 }
 .nav-link:hover::after {
-	width: 100%;
+	width: 0.5rem;
+	opacity: 0.35;
+}
+.nav-link[aria-current="page"] {
+	color: var(--primary);
+}
+.nav-link[aria-current="page"]::after {
+	width: 1.25rem;
+	opacity: 1;
+}
+.nav-icon::after {
+	bottom: -7px;
+}
+@media (prefers-reduced-motion: reduce) {
+	.nav-link,
+	.nav-link::after {
+		transition: none;
+	}
+}
+
+/* Clears the small-screen note, which is fixed to the bottom. */
+@media (max-width: 639px) {
+	html[data-small-notice] body {
+		padding-bottom: 6rem;
+	}
+}
+
+/* Mode bar: scrolls sideways when it outgrows a narrow screen, with an edge
+   fade on whichever side has more tabs (mask alpha only, theme-neutral). */
+.mode-scroll {
+	--fade-l: 0px;
+	--fade-r: 0px;
+	scrollbar-width: none;
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		#000 var(--fade-l),
+		#000 calc(100% - var(--fade-r)),
+		transparent
+	);
+}
+.mode-scroll::-webkit-scrollbar {
+	display: none;
+}
+.mode-scroll[data-fade-left] {
+	--fade-l: 28px;
+}
+.mode-scroll[data-fade-right] {
+	--fade-r: 28px;
 }

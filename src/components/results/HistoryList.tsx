@@ -1,12 +1,16 @@
 import { For, Show } from "solid-js";
 import type { TypingResult } from "@/lib/db";
-import { usePersonalBest, useRecentResults } from "@/lib/queries";
+import { useRecentResults } from "@/lib/queries";
 
-function formatDate(timestamp: number): string {
-	const date = new Date(timestamp);
-	return date.toLocaleDateString(undefined, {
+function formatDay(timestamp: number): string {
+	return new Date(timestamp).toLocaleDateString(undefined, {
 		month: "short",
 		day: "numeric",
+	});
+}
+
+function formatClock(timestamp: number): string {
+	return new Date(timestamp).toLocaleTimeString(undefined, {
 		hour: "2-digit",
 		minute: "2-digit",
 	});
@@ -14,53 +18,46 @@ function formatDate(timestamp: number): string {
 
 export default function HistoryList() {
 	const results = useRecentResults(10);
-	const best = usePersonalBest();
 
 	return (
-		<div class="w-full max-w-2xl mx-auto flex flex-col gap-6">
-			{/* Personal Best */}
-			<Show when={best()}>
-				{(pb) => (
-					<div class="flex items-center gap-4 px-4 py-3 bg-bg-secondary rounded border border-primary/20">
-						<span class="text-xs uppercase tracking-widest text-primary">
-							personal best
-						</span>
-						<span class="text-2xl font-bold text-primary">{pb().wpm}</span>
-						<span class="text-text-sub text-sm">WPM</span>
-						<span class="text-text-sub text-sm ml-auto">
-							{pb().accuracy}% accuracy
-						</span>
-					</div>
-				)}
-			</Show>
-
-			{/* History */}
-			<Show when={results() && results()!.length > 0}>
-				<div class="flex flex-col gap-2">
-					<span class="text-xs uppercase tracking-widest text-text-sub">
-						recent
-					</span>
-					<div class="flex flex-col gap-1">
-						<For each={results()}>
-							{(result: TypingResult) => (
-								<div class="flex items-center gap-4 px-4 py-2 bg-bg-secondary/50 rounded text-sm">
-									<span class="text-text font-bold w-16">{result.wpm} wpm</span>
-									<span class="text-text-sub w-16">{result.accuracy}%</span>
-									<span class="text-text-sub w-12">{result.mode}</span>
-									{result.bookTitle && (
-										<span class="text-text-sub text-xs truncate max-w-32">
-											{result.bookTitle}
+		<Show when={results().length > 0}>
+			<section class="flex w-full flex-col gap-3" aria-label="Recent results">
+				<span class="font-display text-[11px] uppercase tracking-[0.2em] text-text-sub">
+					recent
+				</span>
+				<ol class="flex flex-col divide-y divide-text-sub/10 rounded-xl border border-text-sub/10">
+					<For each={results()}>
+						{(result: TypingResult) => (
+							<li
+								class="grid grid-cols-[4.5rem_3.5rem_1fr_auto] items-center gap-3 px-4 py-2.5 text-sm tabular-nums"
+								classList={{ "opacity-50": result.afk }}
+							>
+								<span class="font-display font-bold text-text after:ml-1 after:font-normal after:text-xs after:text-text-sub after:content-['wpm']">
+									{result.wpm}
+								</span>
+								<span class="text-text-sub">{result.accuracy}%</span>
+								<span class="flex min-w-0 items-center gap-2 text-text-sub">
+									<span class="shrink-0">{result.mode}</span>
+									<Show when={result.bookTitle}>
+										<span class="truncate text-xs">{result.bookTitle}</span>
+									</Show>
+									<Show when={result.afk}>
+										<span class="shrink-0 rounded bg-text-sub/15 px-1.5 text-[10px] uppercase tracking-wider">
+											afk
 										</span>
-									)}
-									<span class="text-text-sub ml-auto text-xs">
-										{formatDate(result.timestamp)}
+									</Show>
+								</span>
+								<span class="text-right text-xs text-text-sub">
+									{formatDay(result.timestamp)}
+									<span class="hidden sm:inline">
+										, {formatClock(result.timestamp)}
 									</span>
-								</div>
-							)}
-						</For>
-					</div>
-				</div>
-			</Show>
-		</div>
+								</span>
+							</li>
+						)}
+					</For>
+				</ol>
+			</section>
+		</Show>
 	);
 }

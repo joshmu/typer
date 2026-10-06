@@ -15,7 +15,7 @@ import { keySoundFor } from "@/lib/key-sound";
 import { usePreferences } from "@/lib/preferences-context";
 import { setTypingActive } from "@/lib/typing-focus";
 import StatsBar from "./StatsBar";
-import TextDisplay from "./TextDisplay";
+import TextDisplay, { type TextDisplayHandle } from "./TextDisplay";
 
 interface TypingTestProps {
 	text: string;
@@ -39,6 +39,7 @@ export default function TypingTest(props: TypingTestProps) {
 	const [elapsed, setElapsed] = createSignal(0);
 	const [capsLock, setCapsLock] = createSignal(false);
 	let containerRef: HTMLDivElement | undefined;
+	let display: TextDisplayHandle | undefined;
 	let timerInterval: ReturnType<typeof setInterval> | undefined;
 	let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -49,15 +50,14 @@ export default function TypingTest(props: TypingTestProps) {
 		return calculateWPM(chars, e);
 	});
 
-	const accuracy = createMemo(() => {
-		const chars = state.words.flatMap((w) => w.characters);
-		return calculateAccuracy(chars);
-	});
+	const accuracy = createMemo(() => calculateAccuracy(state.keystrokes));
 
 	const isContinuousMode =
 		state.mode.type === "zen" || state.mode.type === "book";
 
 	const complete = () => state.endTime !== null;
+	const showEscHint = () =>
+		isContinuousMode && !complete() && state.startTime !== null;
 
 	const session = createTypingSession({
 		state,
@@ -106,8 +106,9 @@ export default function TypingTest(props: TypingTestProps) {
 
 		if (key === "Escape" && isContinuousMode) e.preventDefault();
 
-		// Keep focus in the typing area before the test starts
-		if (key === "Tab" && !state.startTime) {
+		// Tab keeps focus in the typing area. Before the test starts, Shift+Tab
+		// still leaves for the controls around it; mid-test they are inert.
+		if (key === "Tab" && (!e.shiftKey || state.startTime)) {
 			e.preventDefault();
 			return;
 		}
@@ -121,8 +122,10 @@ export default function TypingTest(props: TypingTestProps) {
 		}
 
 		const wasStarted = state.startTime !== null;
+		const wordIndex = state.currentWordIndex;
 		const outcome = session.key(key, Date.now());
 		if (outcome) keySound.play(outcome !== "incorrect");
+		if (outcome === "incorrect") display?.miss(wordIndex);
 
 		if (!wasStarted && state.startTime !== null && !complete()) {
 			startTimers();
@@ -151,24 +154,44 @@ export default function TypingTest(props: TypingTestProps) {
 			onKeyDown={handleKeydown}
 			data-testid="typing-test"
 		>
-			<StatsBar wpm={wpm()} accuracy={accuracy()} elapsed={elapsed()} />
-			<Show when={capsLock() && !complete()}>
-				<div class="mb-2 text-sm text-error flex items-center gap-2">
-					<span class="w-2 h-2 rounded-full bg-error" />
-					Caps Lock is on
-				</div>
-			</Show>
-			<Show when={isContinuousMode && !complete() && state.startTime}>
-				<div class="mb-2 text-xs text-text-sub">
-					Press{" "}
-					<kbd class="px-1 py-0.5 bg-bg-secondary rounded text-text">Esc</kbd>{" "}
-					to {state.mode.type === "book" ? "stop & save" : "finish"}
-				</div>
-			</Show>
+			<StatsBar
+				wpm={wpm()}
+				accuracy={accuracy()}
+				elapsed={elapsed()}
+				typed={state.keystrokes.correct + state.keystrokes.incorrect}
+			/>
+			{/* One reserved row for the Caps Lock warning and the Esc hint, so
+			    neither shifts the text when it appears. */}
+			<div class="mb-2 flex h-5 items-center text-xs">
+				<Show
+					when={capsLock() && !complete()}
+					fallback={
+						<div
+							class="text-text-sub transition-opacity duration-300"
+							classList={{ "opacity-0": !showEscHint() }}
+							aria-hidden={!showEscHint()}
+						>
+							Press{" "}
+							<kbd class="rounded bg-bg-secondary px-1 py-0.5 text-text">
+								Esc
+							</kbd>{" "}
+							to {state.mode.type === "book" ? "stop & save" : "finish"}
+						</div>
+					}
+				>
+					<div class="flex items-center gap-2 text-sm text-error">
+						<span class="h-2 w-2 rounded-full bg-error" />
+						Caps Lock is on
+					</div>
+				</Show>
+			</div>
 			<TextDisplay
 				words={state.words}
 				currentWordIndex={state.currentWordIndex}
 				currentCharIndex={state.currentCharIndex}
+				handle={(h) => {
+					display = h;
+				}}
 			/>
 			{complete() && (
 				<div class="mt-8 text-center">

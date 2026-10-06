@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { getArchetype } from "./content/enemies";
-import { hudView } from "./hud-view";
+import { hudMoments, hudView, perkGlyph } from "./hud-view";
 import { createEnemy } from "./sim/enemy-factory";
+import { ALL_PERK_IDS } from "./sim/perks";
 import { createInitialState, type GameState } from "./sim/state";
 import { step } from "./sim/step";
 
@@ -74,6 +75,8 @@ describe("hudView boss", () => {
 			name: getArchetype("boss-iron").name,
 			hp: 2,
 			maxHp: boss.maxHp,
+			x: 8,
+			y: 0,
 		});
 	});
 
@@ -112,9 +115,93 @@ describe("hudView wave", () => {
 });
 
 describe("hudView perks", () => {
-	it("lists one short chip per owned perk, repeats included", () => {
+	it("shows one chip per perk with its full name, glyph and stack count", () => {
 		const s = activeState();
-		s.perks = ["plating", "plating", "adrenaline"];
-		expect(hudView(s).perkChips).toEqual(["Plating", "Plating", "Adrenali"]);
+		s.perks = ["plating", "adrenaline", "plating"];
+		const chips = hudView(s).perkChips;
+		expect(chips.map((c) => [c.id, c.name, c.count])).toEqual([
+			["plating", "Plating", 2],
+			["adrenaline", "Adrenaline", 1],
+		]);
+		for (const c of chips) expect(c.glyph.length).toBeGreaterThan(0);
+	});
+
+	it("never truncates long perk names", () => {
+		const s = activeState();
+		s.perks = ["chain-arc", "splash-rounds"];
+		expect(hudView(s).perkChips.map((c) => c.name)).toEqual([
+			"Chain Arc",
+			"Splash Rounds",
+		]);
+	});
+
+	it("carries the rarity so the chip can be accented", () => {
+		const s = activeState();
+		s.perks = ["chain-arc", "greed"];
+		expect(hudView(s).perkChips.map((c) => c.rarity)).toEqual([
+			"epic",
+			"common",
+		]);
+	});
+});
+
+describe("perkGlyph", () => {
+	it("gives every perk a distinct glyph", () => {
+		const glyphs = ALL_PERK_IDS.map(perkGlyph);
+		expect(new Set(glyphs).size).toBe(ALL_PERK_IDS.length);
+	});
+});
+
+describe("hudMoments", () => {
+	const at = (combo: number, hp = 3, comboTicksLeft = 100) => ({
+		combo,
+		playerHp: hp,
+		comboTicksLeft,
+	});
+
+	it("reports nothing on the first state or when nothing changed", () => {
+		expect(hudMoments(null, at(3))).toEqual({
+			comboUp: false,
+			tierUp: false,
+			comboBroke: null,
+			heartLost: null,
+		});
+		expect(hudMoments(at(3), at(3)).comboUp).toBe(false);
+	});
+
+	it("a kill bumps the combo; crossing a multiplier step is a tier-up", () => {
+		expect(hudMoments(at(3), at(4))).toMatchObject({
+			comboUp: true,
+			tierUp: false,
+		});
+		expect(hudMoments(at(4), at(5))).toMatchObject({
+			comboUp: true,
+			tierUp: true,
+		});
+	});
+
+	it("a broken combo reports what was lost: its count and remaining window", () => {
+		expect(hudMoments(at(7, 3, 90), at(0, 3, 0)).comboBroke).toEqual({
+			count: 7,
+			fraction: 90 / 180,
+		});
+		expect(hudMoments(at(0), at(0)).comboBroke).toBeNull();
+	});
+
+	it("names the heart that was lost", () => {
+		expect(hudMoments(at(0, 3), at(0, 2)).heartLost).toBe(2);
+		expect(hudMoments(at(0, 2), at(0, 3)).heartLost).toBeNull();
+	});
+});
+
+describe("hudView overdrive", () => {
+	it("is on from the x3 multiplier and off below it", () => {
+		const s = activeState();
+		s.combo = 9;
+		expect(hudView(s).overdrive).toBe(false);
+		s.combo = 10;
+		expect(hudView(s).overdrive).toBe(true);
+		s.combo = 0;
+		expect(hudView(s).overdrive).toBe(false);
 	});
 });

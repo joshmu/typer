@@ -388,3 +388,146 @@ describe("applyKeystroke outcome", () => {
 		expect(applyKeystroke(state, "a", 1002)).toBeNull();
 	});
 });
+
+describe("keystroke counts", () => {
+	it("starts at zero", () => {
+		const state = createTypingState("ab");
+		expect(state.keystrokes).toEqual({ correct: 0, incorrect: 0 });
+	});
+
+	it("counts every character key, including mistakes later corrected", () => {
+		const state = createTypingState("ab cd");
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "Backspace", 1001);
+		applyKeystroke(state, "a", 1002);
+		applyKeystroke(state, "b", 1003);
+		applyKeystroke(state, "q", 1004);
+		applyKeystroke(state, "Backspace", 1005);
+		applyKeystroke(state, " ", 1006);
+
+		expect(state.words[0].characters.every((c) => c.status === "correct")).toBe(
+			true,
+		);
+		expect(state.keystrokes).toEqual({ correct: 3, incorrect: 2 });
+	});
+
+	it("counts a correct key retyped after backspacing it", () => {
+		const state = createTypingState("ab");
+		applyKeystroke(state, "a", 1000);
+		applyKeystroke(state, "Backspace", 1001);
+		applyKeystroke(state, "a", 1002);
+		expect(state.keystrokes).toEqual({ correct: 2, incorrect: 0 });
+	});
+
+	it("keeps mistakes a stop on error word reset wipes from the word", () => {
+		const state = createTypingState("ab cd");
+		state.config.stopOnError = "word";
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "b", 1001);
+		applyKeystroke(state, " ", 1002);
+		expect(state.currentCharIndex).toBe(0);
+		expect(state.keystrokes).toEqual({ correct: 2, incorrect: 1 });
+	});
+
+	it("counts blocked stop on error letter keys", () => {
+		const state = createTypingState("ab");
+		state.config.stopOnError = "letter";
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "y", 1001);
+		applyKeystroke(state, "a", 1002);
+		expect(state.keystrokes).toEqual({ correct: 1, incorrect: 2 });
+	});
+
+	it("ignores modifier keys, backspaces and keys after the end", () => {
+		const state = createTypingState("a");
+		applyKeystroke(state, "Shift", 1000);
+		applyKeystroke(state, "Backspace", 1001);
+		applyKeystroke(state, "a", 1002);
+		applyKeystroke(state, "a", 1003);
+		expect(state.keystrokes).toEqual({ correct: 1, incorrect: 0 });
+	});
+
+	it("leaves the input counts untouched in the pure form", () => {
+		const state = createTypingState("ab");
+		const next = processKeystroke(state, "a", 1000);
+		expect(next.keystrokes.correct).toBe(1);
+		expect(state.keystrokes.correct).toBe(0);
+	});
+});
+
+describe("key activity", () => {
+	it("starts with no character key", () => {
+		expect(createTypingState("ab").activity.lastAt).toBeNull();
+	});
+
+	it("keeps the last character key's time when Backspace erases it", () => {
+		const state = createTypingState("ab cd");
+		applyKeystroke(state, "a", 1000);
+		applyKeystroke(state, "x", 1500);
+		applyKeystroke(state, "Backspace", 1700);
+		applyKeystroke(state, "Shift", 1800);
+		expect(state.activity.lastAt).toBe(1500);
+	});
+
+	it("keeps it through a stop on error word reset", () => {
+		const state = createTypingState("ab cd");
+		state.config.stopOnError = "word";
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "b", 1001);
+		applyKeystroke(state, " ", 1002);
+		expect(state.words[0].characters.every((c) => c.timestamp === null)).toBe(
+			true,
+		);
+		expect(state.activity.lastAt).toBe(1002);
+	});
+
+	it("leaves the input activity untouched in the pure form", () => {
+		const state = createTypingState("ab");
+		const next = processKeystroke(state, "a", 1000);
+		expect(next.activity.lastAt).toBe(1000);
+		expect(state.activity.lastAt).toBeNull();
+	});
+});
+
+describe("per-second key activity", () => {
+	it("counts character keys and mistakes in each second they land, erased ones included", () => {
+		const state = createTypingState("ab cd");
+		applyKeystroke(state, "a", 1000);
+		applyKeystroke(state, "x", 1500);
+		applyKeystroke(state, "Backspace", 1600);
+		applyKeystroke(state, "b", 2100);
+		applyKeystroke(state, "Shift", 2200);
+		applyKeystroke(state, "q", 4200);
+		expect(state.activity.seconds).toEqual([0, 1, 3]);
+		expect(state.activity.keys).toEqual([2, 1, 1]);
+		expect(state.activity.errors).toEqual([1, 0, 1]);
+	});
+
+	it("keeps keys a stop on error word reset wipes from the word", () => {
+		const state = createTypingState("ab cd");
+		state.config.stopOnError = "word";
+		applyKeystroke(state, "x", 1000);
+		applyKeystroke(state, "b", 1100);
+		applyKeystroke(state, " ", 1200);
+		expect(state.activity.keys).toEqual([3]);
+		expect(state.activity.errors).toEqual([1]);
+	});
+
+	it("records a key after an 8-hour idle gap as one entry, not a second each", () => {
+		const state = createTypingState("ab cd");
+		applyKeystroke(state, "a", 1000);
+		applyKeystroke(state, "b", 1000 + 8 * 3600 * 1000);
+		expect(state.activity.seconds).toEqual([0, 8 * 3600]);
+		expect(state.activity.keys).toEqual([1, 1]);
+		expect(state.activity.errors).toEqual([0, 0]);
+	});
+
+	it("leaves the input's counts untouched in the pure form", () => {
+		const state = createTypingState("ab");
+		const first = processKeystroke(state, "a", 1000);
+		const second = processKeystroke(first, "b", 1100);
+		expect(second.activity.keys).toEqual([2]);
+		expect(first.activity.keys).toEqual([1]);
+		expect(state.activity.keys).toEqual([]);
+	});
+});

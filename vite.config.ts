@@ -1,10 +1,21 @@
 import tailwindcss from "@tailwindcss/vite";
 import solidPlugin from "vite-plugin-solid";
 import tsconfigPaths from "vite-tsconfig-paths";
-import { defineConfig } from "vitest/config";
+import { defineConfig, type Plugin } from "vitest/config";
+import { themeBootScript } from "./src/lib/theme-boot";
+
+/** Paints the stored theme from an inline head script, before first paint. */
+function themeBoot(): Plugin {
+	return {
+		name: "typer-theme-boot",
+		transformIndexHtml: () => [
+			{ tag: "script", children: themeBootScript(), injectTo: "head" },
+		],
+	};
+}
 
 export default defineConfig({
-	plugins: [tailwindcss(), tsconfigPaths(), solidPlugin()],
+	plugins: [themeBoot(), tailwindcss(), tsconfigPaths(), solidPlugin()],
 	server: {
 		port: 3000,
 	},

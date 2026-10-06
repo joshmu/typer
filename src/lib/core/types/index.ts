@@ -38,6 +38,27 @@ export interface TestConfig {
 	stopOnError: StopOnError;
 }
 
+/** When character keys landed, kept when their characters are erased. */
+export interface KeyActivity {
+	/** Time of the last character key, null before the first. */
+	lastAt: number | null;
+	/**
+	 * Whole seconds from the start in which character keys landed, ascending.
+	 * Sparse, so a key after a long idle gap adds one entry, not one per second.
+	 */
+	seconds: number[];
+	/** Character keys, right or wrong, in the matching second. */
+	keys: number[];
+	/** Mistyped character keys in the matching second. */
+	errors: number[];
+}
+
+/** Character keys pressed this test, kept even when later corrected. */
+export interface KeystrokeCounts {
+	correct: number;
+	incorrect: number;
+}
+
 export interface TypingState {
 	text: string;
 	words: WordState[];
@@ -45,6 +66,8 @@ export interface TypingState {
 	currentCharIndex: number;
 	startTime: number | null;
 	endTime: number | null;
+	keystrokes: KeystrokeCounts;
+	activity: KeyActivity;
 	mode: TestMode;
 	config: TestConfig;
 }

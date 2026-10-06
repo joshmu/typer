@@ -13,7 +13,7 @@ from the mode selector and header nav (`/game`).
 - `src/lib/game/content` — data-driven enemy archetypes + word banding
 - `src/lib/game/session` — framework-free run session: sim state, queued input, `FixedStepClock` (60Hz, 30-tick catch-up cap, pause drops elapsed time) and a `RunRenderer` adapter; a null renderer drives it headless in Vitest
 - `src/lib/game/render` — Babylon renderer adapter + `startGameLoop` wiring (lazy-loaded with the `/game` route)
-- `src/components/game` — Solid shell: HUD, start/death overlays, keyboard capture
+- `src/components/game` — Solid shell: HUD, start/death overlays, keyboard capture. HUD motion (wave banner slam, combo pop and tier flash, red drain on a break, heart shatter, perk cards dealt in, breach edge flash) is driven by `hudMoments`, a pure diff of consecutive states in `hud-view.ts`
 - `src/lib/game-runs.ts` — Dexie persistence for run history (best-run + recent queries)
 
 ## Enemy families
@@ -314,17 +314,37 @@ sampled NEAREST so pixels stay crisp. Key pieces:
   whose heading is the **LAST-SHOT heading** — it snaps toward a target on `fire()`
   and slerps toward a *locked* target in `update()`, and simply **HOLDS** otherwise,
   never re-anchoring to the nearest enemy on its own (explicit playtest feedback).
-  A recoil sprite cell flashes for 3 frames per shot. Two flat ground rings survive:
-  a powerup activation pulse (`ringPulse()`) and a red danger perimeter that flares
-  as the horde presses within 6 units. Exposes `getMuzzle()` for shot origins.
-- **Projectile tracers + muzzle flash + gibs** (`effects.ts`): pooled emissive
-  beams driven by the frame's sim events (`frame-effects.ts`). Only typed events
-  fire, **one tracer per enemy per frame** (the heaviest: a thin bolt for a
-  keystroke, a heavier bolt + flash for damage or a kill, a clang bolt for a typed
-  absorb). A non-typed absorb (weapon-perk damage a shield or armor shrugs off)
-  draws a dull **spark** at that enemy instead. The death burst is
-  **chunky opaque pixel gibs** (a hard NEAREST square, family-coloured) plus the
-  screen shake.
+  It squashes for 50ms per shot. Two flat ground rings survive: a pulse
+  (`ringPulse()`) on a powerup or, wider and in --primary, a combo tier-up, and
+  a red danger perimeter that flares as the horde presses within 6 units.
+  Exposes `getMuzzle()` for shot origins.
+- **Shots and kill impact** (`effects.ts`): pooled additive meshes and
+  particles driven by the frame's sim events (`frame-effects.ts`). Only typed
+  events fire, **one shot per enemy per frame** (the heaviest): a beam whose
+  bright head runs muzzle to target in 40ms, with a muzzle flash, then fades
+  (light 0.18 wide, heavy 0.35, a clang between). A non-typed absorb draws a
+  dull **spark** instead. A kill lands as a white flash, 12-14 additive spark
+  streaks, a few pixel gibs, a flat shockwave ring, a scorch that cools away
+  over the permanent corpse decal, and a floating "+points xmult" label
+  (`killCredit` splits the frame's score gain across its kills). Bosses burst
+  bigger; a breach bursts red at the core. Every lifetime is wall-clock ms
+  (sim ticks in test mode), so 120Hz plays like 60Hz.
+- **Feel** (`juice.ts`, pure): camera shake and an ortho punch on each kill
+  scaled with the combo, a breach shake and chromatic aberration spike, a
+  light pool around the core that breathes per keystroke and grows with the
+  streak ("your words are the light"), and frenzy **overdrive** at x3 (bloom
+  up, light aberration, ~6% zoom in, easing out when the streak breaks).
+  Reduced motion drops shake, punch, zoom and aberration and keeps the light
+  still; colour flashes stay.
+- **Post** (`post.ts`): one `DefaultRenderingPipeline` (HDR when supported,
+  MSAA, bloom over a 0.72 threshold, chromatic aberration, and a multiply
+  vignette that tints the edges for freeze/slow), built once with every stage
+  on so nothing recompiles mid-run. If it can't be built the scene renders
+  without it.
+- **Rendering groups** (`scene.ts`): floor and decals (plus scorch and the
+  light pool) in group 0, the field (sprites, turret rings, shots, kill
+  effects) in group 1, word plates and score labels in group 2 so no effect
+  ever covers a word.
 - **Sprite enemies** (`enemy-renderer.ts`): a `Sprite` per enemy — `angle =
   atan2(sim vel)` so the creature faces its travel direction, two walk-pose cells
   alternated by distance travelled, size from archetype × scale (bosses ×1.6 with a

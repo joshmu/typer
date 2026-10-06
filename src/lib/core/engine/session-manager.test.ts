@@ -48,6 +48,7 @@ const RESULT: TestResult = {
 	breakdown: { correct: 0, incorrect: 0, missed: 0, extra: 0, total: 0 },
 	elapsed: 0,
 	wpmPerSecond: [],
+	sampleSeconds: 1,
 };
 
 describe("createInitialSession", () => {
@@ -166,9 +167,23 @@ describe("applyResult", () => {
 			},
 			elapsed: 60_000,
 			wpmPerSecond: [],
+			sampleSeconds: 1,
 		};
 		const next = applyResult(session, result);
 		expect(next.result).toBe(result);
+	});
+
+	it("attaches the result's insights for the results screen", () => {
+		const session = createInitialSession({ type: "time", seconds: 15 });
+		const insights = {
+			mode: { type: "time", seconds: 15 } as const,
+			timestamp: 5,
+			afk: true,
+			rawPerSecond: [60],
+			errorsPerSecond: [0],
+		};
+		const next = applyResult(session, RESULT, undefined, insights);
+		expect(next.result).toMatchObject({ wpm: RESULT.wpm, insights });
 	});
 
 	it("reopens the reader at the committed progress", () => {

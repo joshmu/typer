@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures/se-stub";
 
 test("full typing flow: paste text → type → see results", async ({ page }) => {
 	await page.goto("/");
@@ -70,7 +70,7 @@ test("Tab then Enter on results restarts wherever focus is", async ({
 	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
 
 	// Move the focus start point below the Redo button.
-	await page.getByText("personal best").click();
+	await page.getByText("Enter", { exact: true }).click();
 	await page.keyboard.press("Tab");
 	await page.keyboard.press("Enter");
 	await expect(page.getByTestId("text-input")).toBeVisible();
@@ -93,7 +93,9 @@ test("time mode ends at its limit with no further keystroke", async ({
 
 	await page.clock.fastForward(1_000);
 	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
-	await expect(page.getByText("30s", { exact: true })).toBeVisible();
+	const time = page.getByTestId("stat-time");
+	await expect(time).toBeVisible();
+	await expect(time).toHaveText("30s");
 });
 
 test("Tab from a focused link on results moves on as usual", async ({
@@ -108,10 +110,10 @@ test("Tab from a focused link on results moves on as usual", async ({
 	const redo = page.getByRole("button", { name: "Redo" });
 	await expect(redo).toBeVisible({ timeout: 5000 });
 
-	await page.getByRole("link", { name: "Home" }).focus();
+	await page.getByRole("link", { name: "type", exact: true }).focus();
 	await page.keyboard.press("Tab");
 	await expect(redo).not.toBeFocused();
-	await expect(page.getByRole("link", { name: "Game" })).toBeFocused();
+	await expect(page.getByRole("link", { name: "library" })).toBeFocused();
 });
 
 test("time sub-options stay reachable once time text loads", async ({
@@ -132,7 +134,7 @@ test("time sub-options stay reachable once time text loads", async ({
 
 	await page.clock.fastForward(1_000);
 	await expect(page.getByText("Redo")).toBeVisible({ timeout: 5000 });
-	await expect(page.getByText("1:00", { exact: true })).toBeVisible();
+	await expect(page.getByTestId("stat-time")).toHaveText("1:00");
 });
 
 test("words-count sub-options stay reachable once words text loads", async ({

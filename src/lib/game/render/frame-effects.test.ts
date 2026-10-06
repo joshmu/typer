@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { comboMultiplier } from "../sim/combo";
 import type { SimEvent } from "../sim/events";
-import { dispatchEffects, type EffectCommands } from "./frame-effects";
+import {
+	dispatchEffects,
+	type EffectCommands,
+	killCredit,
+} from "./frame-effects";
 
 function recorder(): { calls: string[]; fx: EffectCommands } {
 	const calls: string[] = [];
@@ -139,5 +144,54 @@ describe("dispatchEffects", () => {
 		expect(run([{ type: "powerup", kind: "freeze" }])).toEqual([
 			"powerupPulse",
 		]);
+	});
+});
+
+describe("killCredit", () => {
+	const span = (before: number, after: number) => ({ before, after });
+
+	it("splits the frame's score gain across its kills, the remainder on the last", () => {
+		expect(killCredit(1, 40, span(0, 1), 0)).toEqual({ points: 40, mult: 1 });
+		expect(killCredit(2, 101, span(0, 2), 0).points).toBe(50);
+		expect(killCredit(2, 101, span(0, 2), 1).points).toBe(51);
+	});
+
+	it("credits each kill the multiplier its own streak earned", () => {
+		// three kills this frame took the streak from 3 to 6: x1, x2, x2
+		expect(killCredit(3, 90, span(3, 6), 0).mult).toBe(1);
+		expect(killCredit(3, 90, span(3, 6), 1).mult).toBe(2);
+		expect(killCredit(3, 90, span(3, 6), 2).mult).toBe(2);
+	});
+
+	it("credits a kill its streak when a miss broke the combo later in the frame", () => {
+		// the fifth kill in a row (x2), then a miss before the draw
+		const score = (streak: number) => 10 * 5 * comboMultiplier(streak);
+		expect(killCredit(1, 100, span(4, 0), 0, score)).toEqual({
+			points: 100,
+			mult: 2,
+		});
+	});
+
+	it("credits kill, miss, kill in one frame each its own streak", () => {
+		const streak = (nth: number) =>
+			killCredit(2, 0, span(4, 1), nth, (s) => s).points;
+		expect([streak(0), streak(1)]).toEqual([5, 1]);
+	});
+
+	it("restarts the streak for kills after a break earlier in the frame", () => {
+		const streak = (nth: number) =>
+			killCredit(2, 0, span(3, 2), nth, (s) => s).points;
+		expect([streak(0), streak(1)]).toEqual([1, 2]);
+	});
+
+	it("never credits negative points or a zero multiplier", () => {
+		expect(killCredit(1, -5, span(0, 0), 0)).toEqual({ points: 0, mult: 1 });
+	});
+
+	it("credits each kill its own points when its word is known", () => {
+		// a boss sentence word and an escort's short word die together
+		const score = (len: number) => (streak: number) => 10 * len * streak;
+		expect(killCredit(2, 999, span(3, 5), 0, score(9)).points).toBe(360);
+		expect(killCredit(2, 999, span(3, 5), 1, score(3)).points).toBe(150);
 	});
 });

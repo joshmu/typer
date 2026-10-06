@@ -66,6 +66,38 @@ describe("parseCatalogPage", () => {
 });
 
 describe("parseChapterList", () => {
+	// A collection (Ring Lardner's Short Fiction): one file per story, no chapter-N.
+	const collectionToc = `<nav id="toc"><ol>
+<li><a href="text/titlepage">Titlepage</a></li>
+<li><a href="text/imprint">Imprint</a></li>
+<li><a href="text/my-roomy">My Roomy</a><ol>
+<li><a href="text/my-roomy#my-roomy-1">I</a></li>
+<li><a href="text/my-roomy#my-roomy-2">II</a></li></ol></li>
+<li><a href="text/sick-em">Sick 'Em</a></li>
+<li><a href="text/haircut">Haircut</a></li>
+<li><a href="text/endnotes">Endnotes</a></li>
+<li><a href="text/colophon">Colophon</a></li>
+<li><a href="text/uncopyright">Uncopyright</a></li>
+</ol></nav>`;
+
+	it("reads a collection's story files when there are no chapter files", () => {
+		expect(parseChapterList(collectionToc)).toEqual([
+			"my-roomy",
+			"sick-em",
+			"haircut",
+		]);
+	});
+
+	it("keeps only chapter files when a book has them", () => {
+		const toc = `<a href="text/preface">Preface</a><a href="text/chapter-1">I</a><a href="text/chapter-2">II</a>`;
+		expect(parseChapterList(toc)).toEqual(["chapter-1", "chapter-2"]);
+	});
+
+	it("finds nothing in a table of contents with only front and back matter", () => {
+		const toc = `<a href="text/titlepage">T</a><a href="text/colophon">C</a>`;
+		expect(parseChapterList(toc)).toEqual([]);
+	});
+
 	it("extracts chapter filenames from book TOC", () => {
 		const xhtml = loadFixture("book-toc.xhtml");
 		const chapters = parseChapterList(xhtml);
@@ -145,6 +177,61 @@ describe("parseBookDetail", () => {
 
 		expect(meta.datePublished).toBe("2021-01-01");
 		expect(meta.dateModified).toBeTruthy();
+	});
+
+	it("reads the summary from schema:abstract, not a download format", () => {
+		const xhtml = `<h1 property="schema:name">Oberland</h1>
+<meta property="schema:abstract" content="A young woman &amp; her trip to Switzerland."/>
+<div property="schema:description"><p>Long description.</p></div>
+<meta property="schema:description" content="epub"/>`;
+		const meta = parseBookDetail(xhtml, "a/b");
+
+		expect(meta.description).toBe("A young woman & her trip to Switzerland.");
+	});
+
+	it("makes site-relative cover URLs absolute", () => {
+		const xhtml = `<meta property="schema:image" content="/images/covers/a-hero.jpg"/>
+<meta property="schema:thumbnailUrl" content="/images/covers/a-thumb.jpg"/>`;
+		const meta = parseBookDetail(xhtml, "a/b");
+
+		expect(meta.coverHeroUrl).toBe(
+			"https://standardebooks.org/images/covers/a-hero.jpg",
+		);
+		expect(meta.coverUrl).toBe(
+			"https://standardebooks.org/images/covers/a-thumb.jpg",
+		);
+	});
+
+	it("extracts the long description as plain paragraphs", () => {
+		const xhtml = loadFixture("book-detail.xhtml");
+		const meta = parseBookDetail(xhtml, "f-scott-fitzgerald/the-great-gatsby");
+		const paragraphs = meta.longDescription?.split("\n\n") ?? [];
+
+		expect(paragraphs.length).toBe(6);
+		expect(paragraphs[0]).toMatch(/^The Great Gatsby is a novel/);
+		expect(paragraphs[1]).toMatch(/^Nick Carraway/);
+		expect(meta.longDescription).not.toContain("donation");
+		expect(meta.longDescription).not.toContain("<");
+	});
+
+	it("reads the long description from the schema:description block", () => {
+		const xhtml = `<section id="description">
+<h2>Description</h2>
+<aside class="donation"><p>Please donate.</p></aside>
+<div property="schema:description">
+<p><i>Oberland</i> is the ninth &#8220;chapter volume&#8221;.</p>
+<p>Miriam takes a  trip &amp; skis.</p>
+</div>
+</section>`;
+		const meta = parseBookDetail(xhtml, "a/b");
+
+		expect(meta.longDescription).toBe(
+			"Oberland is the ninth \u201cchapter volume\u201d.\n\nMiriam takes a trip & skis.",
+		);
+	});
+
+	it("leaves the long description empty when the page has none", () => {
+		expect(parseBookDetail("<h1>x</h1>", "a/b").longDescription).toBe("");
 	});
 
 	it("sets the provided book ID", () => {

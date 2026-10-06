@@ -245,6 +245,31 @@ describe("domMeasurer", () => {
 		expect(cache.words[0].top).toBe(10);
 	});
 
+	it("measures container-relative positions while a word is shaking", () => {
+		// A shaking word is position: relative, which makes it the offsetParent
+		// of its letters; the measurer must read positions as if it were not.
+		const container = document.createElement("div");
+		const before = document.createElement("span");
+		const shaking = document.createElement("span");
+		shaking.className = "inline word-miss";
+		const char = document.createElement("span");
+		const wordRelative = () => shaking.classList.contains("word-miss");
+		Object.defineProperty(char, "offsetLeft", {
+			get: () => (wordRelative() ? 30 : 89),
+		});
+		Object.defineProperty(char, "offsetTop", {
+			get: () => (wordRelative() ? 0 : 9),
+		});
+		Object.defineProperty(char, "offsetWidth", { value: 15 });
+		shaking.appendChild(char);
+		container.append(before, shaking);
+
+		const cache = domMeasurer.measure(container);
+		expect(cache.words[1].chars).toEqual([{ left: 89, top: 9, width: 15 }]);
+		expect(cache.words[1].top).toBe(9);
+		expect(shaking.classList.contains("word-miss")).toBe(false);
+	});
+
 	it("ignores non-span children of the container (e.g. caret div)", () => {
 		const container = document.createElement("div");
 		const caret = document.createElement("div");

@@ -31,7 +31,7 @@ export default function TextInputModal(props: TextInputModalProps) {
 				/>
 				<button
 					type="submit"
-					class="self-center px-8 py-3 bg-primary text-bg rounded-lg font-bold text-lg hover:opacity-80 disabled:opacity-40 btn-glow"
+					class="self-center px-8 py-3 bg-primary text-on-primary rounded-lg font-bold text-lg hover:opacity-80 disabled:opacity-40 btn-glow"
 					disabled={text().trim().length === 0}
 					data-testid="start-button"
 				>

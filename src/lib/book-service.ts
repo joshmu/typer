@@ -1,8 +1,10 @@
+import { saveCatalogue } from "./catalogue-cache";
 import {
 	parseBookDetail,
 	parseCatalogPage,
 	parseChapterList,
 } from "./core/text/se-catalog-parser";
+import { SE_ORIGIN } from "./core/text/se-source";
 import {
 	extractChapterTitle,
 	extractTextFromXHTML,
@@ -12,38 +14,74 @@ import {
 	BookCacheError,
 	BookNotFoundError,
 	BookServiceError,
+	BookUnsupportedError,
 	NetworkError,
 } from "./core/types/errors";
 import { db } from "./db";
+import { fetchWithRetry } from "./http-retry";
+import {
+	forgetUnsavedBook,
+	getUnsavedBook,
+	keepUnsavedBook,
+} from "./unsaved-books";
 
-const SE_BASE = "https://standardebooks.org";
+const SE_BASE = `${SE_ORIGIN}/ebooks`;
 
 interface FetchOptions {
 	/** Operation label, used in thrown error messages */
 	operation: string;
 	/** When set, a 404 throws BookNotFoundError instead of BookServiceError */
 	bookId?: string;
+	/** Defaults to FETCH_TIMEOUT_MS. */
+	timeoutMs?: number;
 }
 
-async function safeFetch(
-	url: string,
-	options: FetchOptions,
-): Promise<Response> {
-	let response: Response;
+/** A request, retries included, that takes longer than this is abandoned. */
+export const FETCH_TIMEOUT_MS = 8000;
+/** Chapters download together, so each may queue behind the others. */
+const CHAPTER_TIMEOUT_MS = 30_000;
+
+async function fetchText(url: string, options: FetchOptions): Promise<string> {
+	const controller = new AbortController();
+	const timeoutMs = options.timeoutMs ?? FETCH_TIMEOUT_MS;
+	const deadline = Date.now() + timeoutMs;
+	let timedOut = false;
+	const timer = setTimeout(() => {
+		timedOut = true;
+		controller.abort();
+	}, timeoutMs);
 	try {
-		response = await fetch(url);
-	} catch (err) {
-		throw new NetworkError(`Failed to reach ${options.operation}`, {
-			cause: err,
-		});
-	}
-	if (!response.ok) {
-		if (response.status === 404 && options.bookId) {
-			throw new BookNotFoundError(options.bookId);
+		let response: Response;
+		try {
+			response = await fetchWithRetry(url, {
+				signal: controller.signal,
+				deadline,
+			});
+		} catch (err) {
+			throw new NetworkError(
+				timedOut
+					? `Timed out reaching ${options.operation}`
+					: `Failed to reach ${options.operation}`,
+				{ cause: err, timedOut },
+			);
 		}
-		throw new BookServiceError(options.operation, response.status);
+		if (!response.ok) {
+			if (response.status === 404 && options.bookId) {
+				throw new BookNotFoundError(options.bookId);
+			}
+			throw new BookServiceError(options.operation, response.status);
+		}
+		try {
+			return await response.text();
+		} catch (err) {
+			throw new NetworkError(`Failed to read ${options.operation}`, {
+				cause: err,
+				timedOut,
+			});
+		}
+	} finally {
+		clearTimeout(timer);
 	}
-	return response;
 }
 
 /**
@@ -58,47 +96,69 @@ export async function searchBooks(
 		"per-page": "48",
 		page: String(page),
 	});
-	const url = `${SE_BASE}/ebooks?${params}`;
-	const response = await safeFetch(url, { operation: "search catalog" });
-	const xhtml = await response.text();
+	const url = `${SE_BASE}?${params}`;
+	const xhtml = await fetchText(url, { operation: "search catalog" });
 	return parseCatalogPage(xhtml);
 }
 
 /**
- * Browse the Standard Ebooks catalog (paginated, no search query).
+ * Browse the Standard Ebooks catalog (paginated, no search query). A good
+ * first page is saved so the next visit can show it at once.
  */
 export async function browseCatalog(page = 1): Promise<BookMeta[]> {
-	return searchBooks("", page);
+	const books = await searchBooks("", page);
+	if (page === 1) saveCatalogue(books);
+	return books;
 }
 
 /**
- * Fetch full book metadata from the book detail page.
+ * Fetch full book metadata: the detail page and chapter list, in parallel.
+ * The chapter list is optional: if it fails (other than a 404), the
+ * metadata comes back with no chapters.
  */
 export async function fetchBookDetail(bookId: string): Promise<BookMeta> {
-	const url = `${SE_BASE}/ebooks/${bookId}`;
-	const response = await safeFetch(url, {
-		operation: "fetch book detail",
-		bookId,
-	});
-	const xhtml = await response.text();
-	const meta = parseBookDetail(xhtml, bookId);
-
-	const tocUrl = `${SE_BASE}/ebooks/${bookId}/text`;
-	try {
-		const tocResponse = await safeFetch(tocUrl, {
+	const [detail, toc] = await Promise.allSettled([
+		fetchText(`${SE_BASE}/${bookId}`, {
+			operation: "fetch book detail",
+			bookId,
+		}),
+		fetchText(`${SE_BASE}/${bookId}/text`, {
 			operation: "fetch chapter list",
 			bookId,
-		});
-		const tocXhtml = await tocResponse.text();
-		meta.chapters = parseChapterList(tocXhtml);
-	} catch (err) {
-		// Chapter list is optional metadata; preserve previous behaviour of
-		// silently dropping it on failure rather than failing the whole detail
-		// fetch. Only NetworkError / 5xx are absorbed; missing books surface.
-		if (err instanceof BookNotFoundError) throw err;
+		}),
+	]);
+	if (detail.status === "rejected") throw detail.reason;
+	const meta = parseBookDetail(detail.value, bookId);
+	if (toc.status === "fulfilled") {
+		meta.chapters = parseChapterList(toc.value);
+	} else if (toc.reason instanceof BookNotFoundError) {
+		throw toc.reason;
 	}
-
 	return meta;
+}
+
+const detailLoads = new Map<string, Promise<BookMeta>>();
+
+/**
+ * Full metadata for one book: the cached copy when the book is cached,
+ * otherwise one fetch per session. A failed load is forgotten so it can retry.
+ */
+export function loadBookDetail(bookId: string): Promise<BookMeta> {
+	const pending = detailLoads.get(bookId);
+	if (pending) return pending;
+	const load = (async () => {
+		const cached = await getCachedBook(bookId);
+		return cached ? cached.meta : fetchBookDetail(bookId);
+	})();
+	detailLoads.set(bookId, load);
+	// A failed load, or one missing its chapter list, is retried next time.
+	load.then(
+		(meta) => {
+			if (meta.chapters.length === 0) detailLoads.delete(bookId);
+		},
+		() => detailLoads.delete(bookId),
+	);
+	return load;
 }
 
 /**
@@ -109,12 +169,12 @@ export async function fetchChapter(
 	chapterFile: string,
 	chapterIndex: number,
 ): Promise<BookChapter> {
-	const url = `${SE_BASE}/ebooks/${bookId}/text/${chapterFile}`;
-	const response = await safeFetch(url, {
+	const url = `${SE_BASE}/${bookId}/text/${chapterFile}`;
+	const xhtml = await fetchText(url, {
 		operation: "fetch chapter",
 		bookId,
+		timeoutMs: CHAPTER_TIMEOUT_MS,
 	});
-	const xhtml = await response.text();
 
 	const text = extractTextFromXHTML(xhtml);
 	const title = extractChapterTitle(xhtml);
@@ -130,7 +190,17 @@ export async function fetchAndCacheBook(bookId: string): Promise<CachedBook> {
 	const cached = await getCachedBook(bookId);
 	if (cached) return cached;
 
-	const meta = await fetchBookDetail(bookId);
+	const meta = await loadBookDetail(bookId);
+	if (meta.chapters.length === 0) {
+		// The chapter list failed earlier, or had nothing to type. Ask again:
+		// a failure throws its own (retryable) error, an empty list is final.
+		const toc = await fetchText(`${SE_BASE}/${bookId}/text`, {
+			operation: "fetch chapter list",
+			bookId,
+		});
+		meta.chapters = parseChapterList(toc);
+		if (meta.chapters.length === 0) throw new BookUnsupportedError(bookId);
+	}
 
 	const chapters = await Promise.all(
 		meta.chapters.map((file, index) => fetchChapter(bookId, file, index)),
@@ -145,9 +215,11 @@ export async function fetchAndCacheBook(bookId: string): Promise<CachedBook> {
 
 	try {
 		await db.cachedBooks.put(cachedBook);
+		forgetUnsavedBook(bookId);
 	} catch (err) {
-		// Caching is non-fatal: surface a typed error to log handlers but still
-		// return the freshly fetched book.
+		// Caching is non-fatal: the book is kept in memory for this session, so
+		// it still opens, and a typed error goes to log handlers.
+		keepUnsavedBook(cachedBook);
 		console.error(
 			new BookCacheError(`Failed to cache book ${bookId}`, { cause: err }),
 		);
@@ -157,20 +229,21 @@ export async function fetchAndCacheBook(bookId: string): Promise<CachedBook> {
 }
 
 /**
- * Get a cached book from IndexedDB.
+ * Get a cached book from IndexedDB, or this session's copy of one it failed
+ * to store.
  */
 export async function getCachedBook(
 	bookId: string,
 ): Promise<CachedBook | null> {
 	try {
 		const cached = await db.cachedBooks.get(bookId);
-		return cached ?? null;
+		return cached ?? getUnsavedBook(bookId) ?? null;
 	} catch (err) {
 		console.error(
 			new BookCacheError(`Failed to read cached book ${bookId}`, {
 				cause: err,
 			}),
 		);
-		return null;
+		return getUnsavedBook(bookId) ?? null;
 	}
 }

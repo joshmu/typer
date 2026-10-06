@@ -15,6 +15,7 @@ export type GameLoop = RunSession;
 export function startGameLoop(opts: GameLoopOptions): GameLoop {
 	const renderer = createBabylonRenderer(opts.canvas, {
 		preserveDrawingBuffer: opts.testMode,
+		simClock: opts.testMode,
 	});
 	const session = createRunSession({
 		seed: opts.seed,

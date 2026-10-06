@@ -65,10 +65,10 @@ describe("useTestSession", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("starts in book mode with no text", () =>
+	it("starts in a time 30 test with no text until it loads", () =>
 		createRoot((dispose) => {
 			const session = useTestSession({ wordListSize: () => "200" });
-			expect(session.mode().type).toBe("book");
+			expect(session.mode()).toEqual({ type: "time", seconds: 30 });
 			expect(session.text()).toBeNull();
 			expect(session.result()).toBeNull();
 			expect(session.activeBook()).toBeNull();
@@ -162,11 +162,7 @@ describe("useTestSession", () => {
 				setTypingActive(true);
 				pending[0](["a1", "a2"]);
 				await loading;
-				expect(session.mode()).toEqual({
-					type: "book",
-					bookId: "",
-					chapterIndex: 0,
-				});
+				expect(session.mode()).toEqual({ type: "time", seconds: 30 });
 				expect(session.text()).toBe("hello world");
 				dispose();
 			});
@@ -255,6 +251,91 @@ describe("useTestSession", () => {
 				resolve();
 			}),
 		);
+	});
+
+	it("starts in the given mode", () =>
+		createRoot((dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				initialMode: { type: "words", count: 50 },
+			});
+			expect(session.mode()).toEqual({ type: "words", count: 50 });
+			expect(session.text()).toBeNull();
+			dispose();
+		}));
+
+	it("openBook opens a cached book at its committed position", () =>
+		createRoot((dispose) => {
+			const book = makeBook([
+				makeChapter(0, ["a", "b", "c"]),
+				makeChapter(1, ["d", "e", "f"]),
+			]);
+			const fetchAndCacheBook = vi.fn();
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { fetchAndCacheBook },
+			});
+			session.openBook(book, {
+				bookId: "author/book",
+				chapterIndex: 1,
+				wordOffset: 1,
+				completedChapters: [0],
+				totalCharsTyped: 0,
+				totalTimeMs: 0,
+				averageWpm: 0,
+				sessionCount: 1,
+				lastAccessedAt: 0,
+				startedAt: 0,
+				bookMeta: book.meta,
+			});
+			expect(fetchAndCacheBook).not.toHaveBeenCalled();
+			expect(session.activeBook()).toBe(book);
+			expect(session.text()).toBe("e f");
+			expect(session.mode()).toEqual({
+				type: "book",
+				bookId: "author/book",
+				chapterIndex: 1,
+			});
+			dispose();
+		}));
+
+	it("openBook supersedes a word-list load still in flight", async () => {
+		const book = makeBook([makeChapter(0, ["a", "b"])]);
+		let release: (list: string[]) => void = () => {};
+		const loadWordList = vi.fn(
+			() => new Promise<string[]>((r) => (release = r)),
+		);
+		await new Promise<void>((resolve) =>
+			createRoot(async (dispose) => {
+				const session = useTestSession({
+					wordListSize: () => "200",
+					deps: { loadWordList },
+				});
+				const pending = session.startWithMode({ type: "time", seconds: 30 });
+				session.openBook(book);
+				release(["x", "y"]);
+				await pending;
+				expect(session.mode().type).toBe("book");
+				expect(session.text()).toBe("a b");
+				dispose();
+				resolve();
+			}),
+		);
+	});
+
+	it("selectBook rejects with the load error so the library can show it", async () => {
+		const failure = new Error("offline");
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { fetchAndCacheBook: vi.fn().mockRejectedValue(failure) },
+			});
+			await expect(session.selectBook("author/book")).rejects.toBe(failure);
+			expect(session.bookLoading()).toBe(false);
+			expect(session.activeBook()).toBeNull();
+			dispose();
+		});
 	});
 
 	it("selectBook resumes from prior progress", async () => {
@@ -548,6 +629,97 @@ describe("useTestSession", () => {
 			await new Promise((r) => setTimeout(r));
 			expect(session.result()).not.toBeNull();
 			expect(session.saveFailed()).toBe(false);
+			dispose();
+		});
+	});
+
+	it("publishes the result's per-second detail and AFK verdict", () =>
+		createRoot((dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { recordCompletion: vi.fn().mockResolvedValue(undefined) },
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick", 3_000));
+			const insights = session.result()?.insights;
+			expect(insights?.afk).toBe(false);
+			expect(insights?.rawPerSecond).toHaveLength(3);
+			expect(insights?.errorsPerSecond).toHaveLength(3);
+			dispose();
+		}));
+
+	it("shows the result once the typing block has left", async () => {
+		let leave: () => void = () => {};
+		const exitTyping = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					leave = resolve;
+				}),
+		);
+		const recordCompletion = vi.fn().mockResolvedValue(undefined);
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: { recordCompletion, exitTyping },
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			expect(recordCompletion).toHaveBeenCalledTimes(1);
+			expect(session.result()).toBeNull();
+			leave();
+			await new Promise((r) => setTimeout(r));
+			expect(session.result()).not.toBeNull();
+			dispose();
+		});
+	});
+
+	it("drops a result whose exit was overtaken by a new test", async () => {
+		let leave: () => void = () => {};
+		const exitTyping = () =>
+			new Promise<void>((resolve) => {
+				leave = resolve;
+			});
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: {
+					recordCompletion: vi.fn().mockResolvedValue(undefined),
+					exitTyping,
+				},
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			session.setCustomText("brown fox");
+			leave();
+			await new Promise((r) => setTimeout(r));
+			expect(session.result()).toBeNull();
+			expect(session.text()).toBe("brown fox");
+			dispose();
+		});
+	});
+
+	it("flags an unsaved result even when the save fails during the exit", async () => {
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		let leave: () => void = () => {};
+		const exitTyping = () =>
+			new Promise<void>((resolve) => {
+				leave = resolve;
+			});
+		await createRoot(async (dispose) => {
+			const session = useTestSession({
+				wordListSize: () => "200",
+				deps: {
+					recordCompletion: vi.fn().mockRejectedValue(new Error("disk full")),
+					exitTyping,
+				},
+			});
+			session.setCustomText("the quick");
+			session.complete(completedState("the quick"));
+			await new Promise((r) => setTimeout(r));
+			leave();
+			await new Promise((r) => setTimeout(r));
+			expect(session.result()).not.toBeNull();
+			expect(session.saveFailed()).toBe(true);
 			dispose();
 		});
 	});

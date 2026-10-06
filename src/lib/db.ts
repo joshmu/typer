@@ -15,6 +15,10 @@ export interface TypingResult {
 	timestamp: number;
 	textHash: string;
 	bookTitle?: string;
+	/** A time test left running with no input; never a personal best. */
+	afk?: boolean;
+	/** Words tests: the word count; quotes: the length. Keys the best. */
+	option?: string;
 }
 
 export interface GameRun {
@@ -48,8 +52,7 @@ export class TyperDB extends Dexie {
 			cachedBooks: "&bookId, cachedAt",
 		});
 
-		// v3: plain wpm index — usePersonalBest() orders by wpm across modes,
-		// which the compound [mode+wpm] index cannot serve.
+		// v3: plain wpm index, for ordering results by wpm across modes.
 		this.version(3).stores({
 			results: "++id, timestamp, mode, wpm, [mode+wpm]",
 		});

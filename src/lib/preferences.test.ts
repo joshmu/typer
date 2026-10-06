@@ -1,5 +1,6 @@
 import { createRoot } from "solid-js";
-import { describe, expect, it } from "vitest";
+import { reconcile } from "solid-js/store";
+import { describe, expect, it, vi } from "vitest";
 import {
 	createPreferences,
 	defaultPreferences,
@@ -32,7 +33,7 @@ describe("preferences", () => {
 			const storage = createMockStorage();
 			const [prefs] = createPreferences(storage);
 
-			expect(prefs.theme).toBe("serika-dark");
+			expect(prefs.theme).toBe("lamplight");
 			expect(prefs.fontSize).toBe(16);
 			expect(prefs.smoothCaret).toBe(true);
 			expect(prefs.caretStyle).toBe("line");
@@ -127,7 +128,7 @@ describe("preferences", () => {
 			const stored = JSON.parse(
 				storage.getItem("typer-preferences")!,
 			) as UserPreferences;
-			expect(stored.theme).toBe("serika-dark");
+			expect(stored.theme).toBe("lamplight");
 			expect(stored.smoothCaret).toBe(true);
 			expect(stored.fontSize).toBe(24);
 
@@ -157,6 +158,74 @@ describe("preferences", () => {
 			// Missing field gets default
 			expect(prefs.stopOnError).toBe("letter");
 
+			dispose();
+		}));
+	it("lands on a time 30 test with no stored last mode", () =>
+		createRoot((dispose) => {
+			const [prefs] = createPreferences(createMockStorage());
+			expect(prefs.lastMode).toEqual({ type: "time", seconds: 30 });
+			dispose();
+		}));
+
+	it("persists the last mode and its sub-option", () =>
+		createRoot((dispose) => {
+			const storage = createMockStorage();
+			const [, setPrefs] = createPreferences(storage);
+			setPrefs("lastMode", reconcile({ type: "words", count: 50 } as const));
+			const [reloaded] = createPreferences(storage);
+			expect(reloaded.lastMode).toEqual({ type: "words", count: 50 });
+			expect(defaultPreferences.lastMode).toEqual({
+				type: "time",
+				seconds: 30,
+			});
+			dispose();
+		}));
+
+	it("reads a stored last mode with a missing sub-option as that mode's default", () =>
+		createRoot((dispose) => {
+			const storage = createMockStorage();
+			storage.setItem(
+				"typer-preferences",
+				JSON.stringify({ lastMode: { type: "quote" } }),
+			);
+			const [prefs] = createPreferences(storage);
+			expect(prefs.lastMode).toEqual({ type: "quote", length: "medium" });
+			dispose();
+		}));
+
+	it("shows the small-screen notice until it is dismissed", () =>
+		createRoot((dispose) => {
+			const storage = createMockStorage();
+			const [prefs, setPrefs] = createPreferences(storage);
+			expect(prefs.smallScreenNoticeDismissed).toBe(false);
+			setPrefs("smallScreenNoticeDismissed", true);
+			const [reloaded] = createPreferences(storage);
+			expect(reloaded.smallScreenNoticeDismissed).toBe(true);
+			dispose();
+		}));
+	it("falls back to defaults when the stored value is not an object", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		for (const raw of ["null", "5", '"dracula"', "[1,2]", "true"]) {
+			createRoot((dispose) => {
+				const storage = createMockStorage();
+				storage.setItem("typer-preferences", raw);
+				const [prefs] = createPreferences(storage);
+				expect({ ...prefs }).toEqual(defaultPreferences);
+				dispose();
+			});
+		}
+		expect(warn).not.toHaveBeenCalled();
+		warn.mockRestore();
+	});
+
+	it("remembers the last picked book apart from the last mode", () =>
+		createRoot((dispose) => {
+			const storage = createMockStorage();
+			const [prefs, setPrefs] = createPreferences(storage);
+			expect(prefs.lastBookId).toBe("");
+			setPrefs("lastBookId", "a/b");
+			const [reloaded] = createPreferences(storage);
+			expect(reloaded.lastBookId).toBe("a/b");
 			dispose();
 		}));
 });

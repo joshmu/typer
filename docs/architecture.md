@@ -97,6 +97,7 @@ interface TypingState {
   currentIndex: number;
   startTime: number | null;
   endTime: number | null;
+  keystrokes: { correct: number; incorrect: number }; // every character key, kept after backspace
   mode: TestMode;
   config: TestConfig;
 }
@@ -132,9 +133,22 @@ interface TestConfig {
 function applyKeystroke(state: TypingState, key: string, now: number): void // mutates a draft in place
 function processKeystroke(state: TypingState, key: string, now: number): TypingState // pure clone-then-apply
 function calculateWPM(chars: CharacterState[], elapsedMs: number): number
-function calculateAccuracy(chars: CharacterState[]): number
+function calculateRawWPM(keystrokes: KeystrokeCounts, elapsedMs: number): number
+function calculateAccuracy(keystrokes: KeystrokeCounts): number
+function collectPerSecondWPM(chars: CharacterState[], startTime: number, elapsedMs: number): number[]
 function calculateConsistency(perSecondWPM: number[]): number
+function calculateCharBreakdown(state: TypingState): CharBreakdown
 ```
+
+Result stats:
+
+- **Accuracy** is keystroke accuracy: correct character keys over all character keys, so a corrected typo still costs accuracy. It is rounded down, so any mistake keeps it below 100.
+- **Raw WPM** counts every character key, including ones later backspaced; **WPM** counts correct characters left in the text.
+- **Per-second WPM** has one sample per second of the test's duration, idle seconds included, so the chart covers the whole test. Past 600 seconds (a zen or book run can stay open indefinitely) the series is bucketed to at most 600 samples, each the true rate over its bucket, with the bucket width kept as `sampleSeconds`; consistency is still computed per second, from the seconds that hold keys, without building the idle ones.
+- **Key activity** (`state.activity`) is counted as keys land: the last character key's time, and character keys and mistakes per second, stored only for seconds a key landed in (the idle zeros are filled in when the results are derived), so a key after a long pause is still O(1). Backspace and stop-on-error word resets do not erase it, so the raw and error chart lines, AFK and the idle tail all see keys whose characters were later erased.
+- **Consistency** is computed from correct-character WPM per second (Monkeytype uses raw). Time tests keep every second; tests ended by Esc or by the text running out drop the idle tail after the last character key.
+- **errorCount** (complete-test.ts) counts only uncorrected errors: incorrect and extra characters left in the text.
+- **Missed** characters are ones the user skipped: untyped characters behind the cursor. Text the user never reached is not counted, and the breakdown total is only the characters covered.
 
 ### Typing Session
 
@@ -242,7 +256,8 @@ Themes are pure CSS custom property overrides:
 :root {
   --bg: #323437;
   --text: #d1d0c5;
-  --text-sub: #646669;
+  --text-sub: #646669;      /* secondary UI text, 4.5:1 on bg and bg-secondary */
+  --text-pending: #646669;  /* text not typed yet (large type) */
   --primary: #e2b714;
   --error: #ca4754;
   --error-extra: #7e2a33;
@@ -283,6 +298,10 @@ All data stays in the browser. No backend, no accounts, no sync.
 ```
 
 `PreferencesProvider` (src/lib/preferences-context.tsx) is the only place preferences reach the document: one effect applies the theme and sets `--typing-font-size`. Typing components read caret style, smooth caret, live WPM and font size through `usePreferences()`, and a font size change re-measures the layout cache.
+
+### Book Source
+
+Book mode fetches catalogue, book and chapter documents straight from `https://standardebooks.org` (`SE_ORIGIN` in src/lib/core/text/se-source.ts), which allows any origin. Each fetch retries network errors, 429 and 5xx within its time limit (src/lib/http-retry.ts), and the last good catalogue is kept for when a refresh fails. There is no same-origin proxy: Standard Ebooks answers Vercel's egress with 403 (verified 2026-10-05).
 
 ### Error Recovery
 

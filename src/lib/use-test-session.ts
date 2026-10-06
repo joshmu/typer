@@ -5,13 +5,15 @@ import {
 	type BookReader,
 	countCompletedWords,
 } from "@/lib/core/engine/book-reader";
-import { completeTest, type TestResult } from "@/lib/core/engine/complete-test";
+import { completeTest } from "@/lib/core/engine/complete-test";
+import { deriveResultInsights } from "@/lib/core/engine/result-insights";
 import {
 	applyBookSelection,
 	applyResult,
 	applyText,
 	createInitialSession,
 	decideRedo,
+	type SessionResult,
 	type SessionState,
 } from "@/lib/core/engine/session-manager";
 import { getRandomQuote } from "@/lib/core/text/quotes";
@@ -24,7 +26,9 @@ import {
 	recordCompletion as defaultRecordCompletion,
 	toTypingResult,
 } from "@/lib/history";
+import { DEFAULT_MODE } from "@/lib/last-mode";
 import type { UserPreferences } from "@/lib/preferences";
+import { exitTypingBlock as defaultExitTyping } from "@/lib/typing-exit";
 import { isTypingActive } from "@/lib/typing-focus";
 
 /** Words fed per typing window in book/zen mode. */
@@ -34,18 +38,21 @@ const TIME_MODE_WORD_COUNT = 200;
 
 export interface UseTestSessionOptions {
 	wordListSize: () => UserPreferences["wordListSize"];
+	/** The mode before the first start; a time 30 test by default. */
+	initialMode?: TestMode;
 	/** Test-only IO overrides. */
 	deps?: Partial<{
 		fetchAndCacheBook: typeof defaultFetchAndCacheBook;
 		loadWordList: typeof defaultLoadWordList;
 		recordCompletion: typeof defaultRecordCompletion;
+		exitTyping: typeof defaultExitTyping;
 	}>;
 }
 
 export interface TestSession {
 	mode: Accessor<TestMode>;
 	text: Accessor<string | null>;
-	result: Accessor<TestResult | null>;
+	result: Accessor<SessionResult | null>;
 	/** The shown result could not be recorded. */
 	saveFailed: Accessor<boolean>;
 	activeBook: Accessor<CachedBook | null>;
@@ -56,20 +63,22 @@ export interface TestSession {
 	allBookProgress: Accessor<BookProgress[]>;
 	startWithMode: (mode: TestMode) => Promise<void>;
 	setCustomText: (text: string) => void;
+	/** Rejects with the load error, so the caller can show it. */
 	selectBook: (bookId: string, prev?: BookProgress) => Promise<void>;
+	/** Opens an already cached book at its committed position. */
+	openBook: (book: CachedBook, progress?: BookProgress) => void;
 	complete: (state: TypingState) => void;
 	redo: () => void;
 }
-
-const INITIAL_MODE: TestMode = { type: "book", bookId: "", chapterIndex: 0 };
 
 export function useTestSession(options: UseTestSessionOptions): TestSession {
 	const fetchBook = options.deps?.fetchAndCacheBook ?? defaultFetchAndCacheBook;
 	const record = options.deps?.recordCompletion ?? defaultRecordCompletion;
 	const loadWordList = options.deps?.loadWordList ?? defaultLoadWordList;
+	const exitTyping = options.deps?.exitTyping ?? defaultExitTyping;
 
 	const [session, setSession] = createSignal<SessionState>(
-		createInitialSession(INITIAL_MODE),
+		createInitialSession(options.initialMode ?? DEFAULT_MODE),
 	);
 	// One memo per field, so a change to one field leaves readers of the others alone.
 	const field = <K extends keyof SessionState>(key: K) =>
@@ -149,9 +158,17 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			} else {
 				console.error("Failed to load book:", err);
 			}
+			throw err;
 		} finally {
 			if (request === latestBookFetch) setBookLoading(false);
 		}
+	}
+
+	function openBook(book: CachedBook, progress?: BookProgress): void {
+		latestStart++;
+		setSession((s) =>
+			applyBookSelection(s, book, progress ?? null, BOOK_WORD_COUNT),
+		);
 	}
 
 	function complete(state: TypingState): void {
@@ -170,16 +187,26 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 			});
 		}
 
-		latestStart++;
+		const request = ++latestStart;
+		let failed = false;
 		setSaveFailed(false);
-		setSession((s) => applyResult(s, testResult, draft));
+		const insights = deriveResultInsights(state, testResult.elapsed, now);
+		const show = () => {
+			if (request !== latestStart) return;
+			setSession((s) => applyResult(s, testResult, draft, insights));
+			if (failed) setSaveFailed(true);
+		};
+		const exiting = exitTyping();
+		if (exiting) void exiting.then(show);
+		else show();
 
 		void record(
 			toTypingResult(state, completed, activeBook()?.meta.title, now),
 			draft,
 		).catch((err: unknown) => {
 			console.error("Failed to record the completed test:", err);
-			if (result() === testResult) setSaveFailed(true);
+			failed = true;
+			if (result()?.insights === insights) setSaveFailed(true);
 		});
 	}
 
@@ -205,6 +232,7 @@ export function useTestSession(options: UseTestSessionOptions): TestSession {
 		startWithMode,
 		setCustomText,
 		selectBook,
+		openBook,
 		complete,
 		redo,
 	};

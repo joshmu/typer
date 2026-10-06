@@ -2,10 +2,11 @@ import {
 	type CharBreakdown,
 	calculateAccuracy,
 	calculateCharBreakdown,
-	calculateConsistency,
 	calculateRawWPM,
 	calculateWPM,
 	collectPerSecondWPM,
+	perSecondConsistency,
+	sampleSeconds,
 } from "../calc";
 import type { TypingState } from "../types";
 
@@ -16,7 +17,10 @@ export interface TestResult {
 	consistency: number;
 	breakdown: CharBreakdown;
 	elapsed: number;
+	/** WPM per sample: per second, or per `sampleSeconds` on a long session. */
 	wpmPerSecond: number[];
+	/** Seconds each wpmPerSecond sample covers (1 up to 600 seconds). */
+	sampleSeconds: number;
 }
 
 export interface CompletedTestPayload {
@@ -31,11 +35,22 @@ export function completeTest(state: TypingState): CompletedTestPayload {
 		state.startTime && state.endTime ? state.endTime - state.startTime : 0;
 
 	const wpm = calculateWPM(chars, elapsed);
-	const rawWpm = calculateRawWPM(chars, elapsed);
-	const accuracy = calculateAccuracy(chars);
-	const wpmPerSecond = collectPerSecondWPM(chars, state.startTime ?? 0);
-	const consistency = calculateConsistency(wpmPerSecond);
-	const breakdown = calculateCharBreakdown(chars);
+	const rawWpm = calculateRawWPM(state.keystrokes, elapsed);
+	const accuracy = calculateAccuracy(state.keystrokes);
+	const wpmPerSecond = collectPerSecondWPM(
+		chars,
+		state.startTime ?? 0,
+		elapsed,
+	);
+	// Time tests run to their limit, so idle seconds count; other tests are
+	// ended by the user or the text, and the idle tail before that does not.
+	const consistency = perSecondConsistency(
+		chars,
+		state.startTime ?? 0,
+		elapsed,
+		state.mode.type === "time" ? null : state.activity.lastAt,
+	);
+	const breakdown = calculateCharBreakdown(state);
 
 	return {
 		result: {
@@ -46,6 +61,7 @@ export function completeTest(state: TypingState): CompletedTestPayload {
 			breakdown,
 			elapsed,
 			wpmPerSecond,
+			sampleSeconds: sampleSeconds(elapsed),
 		},
 		charCount: breakdown.total,
 		errorCount: breakdown.incorrect + breakdown.extra,
