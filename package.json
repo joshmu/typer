@@ -23,7 +23,7 @@
 		"@solidjs/router": "^0.16.1",
 		"@tailwindcss/vite": "^4.3.3",
 		"canvas-confetti": "1.9.4",
-		"dexie": "^4.4.5",
+		"dexie": "^4.4.6",
 		"motion": "^13.4.6",
 		"solid-js": "^1.9.15",
 		"tailwindcss": "^4.3.3"
