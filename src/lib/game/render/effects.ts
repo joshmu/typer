@@ -181,11 +181,11 @@ function acquire<T extends Timed>(pool: T[], now: number): T {
 }
 
 /**
- * Pose a hidden pooled mesh as it looks in use (wearing `material`, scaled by
+ * Pose a hidden mesh as it looks in use (wearing `material`, scaled by
  * `scale`) and check it ready, so Babylon builds that pose's shader variant
  * now: a stretched mesh needs its own. The mesh stays disabled, so nothing is
  * drawn, and it keeps the pose, because Babylon frees a variant as soon as
- * no mesh holds it. Everything the pose sets is set again on use.
+ * no mesh holds it.
  */
 function readyInPose(
 	mesh: Mesh,
@@ -222,6 +222,13 @@ export function createEffects(
 		heavy: additive(scene, "fx-beam-heavy", hot),
 	};
 	const headMat = additive(scene, "fx-head", white);
+	// hidden stand-ins, one per shot kind, never drawn: they hold each beam's
+	// in-flight shader variant from the warm-up on (see readyInPose), apart
+	// from the pool so a live shot is never touched
+	const warmBeams = (Object.keys(beamMat) as ShotKind[]).map((kind) => ({
+		kind,
+		mesh: hide(CreateBox(`fx-beam-warm-${kind}`, { size: 1 }, scene)),
+	}));
 	type Tracer = Timed & {
 		beam: Mesh;
 		head: Mesh;
@@ -854,12 +861,11 @@ export function createEffects(
 		warmSteps() {
 			// a beam in flight is stretched along the shot, the one pose no mesh
 			// is in at load. Shockwave rings stretch too and share the beams'
-			// shader, so one hidden beam per shot kind covers them all
-			return (Object.keys(beamMat) as ShotKind[]).map((kind, i) => {
-				const { beam } = tracers[i];
+			// shader, so a stand-in per shot kind covers them all
+			return warmBeams.map(({ kind, mesh }) => {
 				const w = TRACER_W[kind];
 				// any length longer than the beam is wide
-				return () => readyInPose(beam, beamMat[kind], [w, w, 2]);
+				return () => readyInPose(mesh, beamMat[kind], [w, w, 2]);
 			});
 		},
 		dispose() {
@@ -868,6 +874,7 @@ export function createEffects(
 				t.beam.dispose();
 				t.head.dispose();
 			}
+			for (const { mesh } of warmBeams) mesh.dispose();
 			for (const m of Object.values(beamMat)) m.dispose();
 			headMat.dispose();
 			for (const f of flashes) f.mesh.dispose(false, true);
