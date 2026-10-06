@@ -21,6 +21,7 @@ import "@babylonjs/core/Shaders/particles.vertex";
 import type { ShotKind } from "./frame-effects";
 import { LABEL_FONT, labelTextWidths } from "./label";
 import { FIELD_GROUP, FLOOR_GROUP, LABEL_GROUP, type SceneView } from "./scene";
+import type { WarmStep } from "./warmup";
 
 // Every lifetime is wall-clock ms, so 120Hz plays the same as 60Hz.
 const TRACER_POOL = 16;
@@ -110,6 +111,9 @@ export type Effects = {
 	/** The light pool around the core: radius in world units, gain 0..1. */
 	setLight(radius: number, gain: number): void;
 	update(now: number): void;
+	/** First-use shader work to run before play, so the first shot doesn't
+	 * compile mid-keystroke (see createWarmup). Draws nothing. */
+	warmSteps(): WarmStep[];
 	dispose(): void;
 };
 
@@ -174,6 +178,25 @@ function acquire<T extends Timed>(pool: T[], now: number): T {
 		}
 	}
 	return pick;
+}
+
+/**
+ * Pose a hidden pooled mesh as it looks in use (wearing `material`, scaled by
+ * `scale`) and check it ready, so Babylon builds that pose's shader variant
+ * now: a stretched mesh needs its own. The mesh stays disabled, so nothing is
+ * drawn, and it keeps the pose, because Babylon frees a variant as soon as
+ * no mesh holds it. Everything the pose sets is set again on use.
+ */
+function readyInPose(
+	mesh: Mesh,
+	material: Material,
+	scale: readonly [number, number, number],
+): boolean {
+	if (mesh.isDisposed()) return true;
+	mesh.material = material;
+	mesh.scaling.set(scale[0], scale[1], scale[2]);
+	mesh.computeWorldMatrix(true);
+	return mesh.isReady(true);
 }
 
 function hide(m: Mesh): Mesh {
@@ -827,6 +850,17 @@ export function createEffects(
 							? 1
 							: 1 - (k - 0.6) / 0.4;
 			}
+		},
+		warmSteps() {
+			// a beam in flight is stretched along the shot, the one pose no mesh
+			// is in at load. Shockwave rings stretch too and share the beams'
+			// shader, so one hidden beam per shot kind covers them all
+			return (Object.keys(beamMat) as ShotKind[]).map((kind, i) => {
+				const { beam } = tracers[i];
+				const w = TRACER_W[kind];
+				// any length longer than the beam is wide
+				return () => readyInPose(beam, beamMat[kind], [w, w, 2]);
+			});
 		},
 		dispose() {
 			disposed = true;
