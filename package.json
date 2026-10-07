@@ -20,17 +20,17 @@
 	"dependencies": {
 		"@babylonjs/core": "9.25.0",
 		"@solid-primitives/storage": "^4.4.0",
-		"@solidjs/router": "^0.16.1",
+		"@solidjs/router": "^1.0.0",
 		"@tailwindcss/vite": "^4.3.3",
 		"canvas-confetti": "1.9.4",
-		"dexie": "^4.4.5",
+		"dexie": "^4.4.6",
 		"motion": "^13.4.6",
 		"solid-js": "^1.9.15",
 		"tailwindcss": "^4.3.3"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.14",
-		"@commitlint/cli": "^21.2.1",
+		"@commitlint/cli": "^21.2.3",
 		"@commitlint/config-conventional": "^21.2.2",
 		"@playwright/test": "^1.63.0",
 		"@solidjs/testing-library": "^0.8.10",
@@ -40,10 +40,10 @@
 		"fake-indexeddb": "^6.2.5",
 		"husky": "^9.1.7",
 		"jsdom": "^30.1.1",
-		"lint-staged": "^17.5.1",
+		"lint-staged": "^17.6.0",
 		"markdownlint-cli2": "^0.23.2",
 		"typescript": "^7.0.2",
-		"vite": "^8.2.1",
+		"vite": "^8.3.2",
 		"vite-plugin-solid": "^2.11.14",
 		"vite-tsconfig-paths": "^6.1.1",
 		"vitest": "^4.1.8"
@@ -51,6 +51,10 @@
 	"pnpm": {
 		"onlyBuiltDependencies": [
 			"esbuild"
-		]
+		],
+		"overrides": {
+			"seroval": "^1.6.8",
+			"seroval-plugins": "^1.6.8"
+		}
 	}
 }
