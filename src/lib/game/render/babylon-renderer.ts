@@ -20,6 +20,7 @@ import { createGameScene } from "./scene";
 import { createSpriteAtlas } from "./sprite-atlas";
 import { createTurret } from "./turret";
 import { visualFor } from "./visuals";
+import { createWarmup } from "./warmup";
 
 export type BabylonRenderer = RunRenderer & {
 	/** Call `frame` once per display frame until disposed. */
@@ -94,6 +95,10 @@ export function createBabylonRenderer(
 	const juice = createJuice({ reducedMotion });
 	refreshLabelTheme(readVar, arenaInk);
 	loadLabelFont();
+	// build the shot's shader variants behind the start screen, once the
+	// first frame is up, instead of on the first targeting key
+	const warmup = createWarmup(effects.warmSteps());
+	gameScene.scene.onAfterRenderObservable.addOnce(() => warmup.start());
 	// scratch vectors reused every frame — the hot path allocates nothing
 	const muzzle = new Vector3();
 	const shotTo = new Vector3();
@@ -209,10 +214,12 @@ export function createBabylonRenderer(
 		},
 		runRenderLoop: (frame) => gameScene.engine.runRenderLoop(frame),
 		// whole scene ready to draw — async PNG textures decoded AND their material
-		// shader variants compiled. Lets tests gate the deterministic frame so it
-		// never captures a mesh Babylon skipped while its effect was still building.
-		isReady: () => gameScene.scene.isReady(),
+		// shader variants compiled, the shot's in-flight variants included. Lets
+		// tests gate the deterministic frame so it never captures a mesh Babylon
+		// skipped while its effect was still building.
+		isReady: () => warmup.done() && gameScene.scene.isReady(),
 		dispose() {
+			warmup.dispose();
 			gameScene.engine.stopRenderLoop();
 			post.dispose();
 			effects.dispose();

@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures/se-stub";
 declare global {
 	interface Window {
 		__keyDurations?: number[];
+		__programLinks?: number;
 	}
 }
 
@@ -133,4 +134,53 @@ test("game keystroke round-trip stays within the 16ms frame budget at p95", asyn
 		p95,
 		`p95 game keystroke round-trip should be under ${KEYSTROKE_BUDGET_MS}ms`,
 	).toBeLessThan(KEYSTROKE_BUDGET_MS);
+});
+
+// A shader built mid-keystroke stalls that key for as long as the GPU takes
+// to compile it (over half a second on software GL). Once the arena reports
+// ready, the first lock, shot and kill must reuse shaders it already has.
+// Counts WebGL program links from outside the app, so it doesn't hang on timing.
+test("the first shot and kill build no shaders once the arena is ready", async ({
+	page,
+}) => {
+	await page.addInitScript(() => {
+		window.__programLinks = 0;
+		for (const proto of [
+			WebGLRenderingContext.prototype,
+			WebGL2RenderingContext.prototype,
+		]) {
+			const link = proto.linkProgram;
+			proto.linkProgram = function (
+				this: WebGLRenderingContext,
+				program: WebGLProgram,
+			) {
+				window.__programLinks = (window.__programLinks ?? 0) + 1;
+				return link.call(this, program);
+			};
+		}
+	});
+	await page.goto("/game?seed=42&testMode=1");
+	await page.waitForFunction(() => window.__game !== undefined);
+	await page.evaluate(() => window.__game?.stepTicks(200));
+	await page.waitForFunction(() => window.__game?.renderReady() === true);
+	const linked = await page.evaluate(() => window.__programLinks ?? 0);
+	expect(linked).toBeGreaterThan(0);
+
+	const run = await page.evaluate((count) => {
+		const letters = "etaoinshrdlucmfwypvbgkjqxz";
+		let shots = 0;
+		for (let i = 0; i < count; i++) {
+			const before = window.__game?.getState().targetId ?? null;
+			window.__game?.sendKeys(letters[i % letters.length]);
+			if (before === null && window.__game?.getState().targetId != null) {
+				shots++;
+			}
+		}
+		// let the last kill's impact land and its burst play out
+		window.__game?.stepTicks(30);
+		return { shots, kills: window.__game?.getState().kills ?? 0 };
+	}, GAME_KEYS);
+	expect(run.shots).toBeGreaterThan(0);
+	expect(run.kills).toBeGreaterThan(0);
+	expect(await page.evaluate(() => window.__programLinks)).toBe(linked);
 });

@@ -21,6 +21,7 @@ import "@babylonjs/core/Shaders/particles.vertex";
 import type { ShotKind } from "./frame-effects";
 import { LABEL_FONT, labelTextWidths } from "./label";
 import { FIELD_GROUP, FLOOR_GROUP, LABEL_GROUP, type SceneView } from "./scene";
+import type { WarmStep } from "./warmup";
 
 // Every lifetime is wall-clock ms, so 120Hz plays the same as 60Hz.
 const TRACER_POOL = 16;
@@ -110,6 +111,9 @@ export type Effects = {
 	/** The light pool around the core: radius in world units, gain 0..1. */
 	setLight(radius: number, gain: number): void;
 	update(now: number): void;
+	/** First-use shader work to run before play, so the first shot doesn't
+	 * compile mid-keystroke (see createWarmup). Draws nothing. */
+	warmSteps(): WarmStep[];
 	dispose(): void;
 };
 
@@ -176,6 +180,25 @@ function acquire<T extends Timed>(pool: T[], now: number): T {
 	return pick;
 }
 
+/**
+ * Pose a hidden mesh as it looks in use (wearing `material`, scaled by
+ * `scale`) and check it ready, so Babylon builds that pose's shader variant
+ * now: a stretched mesh needs its own. The mesh stays disabled, so nothing is
+ * drawn, and it keeps the pose, because Babylon frees a variant as soon as
+ * no mesh holds it.
+ */
+function readyInPose(
+	mesh: Mesh,
+	material: Material,
+	scale: readonly [number, number, number],
+): boolean {
+	if (mesh.isDisposed()) return true;
+	mesh.material = material;
+	mesh.scaling.set(scale[0], scale[1], scale[2]);
+	mesh.computeWorldMatrix(true);
+	return mesh.isReady(true);
+}
+
 function hide(m: Mesh): Mesh {
 	m.isPickable = false;
 	m.setEnabled(false);
@@ -199,6 +222,13 @@ export function createEffects(
 		heavy: additive(scene, "fx-beam-heavy", hot),
 	};
 	const headMat = additive(scene, "fx-head", white);
+	// hidden stand-ins, one per shot kind, never drawn: they hold each beam's
+	// in-flight shader variant from the warm-up on (see readyInPose), apart
+	// from the pool so a live shot is never touched
+	const warmBeams = (Object.keys(beamMat) as ShotKind[]).map((kind) => ({
+		kind,
+		mesh: hide(CreateBox(`fx-beam-warm-${kind}`, { size: 1 }, scene)),
+	}));
 	type Tracer = Timed & {
 		beam: Mesh;
 		head: Mesh;
@@ -828,12 +858,23 @@ export function createEffects(
 							: 1 - (k - 0.6) / 0.4;
 			}
 		},
+		warmSteps() {
+			// a beam in flight is stretched along the shot, the one pose no mesh
+			// is in at load. Shockwave rings stretch too and share the beams'
+			// shader, so a stand-in per shot kind covers them all
+			return warmBeams.map(({ kind, mesh }) => {
+				const w = TRACER_W[kind];
+				// any length longer than the beam is wide
+				return () => readyInPose(mesh, beamMat[kind], [w, w, 2]);
+			});
+		},
 		dispose() {
 			disposed = true;
 			for (const t of tracers) {
 				t.beam.dispose();
 				t.head.dispose();
 			}
+			for (const { mesh } of warmBeams) mesh.dispose();
 			for (const m of Object.values(beamMat)) m.dispose();
 			headMat.dispose();
 			for (const f of flashes) f.mesh.dispose(false, true);
