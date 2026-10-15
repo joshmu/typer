@@ -25,7 +25,7 @@
 		"canvas-confetti": "1.9.4",
 		"dexie": "^4.4.6",
 		"motion": "^13.4.6",
-		"solid-js": "^1.9.15",
+		"solid-js": "^1.9.17",
 		"tailwindcss": "^4.3.3"
 	},
 	"devDependencies": {
