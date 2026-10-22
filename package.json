@@ -29,7 +29,7 @@
 		"tailwindcss": "^4.3.3"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.14",
+		"@biomejs/biome": "^2.5.15",
 		"@commitlint/cli": "^21.2.3",
 		"@commitlint/config-conventional": "^21.2.2",
 		"@playwright/test": "^1.64.1",
