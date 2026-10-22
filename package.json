@@ -46,7 +46,7 @@
 		"vite": "^8.3.2",
 		"vite-plugin-solid": "^2.11.14",
 		"vite-tsconfig-paths": "^6.1.1",
-		"vitest": "^4.1.8"
+		"vitest": "^5.0.4"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
