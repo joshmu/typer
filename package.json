@@ -32,7 +32,7 @@
 		"@biomejs/biome": "^2.5.14",
 		"@commitlint/cli": "^21.2.3",
 		"@commitlint/config-conventional": "^21.2.2",
-		"@playwright/test": "^1.63.0",
+		"@playwright/test": "^1.64.1",
 		"@solidjs/testing-library": "^0.8.10",
 		"@testing-library/jest-dom": "^7.0.1",
 		"@types/canvas-confetti": "1.9.0",
