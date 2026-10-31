@@ -2,17 +2,18 @@
 
 ## Landscape
 
-| App | Strengths | Weaknesses | Typer Opportunity |
-|-----|-----------|------------|-------------------|
+| App            | Strengths                                                                         | Weaknesses                                                                    | Typer Opportunity                                        |
+| -------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------- |
 | **Monkeytype** | Gold standard UX, massive customization, 200+ themes, 200+ languages, open source | No structured learning, complex codebase, overwhelming settings for new users | Simpler, more focused experience — quality over quantity |
-| **Keybr** | Adaptive learning algorithm, per-key statistics, progressive letter unlocking | Only lowercase by default, dated visual design | Better visual design with keybr-style analytics |
-| **TypeRacer** | Competitive multiplayer, real quotes, established community | Dated UI, not open source, no customization | Modern design with competitive features later |
-| **Nitro Type** | Gamification, classroom tools, mobile-first | Targeted at K-12, not serious typists | Adult-focused, clean design |
-| **TypingClub** | 600+ lessons, structured curriculum, hand guides | Teaching focus, not practice | Practice-first with optional weak-key drills |
+| **Keybr**      | Adaptive learning algorithm, per-key statistics, progressive letter unlocking     | Only lowercase by default, dated visual design                                | Better visual design with keybr-style analytics          |
+| **TypeRacer**  | Competitive multiplayer, real quotes, established community                       | Dated UI, not open source, no customization                                   | Modern design with competitive features later            |
+| **Nitro Type** | Gamification, classroom tools, mobile-first                                       | Targeted at K-12, not serious typists                                         | Adult-focused, clean design                              |
+| **TypingClub** | 600+ lessons, structured curriculum, hand guides                                  | Teaching focus, not practice                                                  | Practice-first with optional weak-key drills             |
 
 ## Key UX Patterns to Adopt
 
 ### From Monkeytype
+
 - **Smooth caret** with configurable transition speed (80-120ms)
 - **Character-level error states**: correct (dim), incorrect (red), extra (dark red), missed (underlined)
 - **3-line scrolling text window** with smooth translateY transitions
@@ -21,10 +22,12 @@
 - **Minimal chrome** — hide stats/UI during typing, show only what's essential
 
 ### From Keybr
+
 - **Per-key accuracy tracking** — build a heatmap of weak keys
 - **Progress visualization** — show improvement over time per metric
 
 ### From TypeRacer
+
 - **Real content** — quotes from books, movies, songs (more engaging than random words)
 
 ## Differentiation Strategy

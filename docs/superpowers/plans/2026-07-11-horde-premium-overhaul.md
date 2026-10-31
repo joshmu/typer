@@ -56,10 +56,19 @@ Commit: `feat(game): top-down camera, larger arena and survivable wave pacing`
 
 ```ts
 // physics.ts (pure, dist/sqrt only)
-export const PHYS = { accel: 0.006, maxTurnDot: /* not needed if accel-based */ 0, sepStrength: 0.02, knockback: 0.35 } as const;
+export const PHYS = {
+	accel: 0.006,
+	maxTurnDot: /* not needed if accel-based */ 0,
+	sepStrength: 0.02,
+	knockback: 0.35,
+} as const;
 export function steer(e: EnemyState, desired: Vec2): void; // vel += clamp(desired*speed - vel, accel); mutates draft enemy
 export function separate(enemies: EnemyState[]): void; // pairwise push when dist < (sizeA+sizeB)*0.55; O(n²), n ≤ 16
-export function applyKnockback(e: EnemyState, awayFrom: Vec2, mult?: number): void; // vel += normalized(e.pos - awayFrom) * knockback * mult
+export function applyKnockback(
+	e: EnemyState,
+	awayFrom: Vec2,
+	mult?: number,
+): void; // vel += normalized(e.pos - awayFrom) * knockback * mult
 ```
 
 - `step.ts` movement loop: `const desired = MOVEMENTS[e.movement](e, tick)` (per-tick displacement it already returns becomes the desired velocity), then `steer`, then after the loop `separate(alive)`, then integrate `pos += vel`, then collision check.

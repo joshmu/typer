@@ -415,11 +415,18 @@ import { describe, expect, it } from "vitest";
 import { createInitialState, type GameState } from "./state";
 import { type GameEvent, MAX_ALIVE, SPAWN_INTERVAL_TICKS, step } from "./step";
 
-function run(s: GameState, ticks: number, keysAt: Record<number, string[]> = {}) {
+function run(
+	s: GameState,
+	ticks: number,
+	keysAt: Record<number, string[]> = {},
+) {
 	let state = s;
 	for (let i = 0; i < ticks; i++) {
 		const keys = keysAt[state.tick + 1] ?? [];
-		state = step(state, keys.map((k): GameEvent => ({ type: "key", key: k })));
+		state = step(
+			state,
+			keys.map((k): GameEvent => ({ type: "key", key: k })),
+		);
 	}
 	return state;
 }
@@ -432,7 +439,9 @@ describe("step", () => {
 
 	it("caps alive enemies at MAX_ALIVE", () => {
 		const s = run(createInitialState(42), SPAWN_INTERVAL_TICKS * 30);
-		expect(s.enemies.filter((e) => e.alive).length).toBeLessThanOrEqual(MAX_ALIVE);
+		expect(s.enemies.filter((e) => e.alive).length).toBeLessThanOrEqual(
+			MAX_ALIVE,
+		);
 	});
 
 	it("enemies move toward the player", () => {
@@ -440,7 +449,9 @@ describe("step", () => {
 		const b = step(a, []);
 		const ea = a.enemies[0];
 		const eb = b.enemies[0];
-		expect(Math.hypot(eb.pos.x, eb.pos.y)).toBeLessThan(Math.hypot(ea.pos.x, ea.pos.y));
+		expect(Math.hypot(eb.pos.x, eb.pos.y)).toBeLessThan(
+			Math.hypot(ea.pos.x, ea.pos.y),
+		);
 	});
 
 	it("typing the full word kills the target", () => {
@@ -566,8 +577,7 @@ export function step(
 			const candidates = s.enemies
 				.filter((e) => e.alive && isCharMatch(ev.key, e.word[0]))
 				.sort(
-					(a, b) =>
-						Math.hypot(a.pos.x, a.pos.y) - Math.hypot(b.pos.x, b.pos.y),
+					(a, b) => Math.hypot(a.pos.x, a.pos.y) - Math.hypot(b.pos.x, b.pos.y),
 				);
 			if (candidates.length === 0) {
 				s.misses += 1;
@@ -621,7 +631,11 @@ git commit -m "feat(game): add fixed-timestep sim step with spawn, chase and typ
 - Produces:
 
 ```ts
-export type InputLog = { seed: number; ticks: number; events: { tick: number; key: string }[] };
+export type InputLog = {
+	seed: number;
+	ticks: number;
+	events: { tick: number; key: string }[];
+};
 export function runReplay(log: InputLog): GameState;
 export function stateHash(state: GameState): string;
 ```
@@ -706,12 +720,12 @@ export function stateHash(state: GameState): string {
 Add to `replay.test.ts`:
 
 ```ts
-	it("matches the golden fixture hash", async () => {
-		const fixture = await import("./__fixtures__/replay-first-kill.json");
-		const result = runReplay(fixture.log);
-		expect(stateHash(result)).toBe(fixture.expectedHash);
-		expect(result.kills).toBe(fixture.expectedKills);
-	});
+it("matches the golden fixture hash", async () => {
+	const fixture = await import("./__fixtures__/replay-first-kill.json");
+	const result = runReplay(fixture.log);
+	expect(stateHash(result)).toBe(fixture.expectedHash);
+	expect(result.kills).toBe(fixture.expectedKills);
+});
 ```
 
 Generate the fixture: temporarily `console.log` the log + hash from the first test (or a one-off `vitest run` with a `.only` and inline log), then write `__fixtures__/replay-first-kill.json`:
@@ -753,7 +767,10 @@ No unit tests (render layer verified by E2E/visual in Task 9); keep every file u
 export type GameScene = { engine: Engine; scene: Scene; dispose(): void };
 export function createGameScene(canvas: HTMLCanvasElement): GameScene;
 // enemy-renderer.ts
-export function createEnemyRenderer(scene: Scene): { sync(state: GameState): void; dispose(): void };
+export function createEnemyRenderer(scene: Scene): {
+	sync(state: GameState): void;
+	dispose(): void;
+};
 // loop.ts
 export type GameLoopOptions = {
 	canvas: HTMLCanvasElement;
@@ -856,14 +873,22 @@ export function createEnemyRenderer(scene: Scene) {
 	function create(id: number, archetypeId: string): EnemyVisual {
 		const arch = getArchetype(archetypeId);
 		const root = new TransformNode(`enemy-${id}`, scene);
-		const body = CreateSphere(`enemy-${id}-body`, { diameter: arch.size }, scene);
+		const body = CreateSphere(
+			`enemy-${id}-body`,
+			{ diameter: arch.size },
+			scene,
+		);
 		body.parent = root;
 		body.position.y = arch.size / 2;
 		const mat = new StandardMaterial(`enemy-${id}-mat`, scene);
 		mat.diffuseColor = new Color3(0.85, 0.25, 0.3);
 		body.material = mat;
 
-		const label = CreatePlane(`enemy-${id}-label`, { width: 3, height: 0.8 }, scene);
+		const label = CreatePlane(
+			`enemy-${id}-label`,
+			{ width: 3, height: 0.8 },
+			scene,
+		);
 		label.parent = root;
 		label.position.y = arch.size + 0.9;
 		label.billboardMode = 7; // BILLBOARDMODE_ALL
@@ -1146,7 +1171,7 @@ export default function Game() {
 ```tsx
 const Game = lazy(() => import("./routes/Game"));
 // …
-				<Route path="/game" component={Game} />
+<Route path="/game" component={Game} />;
 ```
 
 - [ ] **Step 4: Manual smoke** — `pnpm dev`, open `http://localhost:3000/game?seed=42` — arena renders, grunt approaches after 3 s, typing its word kills it. Then `pnpm typecheck && pnpm lint && pnpm build` → clean; confirm Babylon lands in the lazy chunk (build output: `Game-*.js` chunk ≫ others, `index-*.js` roughly unchanged).

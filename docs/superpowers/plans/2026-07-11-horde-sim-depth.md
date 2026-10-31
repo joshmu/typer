@@ -110,7 +110,7 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 
 - [ ] **Step 1: Replace `replay.test.ts` with the probe-based recorder + assert**
 
-The current fixture hard-codes keystrokes at ticks 182–186, which will break the moment spawn timing changes. Replace it with a generator that *probes* the deterministic sim to discover the first enemy's word, so re-recording stays correct across every later behaviour change.
+The current fixture hard-codes keystrokes at ticks 182–186, which will break the moment spawn timing changes. Replace it with a generator that _probes_ the deterministic sim to discover the first enemy's word, so re-recording stays correct across every later behaviour change.
 
 ```ts
 import { writeFileSync } from "node:fs";
@@ -501,39 +501,39 @@ import { ARENA, type EnemyState, type GameState } from "./state";
 Replace the working-draft clone so it also deep-copies `abilityState`:
 
 ```ts
-	const s: GameState = {
-		...state,
-		tick: state.tick + 1,
-		enemies: state.enemies.map((e) => ({
-			...e,
-			pos: { ...e.pos },
-			abilityState: { ...e.abilityState },
-		})),
-	};
+const s: GameState = {
+	...state,
+	tick: state.tick + 1,
+	enemies: state.enemies.map((e) => ({
+		...e,
+		pos: { ...e.pos },
+		abilityState: { ...e.abilityState },
+	})),
+};
 ```
 
 Replace the spawn block (the `if (s.tick % SPAWN_INTERVAL_TICKS === 0 && aliveCount < MAX_ALIVE)` body) so the enemy is built via the factory:
 
 ```ts
-	// spawn
-	const aliveCount = s.enemies.filter((e) => e.alive).length;
-	if (s.tick % SPAWN_INTERVAL_TICKS === 0 && aliveCount < MAX_ALIVE) {
-		const [angleT, r1] = nextFloat(s.rngState);
-		const initials = new Set(
-			s.enemies.filter((e) => e.alive).map((e) => e.word[0]),
-		);
-		const [word, r2] = pickWord(r1, initials);
-		s.rngState = r2;
-		const angle = angleT * Math.PI * 2;
-		const arch = getArchetype("grunt");
-		const pos = {
-			x: Math.cos(angle) * ARENA.spawnRadius,
-			y: Math.sin(angle) * ARENA.spawnRadius,
-		};
-		const enemy: EnemyState = createEnemy(arch, s.nextEnemyId, pos, s.tick, word);
-		s.nextEnemyId += 1;
-		s.enemies = [...s.enemies, enemy];
-	}
+// spawn
+const aliveCount = s.enemies.filter((e) => e.alive).length;
+if (s.tick % SPAWN_INTERVAL_TICKS === 0 && aliveCount < MAX_ALIVE) {
+	const [angleT, r1] = nextFloat(s.rngState);
+	const initials = new Set(
+		s.enemies.filter((e) => e.alive).map((e) => e.word[0]),
+	);
+	const [word, r2] = pickWord(r1, initials);
+	s.rngState = r2;
+	const angle = angleT * Math.PI * 2;
+	const arch = getArchetype("grunt");
+	const pos = {
+		x: Math.cos(angle) * ARENA.spawnRadius,
+		y: Math.sin(angle) * ARENA.spawnRadius,
+	};
+	const enemy: EnemyState = createEnemy(arch, s.nextEnemyId, pos, s.tick, word);
+	s.nextEnemyId += 1;
+	s.enemies = [...s.enemies, enemy];
+}
 ```
 
 Leave the movement loop, collision, and typing loop unchanged for now. Behaviour is identical; only `EnemyState` gained fields.
@@ -668,7 +668,8 @@ export type Noise = (salt: number) => number;
 
 export function makeNoise(id: number): Noise {
 	return (salt: number) => {
-		let h = (Math.imul(id | 0, 0x9e3779b1) + Math.imul(salt | 0, 0x85ebca77)) >>> 0;
+		let h =
+			(Math.imul(id | 0, 0x9e3779b1) + Math.imul(salt | 0, 0x85ebca77)) >>> 0;
 		h = Math.imul(h ^ (h >>> 15), h | 1);
 		h ^= h + Math.imul(h ^ (h >>> 7), h | 61);
 		return ((h ^ (h >>> 14)) >>> 0) / 4294967296;
@@ -718,7 +719,10 @@ const dashPause: MovementFn = (e, tick) => {
 	const phase = (tick - e.spawnTick) % (DASH_TICKS + PAUSE_TICKS);
 	if (phase >= DASH_TICKS) return { x: 0, y: 0 };
 	const d = Math.hypot(e.pos.x, e.pos.y) || 1;
-	return { x: (-e.pos.x / d) * e.speed * 2.2, y: (-e.pos.y / d) * e.speed * 2.2 };
+	return {
+		x: (-e.pos.x / d) * e.speed * 2.2,
+		y: (-e.pos.y / d) * e.speed * 2.2,
+	};
 };
 
 const flank: MovementFn = (e, _tick, rng) => {
@@ -826,10 +830,10 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 
 ```ts
 // state.ts (GameState gains these fields)
-wave: number;                              // 0 before first wave, 1-based once active
+wave: number; // 0 before first wave, 1-based once active
 wavePhase: "intermission" | "active";
-spawnQueueRemaining: number;               // enemies still to spawn this wave
-spawnCooldown: number;                     // ticks until next spawn is allowed
+spawnQueueRemaining: number; // enemies still to spawn this wave
+spawnCooldown: number; // ticks until next spawn is allowed
 intermissionTicksLeft: number;
 
 // spawner.ts
@@ -842,7 +846,11 @@ export function selectArchetypeId(
 	wave: number,
 	rngState: number,
 ): [id: string, next: number];
-export function spawnFromArchetype(s: GameState, archetypeId: string, pos: Vec2): void;
+export function spawnFromArchetype(
+	s: GameState,
+	archetypeId: string,
+	pos: Vec2,
+): void;
 export function runWaveDirector(s: GameState): void; // mutates draft: manages phases + spawns
 ```
 
@@ -877,11 +885,11 @@ export function createInitialState(seed: number): GameState {
 And add the fields to the `GameState` type (after `enemies: EnemyState[];`):
 
 ```ts
-	wave: number;
-	wavePhase: "intermission" | "active";
-	spawnQueueRemaining: number;
-	spawnCooldown: number;
-	intermissionTicksLeft: number;
+wave: number;
+wavePhase: "intermission" | "active";
+spawnQueueRemaining: number;
+spawnCooldown: number;
+intermissionTicksLeft: number;
 ```
 
 - [ ] **Step 2: Update `state.test.ts`**
@@ -962,7 +970,9 @@ describe("spawner", () => {
 
 	it("spawns up to the wave count and never exceeds MAX_ALIVE", () => {
 		const s = drive(createInitialState(42), 60 * 60);
-		expect(s.enemies.filter((e) => e.alive).length).toBeLessThanOrEqual(MAX_ALIVE);
+		expect(s.enemies.filter((e) => e.alive).length).toBeLessThanOrEqual(
+			MAX_ALIVE,
+		);
 		expect(s.enemies.length).toBeGreaterThan(0);
 	});
 });
@@ -1034,7 +1044,11 @@ export function runWaveDirector(s: GameState): void {
 
 	// active
 	const aliveCount = s.enemies.filter((e) => e.alive).length;
-	if (s.spawnQueueRemaining > 0 && aliveCount < MAX_ALIVE && s.spawnCooldown <= 0) {
+	if (
+		s.spawnQueueRemaining > 0 &&
+		aliveCount < MAX_ALIVE &&
+		s.spawnCooldown <= 0
+	) {
 		const [angleT, r1] = nextFloat(s.rngState);
 		s.rngState = r1;
 		const angle = angleT * Math.PI * 2;
@@ -1074,8 +1088,8 @@ Remove the `export const SPAWN_INTERVAL_TICKS = 180;` and `export const MAX_ALIV
 Replace the entire spawn block (from `// spawn` through the closing brace of the `if (s.tick % SPAWN_INTERVAL_TICKS …)`) with a single call, placed right after the clone:
 
 ```ts
-	// wave director: intermissions + escalating spawns
-	runWaveDirector(s);
+// wave director: intermissions + escalating spawns
+runWaveDirector(s);
 ```
 
 Leave the movement loop and typing loop as they are.
@@ -1126,7 +1140,9 @@ describe("step", () => {
 
 	it("caps alive enemies at MAX_ALIVE", () => {
 		const s = run(createInitialState(42), 60 * 120);
-		expect(s.enemies.filter((e) => e.alive).length).toBeLessThanOrEqual(MAX_ALIVE);
+		expect(s.enemies.filter((e) => e.alive).length).toBeLessThanOrEqual(
+			MAX_ALIVE,
+		);
 	});
 
 	it("enemies move toward the player", () => {
@@ -1283,8 +1299,8 @@ export function killScore(wordLength: number, combo: number): number {
 Add to the `GameState` type (after `intermissionTicksLeft: number;`):
 
 ```ts
-	combo: number;
-	comboTicksLeft: number;
+combo: number;
+comboTicksLeft: number;
 ```
 
 Add to `createInitialState` (after `intermissionTicksLeft: 60,`):
@@ -1482,11 +1498,11 @@ and in the no-target no-candidate branch:
 Add combo decay right before the typing loop (after the movement/collision block and its `if (s.status === "gameover") return s;`):
 
 ```ts
-	// combo decay
-	if (s.comboTicksLeft > 0) {
-		s.comboTicksLeft -= 1;
-		if (s.comboTicksLeft === 0) s.combo = 0;
-	}
+// combo decay
+if (s.comboTicksLeft > 0) {
+	s.comboTicksLeft -= 1;
+	if (s.comboTicksLeft === 0) s.combo = 0;
+}
 ```
 
 - [ ] **Step 12: Run the game suite** — `pnpm test:run -- src/lib/game` → green except golden fixture. Re-record, re-run replay → PASS.
@@ -1529,11 +1545,11 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 // abilities.ts
 export const CLOAK_MIN_DIST = 6;
 export function isTargetable(e: EnemyState, tick: number): boolean; // cloak gate for ACQUISITION
-export function absorbsCompletion(e: EnemyState): boolean;          // shield / armored-front
-export function tickAbility(s: GameState, e: EnemyState): void;     // spawn/heal/teleport/enrage
+export function absorbsCompletion(e: EnemyState): boolean; // shield / armored-front
+export function tickAbility(s: GameState, e: EnemyState): void; // spawn/heal/teleport/enrage
 ```
 
-Ability state is minimal: only `shieldHits` (mutable) and `enraged` (latch) are stored; cloak visibility, spawn cadence, heal pulse, and teleport blink are all derived purely from `tick - spawnTick`, so they need no stored counters. `absorbsCompletion` handles shield (consumes `shieldHits`) and armored-front (absorbs while `dist > exposeRadius`). `isTargetable` gates only *new* target acquisition (an in-progress lock is never lost to a cloak flicker).
+Ability state is minimal: only `shieldHits` (mutable) and `enraged` (latch) are stored; cloak visibility, spawn cadence, heal pulse, and teleport blink are all derived purely from `tick - spawnTick`, so they need no stored counters. `absorbsCompletion` handles shield (consumes `shieldHits`) and armored-front (absorbs while `dist > exposeRadius`). `isTargetable` gates only _new_ target acquisition (an in-progress lock is never lost to a cloak flicker).
 
 - [ ] **Step 1: Write the abilities test** (`abilities.test.ts`)
 
@@ -1543,7 +1559,10 @@ import type { Ability } from "../content/enemies";
 import { absorbsCompletion, isTargetable, tickAbility } from "./abilities";
 import { createInitialState, type EnemyState, type GameState } from "./state";
 
-function enemyWith(ability: Ability | null, over: Partial<EnemyState> = {}): EnemyState {
+function enemyWith(
+	ability: Ability | null,
+	over: Partial<EnemyState> = {},
+): EnemyState {
 	return {
 		id: 1,
 		archetypeId: "x",
@@ -1577,8 +1596,14 @@ describe("abilities", () => {
 	});
 
 	it("armored-front absorbs while far, exposes when close", () => {
-		const far = enemyWith({ kind: "armored-front", exposeRadius: 4 }, { pos: { x: 8, y: 0 } });
-		const near = enemyWith({ kind: "armored-front", exposeRadius: 4 }, { pos: { x: 2, y: 0 } });
+		const far = enemyWith(
+			{ kind: "armored-front", exposeRadius: 4 },
+			{ pos: { x: 8, y: 0 } },
+		);
+		const near = enemyWith(
+			{ kind: "armored-front", exposeRadius: 4 },
+			{ pos: { x: 2, y: 0 } },
+		);
 		expect(absorbsCompletion(far)).toBe(true);
 		expect(absorbsCompletion(near)).toBe(false);
 	});
@@ -1596,7 +1621,10 @@ describe("abilities", () => {
 
 	it("enrage-at-half latches a one-time speed boost", () => {
 		const s = createInitialState(1);
-		const e = enemyWith({ kind: "enrage-at-half", speedMult: 2 }, { hp: 2, maxHp: 4, speed: 0.03 });
+		const e = enemyWith(
+			{ kind: "enrage-at-half", speedMult: 2 },
+			{ hp: 2, maxHp: 4, speed: 0.03 },
+		);
 		s.enemies = [e];
 		tickAbility(s, e);
 		expect(e.abilityState.enraged).toBe(true);
@@ -1607,7 +1635,10 @@ describe("abilities", () => {
 
 	it("spawn emits a minion on its cadence", () => {
 		const s = createInitialState(1);
-		const e = enemyWith({ kind: "spawn", minion: "grunt", rate: 20 }, { spawnTick: 0 });
+		const e = enemyWith(
+			{ kind: "spawn", minion: "grunt", rate: 20 },
+			{ spawnTick: 0 },
+		);
 		s.enemies = [e];
 		s.tick = 20;
 		tickAbility(s, e);
@@ -1616,7 +1647,10 @@ describe("abilities", () => {
 
 	it("teleport blinks the enemy inward on its cadence", () => {
 		const s = createInitialState(1);
-		const e = enemyWith({ kind: "teleport", interval: 20, range: 3 }, { pos: { x: 10, y: 0 } });
+		const e = enemyWith(
+			{ kind: "teleport", interval: 20, range: 3 },
+			{ pos: { x: 10, y: 0 } },
+		);
 		s.enemies = [e];
 		s.tick = 20;
 		const before = Math.hypot(e.pos.x, e.pos.y);
@@ -1626,8 +1660,16 @@ describe("abilities", () => {
 
 	it("heal-aura restores nearby wounded allies on its pulse", () => {
 		const s = createInitialState(1);
-		const healer = enemyWith({ kind: "heal-aura", radius: 5, amount: 1, interval: 20 }, { id: 1, pos: { x: 0, y: 0 } });
-		const ally = enemyWith(null, { id: 2, pos: { x: 2, y: 0 }, hp: 1, maxHp: 4 });
+		const healer = enemyWith(
+			{ kind: "heal-aura", radius: 5, amount: 1, interval: 20 },
+			{ id: 1, pos: { x: 0, y: 0 } },
+		);
+		const ally = enemyWith(null, {
+			id: 2,
+			pos: { x: 2, y: 0 },
+			hp: 1,
+			maxHp: 4,
+		});
 		s.enemies = [healer, ally];
 		s.tick = 20;
 		tickAbility(s, healer);
@@ -1762,26 +1804,20 @@ import { isTargetable, tickAbility } from "./abilities";
 Add the ability tick phase immediately after `runWaveDirector(s);` and before the movement loop:
 
 ```ts
-	// abilities (spawn / heal / teleport / enrage) — O(enemies)
-	for (const e of s.enemies) {
-		if (e.alive && e.ability) tickAbility(s, e);
-	}
+// abilities (spawn / heal / teleport / enrage) — O(enemies)
+for (const e of s.enemies) {
+	if (e.alive && e.ability) tickAbility(s, e);
+}
 ```
 
 In the typing loop's acquisition branch (the `candidates` filter), gate on `isTargetable`:
 
 ```ts
-			const candidates = s.enemies
-				.filter(
-					(e) =>
-						e.alive &&
-						isTargetable(e, s.tick) &&
-						isCharMatch(ev.key, e.word[0]),
-				)
-				.sort(
-					(a, b) =>
-						Math.hypot(a.pos.x, a.pos.y) - Math.hypot(b.pos.x, b.pos.y),
-				);
+const candidates = s.enemies
+	.filter(
+		(e) => e.alive && isTargetable(e, s.tick) && isCharMatch(ev.key, e.word[0]),
+	)
+	.sort((a, b) => Math.hypot(a.pos.x, a.pos.y) - Math.hypot(b.pos.x, b.pos.y));
 ```
 
 Leave the in-progress lock advance untouched (a locked cloaked enemy stays typeable).
@@ -1980,7 +2016,9 @@ export const POWERUP_WORDS: readonly string[] = [
 export function spawnPowerup(s: GameState): void {
 	const [ki, r1] = nextInt(s.rngState, KINDS.length);
 	const [wi, r2] = nextInt(r1, POWERUP_WORDS.length);
-	const initials = new Set(s.enemies.filter((e) => e.alive).map((e) => e.word[0]));
+	const initials = new Set(
+		s.enemies.filter((e) => e.alive).map((e) => e.word[0]),
+	);
 	// keep powerup words visually distinct from POWERUP_WORDS pool; fall back to
 	// pickWord only if a bank word collides with a live enemy initial
 	let word = POWERUP_WORDS[wi];
@@ -2046,16 +2084,16 @@ import {
 Update the working-draft clone to deep-copy `powerups`:
 
 ```ts
-	const s: GameState = {
-		...state,
-		tick: state.tick + 1,
-		enemies: state.enemies.map((e) => ({
-			...e,
-			pos: { ...e.pos },
-			abilityState: { ...e.abilityState },
-		})),
-		powerups: state.powerups.map((p) => ({ ...p, pos: { ...p.pos } })),
-	};
+const s: GameState = {
+	...state,
+	tick: state.tick + 1,
+	enemies: state.enemies.map((e) => ({
+		...e,
+		pos: { ...e.pos },
+		abilityState: { ...e.abilityState },
+	})),
+	powerups: state.powerups.map((p) => ({ ...p, pos: { ...p.pos } })),
+};
 ```
 
 Add freeze/slow scaling to the movement loop:
@@ -2086,97 +2124,104 @@ Add freeze/slow scaling to the movement loop:
 Add effect-timer decay + powerup lifetime + milestone spawn, placed right after the combo-decay block and before the typing loop:
 
 ```ts
-	// effect timers
-	if (s.freezeTicksLeft > 0) s.freezeTicksLeft -= 1;
-	if (s.slowTicksLeft > 0) s.slowTicksLeft -= 1;
+// effect timers
+if (s.freezeTicksLeft > 0) s.freezeTicksLeft -= 1;
+if (s.slowTicksLeft > 0) s.slowTicksLeft -= 1;
 
-	// powerup lifetime + kill-milestone spawn
-	if (s.powerups.length > 0) {
-		s.powerups = s.powerups.filter((p) => p.expiresTick > s.tick);
-		if (s.targetPowerupId !== null && !s.powerups.some((p) => p.id === s.targetPowerupId)) {
-			s.targetPowerupId = null;
-		}
+// powerup lifetime + kill-milestone spawn
+if (s.powerups.length > 0) {
+	s.powerups = s.powerups.filter((p) => p.expiresTick > s.tick);
+	if (
+		s.targetPowerupId !== null &&
+		!s.powerups.some((p) => p.id === s.targetPowerupId)
+	) {
+		s.targetPowerupId = null;
 	}
-	if (s.kills > 0 && s.kills % POWERUP_SPAWN_EVERY_KILLS === 0 && s.powerups.length === 0) {
-		spawnPowerup(s);
-	}
+}
+if (
+	s.kills > 0 &&
+	s.kills % POWERUP_SPAWN_EVERY_KILLS === 0 &&
+	s.powerups.length === 0
+) {
+	spawnPowerup(s);
+}
 ```
 
 Extend the typing loop to handle powerup locks and acquisition. Replace the whole `for (const ev of events)` body with:
 
 ```ts
-	for (const ev of events) {
-		if (ev.type !== "key") continue;
+for (const ev of events) {
+	if (ev.type !== "key") continue;
 
-		// 1) advance a locked powerup
-		if (s.targetPowerupId !== null) {
-			const pu = s.powerups.find((p) => p.id === s.targetPowerupId);
-			if (pu && isCharMatch(ev.key, pu.word[pu.typedCount])) {
-				pu.typedCount += 1;
-				if (pu.typedCount >= pu.word.length) {
-					applyPowerup(s, pu.kind);
-					s.powerups = s.powerups.filter((p) => p.id !== pu.id);
-					s.targetPowerupId = null;
-				}
-				continue;
-			}
-			if (pu) {
-				s.misses += 1;
-				s.combo = 0;
-				s.comboTicksLeft = 0;
-				continue;
-			}
-			s.targetPowerupId = null;
-		}
-
-		// 2) advance a locked enemy
-		const target = s.enemies.find((e) => e.id === s.targetId && e.alive);
-		if (target) {
-			if (isCharMatch(ev.key, target.word[target.typedCount])) {
-				target.typedCount += 1;
-				resolveCompletion(s, target);
-			} else {
-				s.misses += 1;
-				s.combo = 0;
-				s.comboTicksLeft = 0;
-			}
-			continue;
-		}
-		s.targetId = null;
-
-		// 3) acquire a new enemy target (preferred), then a powerup
-		const candidates = s.enemies
-			.filter(
-				(e) =>
-					e.alive && isTargetable(e, s.tick) && isCharMatch(ev.key, e.word[0]),
-			)
-			.sort(
-				(a, b) => Math.hypot(a.pos.x, a.pos.y) - Math.hypot(b.pos.x, b.pos.y),
-			);
-		if (candidates.length > 0) {
-			const picked = candidates[0];
-			picked.typedCount = 1;
-			s.targetId = picked.id;
-			resolveCompletion(s, picked);
-			continue;
-		}
-
-		const pu = s.powerups.find((p) => isCharMatch(ev.key, p.word[0]));
-		if (pu) {
-			pu.typedCount = 1;
-			s.targetPowerupId = pu.id;
-			if (pu.word.length === 1) {
+	// 1) advance a locked powerup
+	if (s.targetPowerupId !== null) {
+		const pu = s.powerups.find((p) => p.id === s.targetPowerupId);
+		if (pu && isCharMatch(ev.key, pu.word[pu.typedCount])) {
+			pu.typedCount += 1;
+			if (pu.typedCount >= pu.word.length) {
 				applyPowerup(s, pu.kind);
 				s.powerups = s.powerups.filter((p) => p.id !== pu.id);
 				s.targetPowerupId = null;
 			}
 			continue;
 		}
-
-		s.misses += 1;
-		s.combo = 0;
-		s.comboTicksLeft = 0;
+		if (pu) {
+			s.misses += 1;
+			s.combo = 0;
+			s.comboTicksLeft = 0;
+			continue;
+		}
+		s.targetPowerupId = null;
 	}
+
+	// 2) advance a locked enemy
+	const target = s.enemies.find((e) => e.id === s.targetId && e.alive);
+	if (target) {
+		if (isCharMatch(ev.key, target.word[target.typedCount])) {
+			target.typedCount += 1;
+			resolveCompletion(s, target);
+		} else {
+			s.misses += 1;
+			s.combo = 0;
+			s.comboTicksLeft = 0;
+		}
+		continue;
+	}
+	s.targetId = null;
+
+	// 3) acquire a new enemy target (preferred), then a powerup
+	const candidates = s.enemies
+		.filter(
+			(e) =>
+				e.alive && isTargetable(e, s.tick) && isCharMatch(ev.key, e.word[0]),
+		)
+		.sort(
+			(a, b) => Math.hypot(a.pos.x, a.pos.y) - Math.hypot(b.pos.x, b.pos.y),
+		);
+	if (candidates.length > 0) {
+		const picked = candidates[0];
+		picked.typedCount = 1;
+		s.targetId = picked.id;
+		resolveCompletion(s, picked);
+		continue;
+	}
+
+	const pu = s.powerups.find((p) => isCharMatch(ev.key, p.word[0]));
+	if (pu) {
+		pu.typedCount = 1;
+		s.targetPowerupId = pu.id;
+		if (pu.word.length === 1) {
+			applyPowerup(s, pu.kind);
+			s.powerups = s.powerups.filter((p) => p.id !== pu.id);
+			s.targetPowerupId = null;
+		}
+		continue;
+	}
+
+	s.misses += 1;
+	s.combo = 0;
+	s.comboTicksLeft = 0;
+}
 ```
 
 Note: `resolveCompletion` on a fresh single-char acquisition advances `typedCount` to 1; for a 1-char word it completes immediately, matching prior behaviour.
@@ -2238,36 +2283,36 @@ function buildDeepRunLog(seed: number): InputLog {
 Add the tests inside the `describe("replay", …)` block:
 
 ```ts
-	it("deep run is deterministic across replays", () => {
-		const log = buildDeepRunLog(42);
-		expect(stateHash(runReplay(log))).toBe(stateHash(runReplay(log)));
-	});
+it("deep run is deterministic across replays", () => {
+	const log = buildDeepRunLog(42);
+	expect(stateHash(runReplay(log))).toBe(stateHash(runReplay(log)));
+});
 
-	it("matches the deep-run golden fixture", async () => {
-		const fixture = await import("./__fixtures__/replay-deep-run.json");
-		const result = runReplay(fixture.log as InputLog);
-		expect(stateHash(result)).toBe(fixture.expectedHash);
-		expect(result.wave).toBe(fixture.expectedWave);
-	});
+it("matches the deep-run golden fixture", async () => {
+	const fixture = await import("./__fixtures__/replay-deep-run.json");
+	const result = runReplay(fixture.log as InputLog);
+	expect(stateHash(result)).toBe(fixture.expectedHash);
+	expect(result.wave).toBe(fixture.expectedWave);
+});
 ```
 
 Extend the `[record]` recorder to also write the deep-run fixture:
 
 ```ts
-	it("[record] regenerate deep-run fixture", () => {
-		if (!process.env.RECORD_FIXTURE) return;
-		const log = buildDeepRunLog(42);
-		const result = runReplay(log);
-		const fixture = {
-			log,
-			expectedHash: stateHash(result),
-			expectedWave: result.wave,
-		};
-		writeFileSync(
-			new URL("./__fixtures__/replay-deep-run.json", import.meta.url),
-			`${JSON.stringify(fixture, null, "\t")}\n`,
-		);
-	});
+it("[record] regenerate deep-run fixture", () => {
+	if (!process.env.RECORD_FIXTURE) return;
+	const log = buildDeepRunLog(42);
+	const result = runReplay(log);
+	const fixture = {
+		log,
+		expectedHash: stateHash(result),
+		expectedWave: result.wave,
+	};
+	writeFileSync(
+		new URL("./__fixtures__/replay-deep-run.json", import.meta.url),
+		`${JSON.stringify(fixture, null, "\t")}\n`,
+	);
+});
 ```
 
 - [ ] **Step 2: Record both fixtures**

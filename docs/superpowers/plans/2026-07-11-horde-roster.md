@@ -54,12 +54,12 @@ export function pickWord(
 
 Band ranges (word length), each non-empty against the real data (1k has ≥73 words per length 3–6; 5k has ≥600 per length 6–8 and ≥550 per length 8–12):
 
-| Tier | Source | Length | Feel |
-|---|---|---|---|
-| 1 | english-1k | 3–4 | short common |
-| 2 | english-1k | 5–6 | medium common |
-| 3 | english-5k | 6–8 | long |
-| 4 | english-5k | 8–12 | long/rare (boss chains) |
+| Tier | Source     | Length | Feel                    |
+| ---- | ---------- | ------ | ----------------------- |
+| 1    | english-1k | 3–4    | short common            |
+| 2    | english-1k | 5–6    | medium common           |
+| 3    | english-5k | 6–8    | long                    |
+| 4    | english-5k | 8–12   | long/rare (boss chains) |
 
 - [ ] **Step 1: Rewrite the words test** (`words.test.ts`)
 
@@ -255,38 +255,38 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 
 **Roster design.** Six families, each a movement identity; four tiers per family with escalating hp/size and decreasing speed; six bosses (tier 4, `role: "boss"`, hp 4–5 = word-chain length). All eight abilities appear at least once (`shield`, `armored-front`, `cloak`, `teleport`, `enrage-at-half`, `heal-aura`, `spawn`, `split`). `split`/`spawn` minions reference `"brood-1"` (Broodling), a real roster entry.
 
-| id | name | hp | speed | size | tier | movement | ability |
-|---|---|---|---|---|---|---|---|
-| husk-1 | Huskling | 1 | 0.050 | 0.7 | 1 | chase | — |
-| husk-2 | Husk | 1 | 0.044 | 0.9 | 2 | chase | — |
-| husk-3 | Ravener | 2 | 0.034 | 1.2 | 3 | chase | enrage-at-half ×1.8 |
-| husk-4 | Colossus Husk | 3 | 0.024 | 1.7 | 4 | chase | heal-aura r5 +1/180 |
-| darter-1 | Nit | 1 | 0.058 | 0.6 | 1 | zigzag | — |
-| darter-2 | Flitter | 1 | 0.050 | 0.8 | 2 | zigzag | cloak/45 |
-| darter-3 | Shade Darter | 2 | 0.040 | 1.0 | 3 | zigzag | cloak/35 |
-| darter-4 | Voidwing | 3 | 0.030 | 1.4 | 4 | zigzag | teleport/120 r4 |
-| wraith-1 | Wisp | 1 | 0.052 | 0.6 | 1 | orbit-then-dive | — |
-| wraith-2 | Haunt | 1 | 0.046 | 0.9 | 2 | orbit-then-dive | teleport/150 r3 |
-| wraith-3 | Phantom | 2 | 0.036 | 1.1 | 3 | orbit-then-dive | cloak/40 |
-| wraith-4 | Revenant | 3 | 0.028 | 1.5 | 4 | orbit-then-dive | teleport/100 r5 |
-| charger-1 | Tick | 1 | 0.048 | 0.7 | 1 | dash-pause | — |
-| charger-2 | Rammer | 2 | 0.042 | 1.0 | 2 | dash-pause | enrage-at-half ×1.6 |
-| charger-3 | Gorehoof | 2 | 0.034 | 1.3 | 3 | dash-pause | enrage-at-half ×1.8 |
-| charger-4 | Juggernaut | 4 | 0.024 | 1.8 | 4 | dash-pause | armored-front r5 |
-| weaver-1 | Creeper | 1 | 0.050 | 0.7 | 1 | flank | shield 1 |
-| weaver-2 | Lancer | 2 | 0.042 | 1.0 | 2 | flank | shield 2 |
-| weaver-3 | Bulwark | 2 | 0.032 | 1.3 | 3 | flank | armored-front r4 |
-| weaver-4 | Aegis | 3 | 0.026 | 1.6 | 4 | flank | armored-front r6 |
-| brood-1 | Broodling | 1 | 0.056 | 0.5 | 1 | spiral | — |
-| brood-2 | Spinner | 1 | 0.046 | 0.9 | 2 | spiral | spawn brood-1 /150 |
-| brood-3 | Splitter | 2 | 0.036 | 1.1 | 3 | spiral | split ×2 brood-1 |
-| brood-4 | Matron | 3 | 0.026 | 1.5 | 4 | spiral | spawn brood-1 /120 |
-| boss-maw | The Maw | 5 | 0.020 | 2.6 | 4 | chase | heal-aura r7 +1/150 |
-| boss-spire | Gloomspire | 4 | 0.022 | 2.4 | 4 | orbit-then-dive | teleport/110 r6 |
-| boss-iron | Ironclad | 5 | 0.018 | 3.0 | 4 | dash-pause | armored-front r7 |
-| boss-hive | Hivemind | 4 | 0.022 | 2.5 | 4 | spiral | spawn brood-1 /90 |
-| boss-choir | Phantom Choir | 4 | 0.026 | 2.3 | 4 | zigzag | cloak/50 |
-| boss-sunder | Sunderer | 5 | 0.020 | 2.8 | 4 | flank | enrage-at-half ×2.0 |
+| id          | name          | hp  | speed | size | tier | movement        | ability             |
+| ----------- | ------------- | --- | ----- | ---- | ---- | --------------- | ------------------- |
+| husk-1      | Huskling      | 1   | 0.050 | 0.7  | 1    | chase           | —                   |
+| husk-2      | Husk          | 1   | 0.044 | 0.9  | 2    | chase           | —                   |
+| husk-3      | Ravener       | 2   | 0.034 | 1.2  | 3    | chase           | enrage-at-half ×1.8 |
+| husk-4      | Colossus Husk | 3   | 0.024 | 1.7  | 4    | chase           | heal-aura r5 +1/180 |
+| darter-1    | Nit           | 1   | 0.058 | 0.6  | 1    | zigzag          | —                   |
+| darter-2    | Flitter       | 1   | 0.050 | 0.8  | 2    | zigzag          | cloak/45            |
+| darter-3    | Shade Darter  | 2   | 0.040 | 1.0  | 3    | zigzag          | cloak/35            |
+| darter-4    | Voidwing      | 3   | 0.030 | 1.4  | 4    | zigzag          | teleport/120 r4     |
+| wraith-1    | Wisp          | 1   | 0.052 | 0.6  | 1    | orbit-then-dive | —                   |
+| wraith-2    | Haunt         | 1   | 0.046 | 0.9  | 2    | orbit-then-dive | teleport/150 r3     |
+| wraith-3    | Phantom       | 2   | 0.036 | 1.1  | 3    | orbit-then-dive | cloak/40            |
+| wraith-4    | Revenant      | 3   | 0.028 | 1.5  | 4    | orbit-then-dive | teleport/100 r5     |
+| charger-1   | Tick          | 1   | 0.048 | 0.7  | 1    | dash-pause      | —                   |
+| charger-2   | Rammer        | 2   | 0.042 | 1.0  | 2    | dash-pause      | enrage-at-half ×1.6 |
+| charger-3   | Gorehoof      | 2   | 0.034 | 1.3  | 3    | dash-pause      | enrage-at-half ×1.8 |
+| charger-4   | Juggernaut    | 4   | 0.024 | 1.8  | 4    | dash-pause      | armored-front r5    |
+| weaver-1    | Creeper       | 1   | 0.050 | 0.7  | 1    | flank           | shield 1            |
+| weaver-2    | Lancer        | 2   | 0.042 | 1.0  | 2    | flank           | shield 2            |
+| weaver-3    | Bulwark       | 2   | 0.032 | 1.3  | 3    | flank           | armored-front r4    |
+| weaver-4    | Aegis         | 3   | 0.026 | 1.6  | 4    | flank           | armored-front r6    |
+| brood-1     | Broodling     | 1   | 0.056 | 0.5  | 1    | spiral          | —                   |
+| brood-2     | Spinner       | 1   | 0.046 | 0.9  | 2    | spiral          | spawn brood-1 /150  |
+| brood-3     | Splitter      | 2   | 0.036 | 1.1  | 3    | spiral          | split ×2 brood-1    |
+| brood-4     | Matron        | 3   | 0.026 | 1.5  | 4    | spiral          | spawn brood-1 /120  |
+| boss-maw    | The Maw       | 5   | 0.020 | 2.6  | 4    | chase           | heal-aura r7 +1/150 |
+| boss-spire  | Gloomspire    | 4   | 0.022 | 2.4  | 4    | orbit-then-dive | teleport/110 r6     |
+| boss-iron   | Ironclad      | 5   | 0.018 | 3.0  | 4    | dash-pause      | armored-front r7    |
+| boss-hive   | Hivemind      | 4   | 0.022 | 2.5  | 4    | spiral          | spawn brood-1 /90   |
+| boss-choir  | Phantom Choir | 4   | 0.026 | 2.3  | 4    | zigzag          | cloak/50            |
+| boss-sunder | Sunderer      | 5   | 0.020 | 2.8  | 4    | flank           | enrage-at-half ×2.0 |
 
 - [ ] **Step 1: Write the roster validation test** (`enemies.test.ts`)
 
@@ -382,42 +382,342 @@ describe("enemy roster", () => {
 ```ts
 export const ENEMIES: EnemyArchetype[] = [
 	// Husk family — chase
-	{ id: "husk-1", name: "Huskling", hp: 1, speed: 0.05, size: 0.7, tier: 1, movement: "chase", ability: null, role: "regular" },
-	{ id: "husk-2", name: "Husk", hp: 1, speed: 0.044, size: 0.9, tier: 2, movement: "chase", ability: null, role: "regular" },
-	{ id: "husk-3", name: "Ravener", hp: 2, speed: 0.034, size: 1.2, tier: 3, movement: "chase", ability: { kind: "enrage-at-half", speedMult: 1.8 }, role: "regular" },
-	{ id: "husk-4", name: "Colossus Husk", hp: 3, speed: 0.024, size: 1.7, tier: 4, movement: "chase", ability: { kind: "heal-aura", radius: 5, amount: 1, interval: 180 }, role: "regular" },
+	{
+		id: "husk-1",
+		name: "Huskling",
+		hp: 1,
+		speed: 0.05,
+		size: 0.7,
+		tier: 1,
+		movement: "chase",
+		ability: null,
+		role: "regular",
+	},
+	{
+		id: "husk-2",
+		name: "Husk",
+		hp: 1,
+		speed: 0.044,
+		size: 0.9,
+		tier: 2,
+		movement: "chase",
+		ability: null,
+		role: "regular",
+	},
+	{
+		id: "husk-3",
+		name: "Ravener",
+		hp: 2,
+		speed: 0.034,
+		size: 1.2,
+		tier: 3,
+		movement: "chase",
+		ability: { kind: "enrage-at-half", speedMult: 1.8 },
+		role: "regular",
+	},
+	{
+		id: "husk-4",
+		name: "Colossus Husk",
+		hp: 3,
+		speed: 0.024,
+		size: 1.7,
+		tier: 4,
+		movement: "chase",
+		ability: { kind: "heal-aura", radius: 5, amount: 1, interval: 180 },
+		role: "regular",
+	},
 	// Darter family — zigzag
-	{ id: "darter-1", name: "Nit", hp: 1, speed: 0.058, size: 0.6, tier: 1, movement: "zigzag", ability: null, role: "regular" },
-	{ id: "darter-2", name: "Flitter", hp: 1, speed: 0.05, size: 0.8, tier: 2, movement: "zigzag", ability: { kind: "cloak", interval: 45 }, role: "regular" },
-	{ id: "darter-3", name: "Shade Darter", hp: 2, speed: 0.04, size: 1.0, tier: 3, movement: "zigzag", ability: { kind: "cloak", interval: 35 }, role: "regular" },
-	{ id: "darter-4", name: "Voidwing", hp: 3, speed: 0.03, size: 1.4, tier: 4, movement: "zigzag", ability: { kind: "teleport", interval: 120, range: 4 }, role: "regular" },
+	{
+		id: "darter-1",
+		name: "Nit",
+		hp: 1,
+		speed: 0.058,
+		size: 0.6,
+		tier: 1,
+		movement: "zigzag",
+		ability: null,
+		role: "regular",
+	},
+	{
+		id: "darter-2",
+		name: "Flitter",
+		hp: 1,
+		speed: 0.05,
+		size: 0.8,
+		tier: 2,
+		movement: "zigzag",
+		ability: { kind: "cloak", interval: 45 },
+		role: "regular",
+	},
+	{
+		id: "darter-3",
+		name: "Shade Darter",
+		hp: 2,
+		speed: 0.04,
+		size: 1.0,
+		tier: 3,
+		movement: "zigzag",
+		ability: { kind: "cloak", interval: 35 },
+		role: "regular",
+	},
+	{
+		id: "darter-4",
+		name: "Voidwing",
+		hp: 3,
+		speed: 0.03,
+		size: 1.4,
+		tier: 4,
+		movement: "zigzag",
+		ability: { kind: "teleport", interval: 120, range: 4 },
+		role: "regular",
+	},
 	// Wraith family — orbit-then-dive
-	{ id: "wraith-1", name: "Wisp", hp: 1, speed: 0.052, size: 0.6, tier: 1, movement: "orbit-then-dive", ability: null, role: "regular" },
-	{ id: "wraith-2", name: "Haunt", hp: 1, speed: 0.046, size: 0.9, tier: 2, movement: "orbit-then-dive", ability: { kind: "teleport", interval: 150, range: 3 }, role: "regular" },
-	{ id: "wraith-3", name: "Phantom", hp: 2, speed: 0.036, size: 1.1, tier: 3, movement: "orbit-then-dive", ability: { kind: "cloak", interval: 40 }, role: "regular" },
-	{ id: "wraith-4", name: "Revenant", hp: 3, speed: 0.028, size: 1.5, tier: 4, movement: "orbit-then-dive", ability: { kind: "teleport", interval: 100, range: 5 }, role: "regular" },
+	{
+		id: "wraith-1",
+		name: "Wisp",
+		hp: 1,
+		speed: 0.052,
+		size: 0.6,
+		tier: 1,
+		movement: "orbit-then-dive",
+		ability: null,
+		role: "regular",
+	},
+	{
+		id: "wraith-2",
+		name: "Haunt",
+		hp: 1,
+		speed: 0.046,
+		size: 0.9,
+		tier: 2,
+		movement: "orbit-then-dive",
+		ability: { kind: "teleport", interval: 150, range: 3 },
+		role: "regular",
+	},
+	{
+		id: "wraith-3",
+		name: "Phantom",
+		hp: 2,
+		speed: 0.036,
+		size: 1.1,
+		tier: 3,
+		movement: "orbit-then-dive",
+		ability: { kind: "cloak", interval: 40 },
+		role: "regular",
+	},
+	{
+		id: "wraith-4",
+		name: "Revenant",
+		hp: 3,
+		speed: 0.028,
+		size: 1.5,
+		tier: 4,
+		movement: "orbit-then-dive",
+		ability: { kind: "teleport", interval: 100, range: 5 },
+		role: "regular",
+	},
 	// Charger family — dash-pause
-	{ id: "charger-1", name: "Tick", hp: 1, speed: 0.048, size: 0.7, tier: 1, movement: "dash-pause", ability: null, role: "regular" },
-	{ id: "charger-2", name: "Rammer", hp: 2, speed: 0.042, size: 1.0, tier: 2, movement: "dash-pause", ability: { kind: "enrage-at-half", speedMult: 1.6 }, role: "regular" },
-	{ id: "charger-3", name: "Gorehoof", hp: 2, speed: 0.034, size: 1.3, tier: 3, movement: "dash-pause", ability: { kind: "enrage-at-half", speedMult: 1.8 }, role: "regular" },
-	{ id: "charger-4", name: "Juggernaut", hp: 4, speed: 0.024, size: 1.8, tier: 4, movement: "dash-pause", ability: { kind: "armored-front", exposeRadius: 5 }, role: "regular" },
+	{
+		id: "charger-1",
+		name: "Tick",
+		hp: 1,
+		speed: 0.048,
+		size: 0.7,
+		tier: 1,
+		movement: "dash-pause",
+		ability: null,
+		role: "regular",
+	},
+	{
+		id: "charger-2",
+		name: "Rammer",
+		hp: 2,
+		speed: 0.042,
+		size: 1.0,
+		tier: 2,
+		movement: "dash-pause",
+		ability: { kind: "enrage-at-half", speedMult: 1.6 },
+		role: "regular",
+	},
+	{
+		id: "charger-3",
+		name: "Gorehoof",
+		hp: 2,
+		speed: 0.034,
+		size: 1.3,
+		tier: 3,
+		movement: "dash-pause",
+		ability: { kind: "enrage-at-half", speedMult: 1.8 },
+		role: "regular",
+	},
+	{
+		id: "charger-4",
+		name: "Juggernaut",
+		hp: 4,
+		speed: 0.024,
+		size: 1.8,
+		tier: 4,
+		movement: "dash-pause",
+		ability: { kind: "armored-front", exposeRadius: 5 },
+		role: "regular",
+	},
 	// Weaver family — flank
-	{ id: "weaver-1", name: "Creeper", hp: 1, speed: 0.05, size: 0.7, tier: 1, movement: "flank", ability: { kind: "shield", hits: 1 }, role: "regular" },
-	{ id: "weaver-2", name: "Lancer", hp: 2, speed: 0.042, size: 1.0, tier: 2, movement: "flank", ability: { kind: "shield", hits: 2 }, role: "regular" },
-	{ id: "weaver-3", name: "Bulwark", hp: 2, speed: 0.032, size: 1.3, tier: 3, movement: "flank", ability: { kind: "armored-front", exposeRadius: 4 }, role: "regular" },
-	{ id: "weaver-4", name: "Aegis", hp: 3, speed: 0.026, size: 1.6, tier: 4, movement: "flank", ability: { kind: "armored-front", exposeRadius: 6 }, role: "regular" },
+	{
+		id: "weaver-1",
+		name: "Creeper",
+		hp: 1,
+		speed: 0.05,
+		size: 0.7,
+		tier: 1,
+		movement: "flank",
+		ability: { kind: "shield", hits: 1 },
+		role: "regular",
+	},
+	{
+		id: "weaver-2",
+		name: "Lancer",
+		hp: 2,
+		speed: 0.042,
+		size: 1.0,
+		tier: 2,
+		movement: "flank",
+		ability: { kind: "shield", hits: 2 },
+		role: "regular",
+	},
+	{
+		id: "weaver-3",
+		name: "Bulwark",
+		hp: 2,
+		speed: 0.032,
+		size: 1.3,
+		tier: 3,
+		movement: "flank",
+		ability: { kind: "armored-front", exposeRadius: 4 },
+		role: "regular",
+	},
+	{
+		id: "weaver-4",
+		name: "Aegis",
+		hp: 3,
+		speed: 0.026,
+		size: 1.6,
+		tier: 4,
+		movement: "flank",
+		ability: { kind: "armored-front", exposeRadius: 6 },
+		role: "regular",
+	},
 	// Brood family — spiral
-	{ id: "brood-1", name: "Broodling", hp: 1, speed: 0.056, size: 0.5, tier: 1, movement: "spiral", ability: null, role: "regular" },
-	{ id: "brood-2", name: "Spinner", hp: 1, speed: 0.046, size: 0.9, tier: 2, movement: "spiral", ability: { kind: "spawn", minion: "brood-1", rate: 150 }, role: "regular" },
-	{ id: "brood-3", name: "Splitter", hp: 2, speed: 0.036, size: 1.1, tier: 3, movement: "spiral", ability: { kind: "split", n: 2, minion: "brood-1" }, role: "regular" },
-	{ id: "brood-4", name: "Matron", hp: 3, speed: 0.026, size: 1.5, tier: 4, movement: "spiral", ability: { kind: "spawn", minion: "brood-1", rate: 120 }, role: "regular" },
+	{
+		id: "brood-1",
+		name: "Broodling",
+		hp: 1,
+		speed: 0.056,
+		size: 0.5,
+		tier: 1,
+		movement: "spiral",
+		ability: null,
+		role: "regular",
+	},
+	{
+		id: "brood-2",
+		name: "Spinner",
+		hp: 1,
+		speed: 0.046,
+		size: 0.9,
+		tier: 2,
+		movement: "spiral",
+		ability: { kind: "spawn", minion: "brood-1", rate: 150 },
+		role: "regular",
+	},
+	{
+		id: "brood-3",
+		name: "Splitter",
+		hp: 2,
+		speed: 0.036,
+		size: 1.1,
+		tier: 3,
+		movement: "spiral",
+		ability: { kind: "split", n: 2, minion: "brood-1" },
+		role: "regular",
+	},
+	{
+		id: "brood-4",
+		name: "Matron",
+		hp: 3,
+		speed: 0.026,
+		size: 1.5,
+		tier: 4,
+		movement: "spiral",
+		ability: { kind: "spawn", minion: "brood-1", rate: 120 },
+		role: "regular",
+	},
 	// Bosses — role "boss", hp = word-chain length (4-5)
-	{ id: "boss-maw", name: "The Maw", hp: 5, speed: 0.02, size: 2.6, tier: 4, movement: "chase", ability: { kind: "heal-aura", radius: 7, amount: 1, interval: 150 }, role: "boss" },
-	{ id: "boss-spire", name: "Gloomspire", hp: 4, speed: 0.022, size: 2.4, tier: 4, movement: "orbit-then-dive", ability: { kind: "teleport", interval: 110, range: 6 }, role: "boss" },
-	{ id: "boss-iron", name: "Ironclad", hp: 5, speed: 0.018, size: 3.0, tier: 4, movement: "dash-pause", ability: { kind: "armored-front", exposeRadius: 7 }, role: "boss" },
-	{ id: "boss-hive", name: "Hivemind", hp: 4, speed: 0.022, size: 2.5, tier: 4, movement: "spiral", ability: { kind: "spawn", minion: "brood-1", rate: 90 }, role: "boss" },
-	{ id: "boss-choir", name: "Phantom Choir", hp: 4, speed: 0.026, size: 2.3, tier: 4, movement: "zigzag", ability: { kind: "cloak", interval: 50 }, role: "boss" },
-	{ id: "boss-sunder", name: "Sunderer", hp: 5, speed: 0.02, size: 2.8, tier: 4, movement: "flank", ability: { kind: "enrage-at-half", speedMult: 2.0 }, role: "boss" },
+	{
+		id: "boss-maw",
+		name: "The Maw",
+		hp: 5,
+		speed: 0.02,
+		size: 2.6,
+		tier: 4,
+		movement: "chase",
+		ability: { kind: "heal-aura", radius: 7, amount: 1, interval: 150 },
+		role: "boss",
+	},
+	{
+		id: "boss-spire",
+		name: "Gloomspire",
+		hp: 4,
+		speed: 0.022,
+		size: 2.4,
+		tier: 4,
+		movement: "orbit-then-dive",
+		ability: { kind: "teleport", interval: 110, range: 6 },
+		role: "boss",
+	},
+	{
+		id: "boss-iron",
+		name: "Ironclad",
+		hp: 5,
+		speed: 0.018,
+		size: 3.0,
+		tier: 4,
+		movement: "dash-pause",
+		ability: { kind: "armored-front", exposeRadius: 7 },
+		role: "boss",
+	},
+	{
+		id: "boss-hive",
+		name: "Hivemind",
+		hp: 4,
+		speed: 0.022,
+		size: 2.5,
+		tier: 4,
+		movement: "spiral",
+		ability: { kind: "spawn", minion: "brood-1", rate: 90 },
+		role: "boss",
+	},
+	{
+		id: "boss-choir",
+		name: "Phantom Choir",
+		hp: 4,
+		speed: 0.026,
+		size: 2.3,
+		tier: 4,
+		movement: "zigzag",
+		ability: { kind: "cloak", interval: 50 },
+		role: "boss",
+	},
+	{
+		id: "boss-sunder",
+		name: "Sunderer",
+		hp: 5,
+		speed: 0.02,
+		size: 2.8,
+		tier: 4,
+		movement: "flank",
+		ability: { kind: "enrage-at-half", speedMult: 2.0 },
+		role: "boss",
+	},
 ];
 ```
 
@@ -451,21 +751,21 @@ function stateWithEnemy(archetypeId: string): {
 Change the `stateWithEnemy("grunt")` calls to `stateWithEnemy("husk-1")` (both the `reassignWord` test and the `killEnemy` test), and change the `stateWithEnemy("brute")` call in the "3-hp" test to `stateWithEnemy("husk-4")`. Update that test's title/assertion to reference the hp-3 Colossus:
 
 ```ts
-	it("a 3-hp enemy takes three completions to die, reassigning each time", () => {
-		const { s } = stateWithEnemy("husk-4");
-		const e = s.enemies[0];
-		e.typedCount = e.word.length;
-		resolveCompletion(s, e);
-		expect(e.alive).toBe(true);
-		expect(e.hp).toBe(2);
-		e.typedCount = e.word.length;
-		resolveCompletion(s, e);
-		expect(e.hp).toBe(1);
-		e.typedCount = e.word.length;
-		resolveCompletion(s, e);
-		expect(e.alive).toBe(false);
-		expect(s.kills).toBe(1);
-	});
+it("a 3-hp enemy takes three completions to die, reassigning each time", () => {
+	const { s } = stateWithEnemy("husk-4");
+	const e = s.enemies[0];
+	e.typedCount = e.word.length;
+	resolveCompletion(s, e);
+	expect(e.alive).toBe(true);
+	expect(e.hp).toBe(2);
+	e.typedCount = e.word.length;
+	resolveCompletion(s, e);
+	expect(e.hp).toBe(1);
+	e.typedCount = e.word.length;
+	resolveCompletion(s, e);
+	expect(e.alive).toBe(false);
+	expect(s.kills).toBe(1);
+});
 ```
 
 - [ ] **Step 6: Update interim-id references in `powerups.test.ts`**
@@ -473,18 +773,18 @@ Change the `stateWithEnemy("grunt")` calls to `stateWithEnemy("husk-1")` (both t
 Replace the two `getArchetype("grunt")` calls in the "bomb kills every alive enemy" test with `getArchetype("husk-1")`:
 
 ```ts
-		s.enemies = [
-			createEnemy(getArchetype("husk-1"), 1, { x: 5, y: 0 }, 0, "the"),
-			createEnemy(getArchetype("husk-1"), 2, { x: -5, y: 0 }, 0, "and"),
-		];
+s.enemies = [
+	createEnemy(getArchetype("husk-1"), 1, { x: 5, y: 0 }, 0, "the"),
+	createEnemy(getArchetype("husk-1"), 2, { x: -5, y: 0 }, 0, "and"),
+];
 ```
 
 - [ ] **Step 7: Repoint the interim selector + patch `spawner.test.ts` off the removed ids**
 
 Plan 2's interim `selectArchetypeId` returns `"grunt"` and `spawner.test.ts` references `"grunt"` in two places — both now removed. Task 3 replaces the selector wholesale, but this task must stay green:
 
-  1. In `spawner.ts`, change the interim body's return from `["grunt", next]` to `["husk-1", next]`.
-  2. In `spawner.test.ts`, change `spawnFromArchetype(s, "grunt", { x: 20, y: 0 })` to `spawnFromArchetype(s, "husk-1", { x: 20, y: 0 })`, and change the selector assertion `expect(a).toBe("grunt")` to `expect(a).toBe("husk-1")`.
+1. In `spawner.ts`, change the interim body's return from `["grunt", next]` to `["husk-1", next]`.
+2. In `spawner.test.ts`, change `spawnFromArchetype(s, "grunt", { x: 20, y: 0 })` to `spawnFromArchetype(s, "husk-1", { x: 20, y: 0 })`, and change the selector assertion `expect(a).toBe("grunt")` to `expect(a).toBe("husk-1")`.
 
 - [ ] **Step 8: Run the game suite** — `pnpm test:run -- src/lib/game` → green except the two golden fixtures (roster + interim id changed). Re-record both (Global Constraints procedure), re-run replay → PASS.
 
@@ -756,4 +1056,5 @@ persistence, ModeSelector "Horde" entry, and docs finish (Plan 5). See spec §11
 - **Placeholder scan:** the roster table, word bands, and weighting function are complete
   code; the only generated artefacts are the two golden-fixture JSON files, produced by
   the documented `RECORD_FIXTURE=1` command.
+```
 ```

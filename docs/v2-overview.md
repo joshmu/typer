@@ -28,18 +28,18 @@ v1 was built with AngularJS 1.x, Grunt, Bower, and node-webkit — a 2014-era st
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | SolidJS + Vite + @solidjs/router |
-| Language | TypeScript (strict) |
-| Styling | Tailwind CSS v4 + CSS custom properties for themes |
-| Animation | motion (vanilla `animate` API) + CSS transitions (caret) |
-| State | SolidJS signals + stores (built-in) |
-| Testing | Vitest (unit/component) + Playwright (E2E) |
-| Build | Vite |
-| Linting | Biome (lint + format) |
-| Data | Dexie.js v4 (IndexedDB) + @solid-primitives/storage (localStorage) |
-| Deployment | Vercel |
+| Layer      | Technology                                                         |
+| ---------- | ------------------------------------------------------------------ |
+| Framework  | SolidJS + Vite + @solidjs/router                                   |
+| Language   | TypeScript (strict)                                                |
+| Styling    | Tailwind CSS v4 + CSS custom properties for themes                 |
+| Animation  | motion (vanilla `animate` API) + CSS transitions (caret)           |
+| State      | SolidJS signals + stores (built-in)                                |
+| Testing    | Vitest (unit/component) + Playwright (E2E)                         |
+| Build      | Vite                                                               |
+| Linting    | Biome (lint + format)                                              |
+| Data       | Dexie.js v4 (IndexedDB) + @solid-primitives/storage (localStorage) |
+| Deployment | Vercel                                                             |
 
 ## Key Architectural Decisions
 
@@ -54,9 +54,9 @@ See [architecture.md](./architecture.md) for details on:
 
 See [roadmap.md](./roadmap.md) for the full phased plan.
 
-| Phase | Scope |
-|-------|-------|
-| 0 | Project scaffolding, tooling, CI/CD |
-| 1 | Core typing engine + minimal UI (custom text mode) |
-| 2 | Results screen, local history, theme system |
-| 3 | Test modes (timed, word count, quotes), settings |
+| Phase | Scope                                              |
+| ----- | -------------------------------------------------- |
+| 0     | Project scaffolding, tooling, CI/CD                |
+| 1     | Core typing engine + minimal UI (custom text mode) |
+| 2     | Results screen, local history, theme system        |
+| 3     | Test modes (timed, word count, quotes), settings   |

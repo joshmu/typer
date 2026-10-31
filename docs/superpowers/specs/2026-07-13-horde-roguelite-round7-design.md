@@ -47,32 +47,32 @@ replacement so the 3 cards are always distinct ids).
 **Epic — weapons** (change what shots do; each once per run; tracer/impact
 visuals change per weapon):
 
-| id | effect |
-|----|--------|
-| `splash-rounds` | kill detonates: 1 damage to every enemy within 6 units of the victim |
+| id              | effect                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `splash-rounds` | kill detonates: 1 damage to every enemy within 6 units of the victim                                                                  |
 | `piercing-bolt` | kill bolt continues: 1 damage to the nearest enemy within 12 units roughly behind the victim (away from core, dot-product cone ≥ 0.5) |
-| `chain-arc` | kill at combo ≥ 10 arcs 1 damage to the nearest other enemy within 10 units |
-| `heavy-rounds` | knockback impulse ×2 (bosses ×1.5 of their softened recoil) |
+| `chain-arc`     | kill at combo ≥ 10 arcs 1 damage to the nearest other enemy within 10 units                                                           |
+| `heavy-rounds`  | knockback impulse ×2 (bosses ×1.5 of their softened recoil)                                                                           |
 
 **Rare — typing/utility** (once per run):
 
-| id | effect |
-|----|--------|
-| `steady-hands` | first miss each wave does not break combo (charge resets on wave start) |
-| `sharpshooter` | kill score ×1.5 (rounded down) |
-| `overclock` | after 20 consecutive hits without a miss, next damaging completion deals +1 damage (streak visual: gold tracer while primed) |
-| `gravity-well` | enemies within 8 units of the core move at 75% speed |
-| `vampiric` | every 15 kills heals 1 hp (capped at max) |
+| id             | effect                                                                                                                       |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `steady-hands` | first miss each wave does not break combo (charge resets on wave start)                                                      |
+| `sharpshooter` | kill score ×1.5 (rounded down)                                                                                               |
+| `overclock`    | after 20 consecutive hits without a miss, next damaging completion deals +1 damage (streak visual: gold tracer while primed) |
+| `gravity-well` | enemies within 8 units of the core move at 75% speed                                                                         |
+| `vampiric`     | every 15 kills heals 1 hp (capped at max)                                                                                    |
 
 **Common — stats** (once per run except the two repeatable fillers):
 
-| id | effect |
-|----|--------|
-| `plating` | +1 max hp and heal 1 (REPEATABLE — always eligible) |
-| `cryo-mastery` | freeze/slow powerup durations ×1.5 |
-| `adrenaline` | combo decay window ×1.5 |
-| `scavenger` | powerup milestone every 9 kills (from 12) |
-| `greed` | score gains +10% (REPEATABLE, additive: 2 stacks = +20%) |
+| id             | effect                                                   |
+| -------------- | -------------------------------------------------------- |
+| `plating`      | +1 max hp and heal 1 (REPEATABLE — always eligible)      |
+| `cryo-mastery` | freeze/slow powerup durations ×1.5                       |
+| `adrenaline`   | combo decay window ×1.5                                  |
+| `scavenger`    | powerup milestone every 9 kills (from 12)                |
+| `greed`        | score gains +10% (REPEATABLE, additive: 2 stacks = +20%) |
 
 Weapon "extra damage" reuses the existing damage path: extract the
 post-absorb portion of `resolveCompletion` into `dealDamage(s, e, moveScale)`
