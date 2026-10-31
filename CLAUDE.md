@@ -8,17 +8,17 @@ Typer is a touch-typing web app for practicing with custom text. Tracks WPM, acc
 
 ## v3 Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | SolidJS + Vite + @solidjs/router |
-| Language | TypeScript (strict) |
-| Styling | Tailwind CSS v4 + CSS custom properties (themes) |
-| Animation | motion (vanilla `animate` API) + CSS transitions (caret) |
-| State | SolidJS signals + stores (built-in) |
-| Testing | Vitest (unit/component) + Playwright (E2E) |
-| Linting | Biome (lint + format) |
-| Data | Dexie.js v4 (IndexedDB) + @solid-primitives/storage (localStorage) |
-| Deployment | Vercel |
+| Layer      | Technology                                                         |
+| ---------- | ------------------------------------------------------------------ |
+| Framework  | SolidJS + Vite + @solidjs/router                                   |
+| Language   | TypeScript (strict)                                                |
+| Styling    | Tailwind CSS v4 + CSS custom properties (themes)                   |
+| Animation  | motion (vanilla `animate` API) + CSS transitions (caret)           |
+| State      | SolidJS signals + stores (built-in)                                |
+| Testing    | Vitest (unit/component) + Playwright (E2E)                         |
+| Linting    | Biome (lint + format)                                              |
+| Data       | Dexie.js v4 (IndexedDB) + @solid-primitives/storage (localStorage) |
+| Deployment | Vercel                                                             |
 
 ## Commands (v3)
 
@@ -109,10 +109,10 @@ Allowed scopes: `scaffold`, `engine`, `calc`, `text`, `types`, `typing`, `result
 
 ### Git Hooks (husky)
 
-| Hook | Action |
-|------|--------|
+| Hook         | Action                        |
+| ------------ | ----------------------------- |
 | `pre-commit` | `pnpm typecheck && pnpm lint` |
-| `commit-msg` | `pnpm commitlint --edit $1` |
+| `commit-msg` | `pnpm commitlint --edit $1`   |
 
 ### CI Pipeline
 

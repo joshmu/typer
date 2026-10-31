@@ -90,7 +90,7 @@ A unit test asserts `ENEMIES.length >= 30` and uniqueness/validity of every entr
 ## 6. Word Assignment
 
 - Bands by tier: short common words (tier 1) → long/rare words (tier 4), boss = word chains.
-- Constraint: no two live enemies share a first letter *when possible* (Typing of the Dead
+- Constraint: no two live enemies share a first letter _when possible_ (Typing of the Dead
   rule) — resolver picks from band excluding active initials; falls back gracefully.
 - Reuses `src/lib/core/text/words.ts` list + `isCharMatch` for diacritics.
 
@@ -108,14 +108,14 @@ A unit test asserts `ENEMIES.length >= 30` and uniqueness/validity of every entr
 
 ## 8. Testing Strategy
 
-| Layer | Tool | What |
-|---|---|---|
-| sim/* | Vitest TDD | every module red-green; property-ish tests for targeting |
-| replay | Vitest | fixture logs → exact hash + score |
-| content | Vitest | roster ≥ 30, schema validity, word bands non-empty |
-| E2E | Playwright | smoke: route loads, canvas present, type kills first enemy, death screen |
-| Visual | Playwright screenshots | fixed seed + `?testMode=1` (sim auto-steps N ticks, freezes) → `toHaveScreenshot` with masked HUD dynamics |
-| Perf | Vitest + existing perf spec | step budget; keystroke latency probe |
+| Layer   | Tool                        | What                                                                                                       |
+| ------- | --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| sim/*   | Vitest TDD                  | every module red-green; property-ish tests for targeting                                                   |
+| replay  | Vitest                      | fixture logs → exact hash + score                                                                          |
+| content | Vitest                      | roster ≥ 30, schema validity, word bands non-empty                                                         |
+| E2E     | Playwright                  | smoke: route loads, canvas present, type kills first enemy, death screen                                   |
+| Visual  | Playwright screenshots      | fixed seed + `?testMode=1` (sim auto-steps N ticks, freezes) → `toHaveScreenshot` with masked HUD dynamics |
+| Perf    | Vitest + existing perf spec | step budget; keystroke latency probe                                                                       |
 
 `?seed=…&testMode=1` query params: deterministic start, disables rAF jitter by stepping
 a fixed number of ticks then pausing — this is the walking-skeleton probe hook.

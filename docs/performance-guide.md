@@ -28,6 +28,7 @@ Keydown Event
 ## Input Handling Rules
 
 ### Do
+
 - Use `keydown` (not `keypress` — deprecated, not `keyup` — too late)
 - Process every keystroke synchronously — never debounce or throttle
 - Compute WPM/accuracy inline on main thread (it's nanosecond math, not worth offloading)
@@ -36,6 +37,7 @@ Keydown Event
 - Use throttled rAF or `setTimeout` for stats display updates
 
 ### Don't
+
 - Read `offsetLeft`/`offsetTop` then immediately write styles (causes layout thrashing)
 - Add event listeners to every character element (v1's mistake — O(n))
 - Use `setTimeout` or `requestIdleCallback` for keystroke processing
@@ -46,6 +48,7 @@ Keydown Event
 ## Rendering Performance
 
 ### CSS
+
 ```
 DO:
   - transform: translateX/translateY for caret (GPU composited)
@@ -60,6 +63,7 @@ DON'T:
 ```
 
 ### DOM
+
 ```
 DO:
   - Render only visible lines + 1 buffer line above/below
@@ -81,11 +85,11 @@ Caret position and word tops are read from a `LayoutCache` snapshot that is rebu
 
 **Three triggers rebuild the cache:**
 
-| Trigger | Why it's needed |
-|---|---|
-| `onMount` | Initial measurement after the words first render. |
+| Trigger                                          | Why it's needed                                                                                                         |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `onMount`                                        | Initial measurement after the words first render.                                                                       |
 | `createEffect` on the words array and its length | Zen/book mode appends words in place; the container's bounding box may not change, so `ResizeObserver` would miss this. |
-| `ResizeObserver` on the container | Font-size, window-resize, or zoom changes that don't replace the words array. |
+| `ResizeObserver` on the container                | Font-size, window-resize, or zoom changes that don't replace the words array.                                           |
 
 All three coalesce through a single `requestAnimationFrame` token so multiple triggers in the same frame produce one read.
 
@@ -98,17 +102,18 @@ This is the implementation of the "pre-compute caret positions at render time" r
 
 ## Bundle Size Budgets
 
-| Chunk | Budget | Contents |
-|-------|--------|----------|
-| Initial JS | <50KB gz | SolidJS runtime, typing engine, main route |
-| CSS | <15KB gz | Tailwind utilities, theme definitions |
-| Results chunk | <30KB gz | Chart library, motion animations (lazy loaded) |
-| Settings chunk | <20KB gz | Theme picker, config UI (lazy loaded) |
-| Total | <115KB gz | Everything |
+| Chunk          | Budget    | Contents                                       |
+| -------------- | --------- | ---------------------------------------------- |
+| Initial JS     | <50KB gz  | SolidJS runtime, typing engine, main route     |
+| CSS            | <15KB gz  | Tailwind utilities, theme definitions          |
+| Results chunk  | <30KB gz  | Chart library, motion animations (lazy loaded) |
+| Settings chunk | <20KB gz  | Theme picker, config UI (lazy loaded)          |
+| Total          | <115KB gz | Everything                                     |
 
 ## Measuring Performance
 
 ### Key Metrics
+
 - **Input latency**: Time from `keydown` event to DOM update (measure with `performance.mark`)
 - **Frame budget**: % of frames completing in <16ms during active typing
 - **FCP**: First Contentful Paint (<1.0s)
@@ -119,19 +124,23 @@ This is the implementation of the "pre-compute caret positions at render time" r
 
 ```typescript
 document.addEventListener("keydown", (e) => {
-  performance.mark("keystroke-start");
+	performance.mark("keystroke-start");
 
-  processKeystroke(e);
+	processKeystroke(e);
 
-  requestAnimationFrame(() => {
-    performance.mark("keystroke-painted");
-    performance.measure("keystroke-latency", "keystroke-start", "keystroke-painted");
-    const measure = performance.getEntriesByName("keystroke-latency").pop();
-    if (measure && measure.duration > 16) {
-      console.warn(`Slow keystroke: ${measure.duration.toFixed(1)}ms`);
-    }
-    performance.clearMeasures("keystroke-latency");
-    performance.clearMarks();
-  });
+	requestAnimationFrame(() => {
+		performance.mark("keystroke-painted");
+		performance.measure(
+			"keystroke-latency",
+			"keystroke-start",
+			"keystroke-painted",
+		);
+		const measure = performance.getEntriesByName("keystroke-latency").pop();
+		if (measure && measure.duration > 16) {
+			console.warn(`Slow keystroke: ${measure.duration.toFixed(1)}ms`);
+		}
+		performance.clearMeasures("keystroke-latency");
+		performance.clearMarks();
+	});
 });
 ```

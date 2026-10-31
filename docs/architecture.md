@@ -92,37 +92,37 @@ function Word(props: { index: number }) {
 ```typescript
 // Pure TypeScript — no framework imports
 interface TypingState {
-  text: string;
-  characters: CharacterState[];
-  currentIndex: number;
-  startTime: number | null;
-  endTime: number | null;
-  keystrokes: { correct: number; incorrect: number }; // every character key, kept after backspace
-  mode: TestMode;
-  config: TestConfig;
+	text: string;
+	characters: CharacterState[];
+	currentIndex: number;
+	startTime: number | null;
+	endTime: number | null;
+	keystrokes: { correct: number; incorrect: number }; // every character key, kept after backspace
+	mode: TestMode;
+	config: TestConfig;
 }
 
 interface CharacterState {
-  expected: string;
-  typed: string | null;
-  status: "pending" | "correct" | "incorrect" | "extra" | "missed";
-  mistakes: number;
-  timestamp: number | null;
+	expected: string;
+	typed: string | null;
+	status: "pending" | "correct" | "incorrect" | "extra" | "missed";
+	mistakes: number;
+	timestamp: number | null;
 }
 
 type TestMode =
-  | { type: "time"; seconds: 15 | 30 | 60 | 120 }
-  | { type: "words"; count: 10 | 25 | 50 | 100 }
-  | { type: "quote"; length: "short" | "medium" | "long" }
-  | { type: "custom" };
+	| { type: "time"; seconds: 15 | 30 | 60 | 120 }
+	| { type: "words"; count: 10 | 25 | 50 | 100 }
+	| { type: "quote"; length: "short" | "medium" | "long" }
+	| { type: "custom" };
 
 interface TestConfig {
-  punctuation: boolean;
-  numbers: boolean;
-  language: string;
-  stopOnError: "off" | "word" | "letter";
-  caretStyle: "line" | "block" | "underline";
-  smoothCaret: boolean;
+	punctuation: boolean;
+	numbers: boolean;
+	language: string;
+	stopOnError: "off" | "word" | "letter";
+	caretStyle: "line" | "block" | "underline";
+	smoothCaret: boolean;
 }
 ```
 
@@ -130,14 +130,25 @@ interface TestConfig {
 
 ```typescript
 // No Solid, no DOM, deterministic: time only arrives as arguments
-function applyKeystroke(state: TypingState, key: string, now: number): void // mutates a draft in place
-function processKeystroke(state: TypingState, key: string, now: number): TypingState // pure clone-then-apply
-function calculateWPM(chars: CharacterState[], elapsedMs: number): number
-function calculateRawWPM(keystrokes: KeystrokeCounts, elapsedMs: number): number
-function calculateAccuracy(keystrokes: KeystrokeCounts): number
-function collectPerSecondWPM(chars: CharacterState[], startTime: number, elapsedMs: number): number[]
-function calculateConsistency(perSecondWPM: number[]): number
-function calculateCharBreakdown(state: TypingState): CharBreakdown
+function applyKeystroke(state: TypingState, key: string, now: number): void; // mutates a draft in place
+function processKeystroke(
+	state: TypingState,
+	key: string,
+	now: number,
+): TypingState; // pure clone-then-apply
+function calculateWPM(chars: CharacterState[], elapsedMs: number): number;
+function calculateRawWPM(
+	keystrokes: KeystrokeCounts,
+	elapsedMs: number,
+): number;
+function calculateAccuracy(keystrokes: KeystrokeCounts): number;
+function collectPerSecondWPM(
+	chars: CharacterState[],
+	startTime: number,
+	elapsedMs: number,
+): number[];
+function calculateConsistency(perSecondWPM: number[]): number;
+function calculateCharBreakdown(state: TypingState): CharBreakdown;
 ```
 
 Result stats:
@@ -154,12 +165,12 @@ Result stats:
 
 `createTypingSession({ state, feed, write, onComplete })` (src/lib/core/engine/typing-session.ts) owns a test from first key to completion: the keystroke fold, each mode's end rule and refilling from the feed. It exposes `key(k, now)`, `tick(now)`, `deadline()` and `complete`, and calls `onComplete` exactly once.
 
-| Mode | End rule |
-|---|---|
-| time | at `startTime + seconds`, via `tick`; refills from the word feed, so the last word never ends it |
-| words, quote, custom | on the last word |
-| zen | on Esc once started; refills from the word feed |
-| book | on Esc once started, or on the last word once the Book reader cursor runs out |
+| Mode                 | End rule                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| time                 | at `startTime + seconds`, via `tick`; refills from the word feed, so the last word never ends it |
+| words, quote, custom | on the last word                                                                                 |
+| zen                  | on Esc once started; refills from the word feed                                                  |
+| book                 | on Esc once started, or on the last word once the Book reader cursor runs out                    |
 
 Every state change goes through the injected `write(mutate)` port. Engine functions mutate only the draft they are given, touching the current char, its word and the cursor, so a store applies each keystroke path-scoped.
 
@@ -169,10 +180,10 @@ Every state change goes through the injected `write(mutate)` port. Engine functi
 
 ```typescript
 // Unicode NFD decomposition: "ž" → "z" + combining caron → base "z"
-isCharMatch("z", "ž")  // true — z matches ž
-isCharMatch("e", "é")  // true — e matches é
-isCharMatch("Z", "Ž")  // true — case preserved
-isCharMatch("z", "Ž")  // false — case mismatch
+isCharMatch("z", "ž"); // true — z matches ž
+isCharMatch("e", "é"); // true — e matches é
+isCharMatch("Z", "Ž"); // true — case preserved
+isCharMatch("z", "Ž"); // false — case mismatch
 ```
 
 This is critical for book mode where Standard Ebooks texts contain diacritics that users can't type on standard keyboards.
@@ -186,20 +197,22 @@ This is critical for book mode where Standard Ebooks texts contain diacritics th
 The Solid components wrap the engine. `TypingTest` keeps only DOM wiring: it hands keys to the session and arms a `setTimeout` to the time deadline that calls `tick`.
 
 ```typescript
-const [state, setState] = createStore<TypingState>(initTypingState(text, mode, stopOnError));
+const [state, setState] = createStore<TypingState>(
+	initTypingState(text, mode, stopOnError),
+);
 
 const session = createTypingSession({
-  state,
-  feed,
-  // produce applies the engine's in-place writes path-scoped: no words-array replacement
-  write: (mutate) => setState(produce(mutate)),
-  onComplete,
+	state,
+	feed,
+	// produce applies the engine's in-place writes path-scoped: no words-array replacement
+	write: (mutate) => setState(produce(mutate)),
+	onComplete,
 });
 
 // Keydown handler: the hot path
 function handleKeydown(e: KeyboardEvent) {
-  e.preventDefault();
-  session.key(e.key, Date.now());
+	e.preventDefault();
+	session.key(e.key, Date.now());
 }
 ```
 
@@ -254,23 +267,23 @@ Themes are pure CSS custom property overrides:
 
 ```css
 :root {
-  --bg: #323437;
-  --text: #d1d0c5;
-  --text-sub: #646669;      /* secondary UI text, 4.5:1 on bg and bg-secondary */
-  --text-pending: #646669;  /* text not typed yet (large type) */
-  --primary: #e2b714;
-  --error: #ca4754;
-  --error-extra: #7e2a33;
-  --caret: #e2b714;
-  --correct: #d1d0c5;
+	--bg: #323437;
+	--text: #d1d0c5;
+	--text-sub: #646669; /* secondary UI text, 4.5:1 on bg and bg-secondary */
+	--text-pending: #646669; /* text not typed yet (large type) */
+	--primary: #e2b714;
+	--error: #ca4754;
+	--error-extra: #7e2a33;
+	--caret: #e2b714;
+	--correct: #d1d0c5;
 }
 
 [data-theme="dracula"] {
-  --bg: #282a36;
-  --text: #f8f8f2;
-  --primary: #bd93f9;
-  --error: #ff5555;
-  --caret: #f8f8f2;
+	--bg: #282a36;
+	--text: #f8f8f2;
+	--primary: #bd93f9;
+	--error: #ff5555;
+	--caret: #f8f8f2;
 }
 ```
 
@@ -280,10 +293,10 @@ Themes are defined as JSON objects and compiled into CSS at build time.
 
 All data stays in the browser. No backend, no accounts, no sync.
 
-| Storage | Use Case | Library |
-|---------|----------|---------|
-| IndexedDB | Typing results, history, personal bests | Dexie.js v4 (30 KB) |
-| localStorage | User preferences (theme, config) | @solid-primitives/storage (2 KB) |
+| Storage      | Use Case                                | Library                          |
+| ------------ | --------------------------------------- | -------------------------------- |
+| IndexedDB    | Typing results, history, personal bests | Dexie.js v4 (30 KB)              |
+| localStorage | User preferences (theme, config)        | @solid-primitives/storage (2 KB) |
 
 ```
 ┌─────────┐    ┌───────────┐
@@ -309,10 +322,10 @@ All Dexie reactive queries use `safeFrom()` (src/lib/safe-query.ts) which catche
 
 ## Performance Budgets
 
-| Metric | Target |
-|--------|--------|
-| Input latency | <16ms (1 frame @ 60fps) |
-| First Contentful Paint | <1.0s |
-| Time to Interactive | <1.5s |
-| JS bundle (initial) | <50KB gzipped |
-| Lighthouse Performance | >95 |
+| Metric                 | Target                  |
+| ---------------------- | ----------------------- |
+| Input latency          | <16ms (1 frame @ 60fps) |
+| First Contentful Paint | <1.0s                   |
+| Time to Interactive    | <1.5s                   |
+| JS bundle (initial)    | <50KB gzipped           |
+| Lighthouse Performance | >95                     |

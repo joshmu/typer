@@ -20,6 +20,7 @@ test("key sound off creates no audio context", async ({ page }) => {
 	expect(await keySoundRecord(page)).toMatchObject({ contexts: 0, clicks: [] });
 });
 
+// biome-ignore lint/correctness/usePlaywrightValidDescribeCallback: describe(title, details, fn) is valid Playwright API
 test.describe("key sound on", { tag: SOUND_TAG }, () => {
 	test("plays one click per key, a different one for a wrong key", async ({
 		page,

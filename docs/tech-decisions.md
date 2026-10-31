@@ -10,13 +10,13 @@ Each decision is documented with context, options considered, and rationale.
 
 **Options considered:**
 
-| Framework | Bundle (brotli) | CPU Benchmark | Partial Update | Typing App Fit |
-|-----------|----------------|---------------|----------------|----------------|
-| SolidJS | 4.5 KB | 1.11 | 10.4ms | Best — signals, no VDOM |
-| Svelte 5 | 12.2 KB | 1.14 | 11.0ms | Strong — compiled runes |
-| Preact + Signals | 5.7 KB | 1.62 | 21.1ms | Decent — React compat |
-| React 19 | 51.4 KB | 1.55 | 14.1ms | Overkill — VDOM overhead |
-| Vue 3 | 22.8 KB | 1.28 | 12.4ms | Acceptable but heavier |
+| Framework        | Bundle (brotli) | CPU Benchmark | Partial Update | Typing App Fit           |
+| ---------------- | --------------- | ------------- | -------------- | ------------------------ |
+| SolidJS          | 4.5 KB          | 1.11          | 10.4ms         | Best — signals, no VDOM  |
+| Svelte 5         | 12.2 KB         | 1.14          | 11.0ms         | Strong — compiled runes  |
+| Preact + Signals | 5.7 KB          | 1.62          | 21.1ms         | Decent — React compat    |
+| React 19         | 51.4 KB         | 1.55          | 14.1ms         | Overkill — VDOM overhead |
+| Vue 3            | 22.8 KB         | 1.28          | 12.4ms         | Acceptable but heavier   |
 
 Benchmark data: krausest/js-framework-benchmark, Chrome 145, Feb 2026.
 
@@ -94,11 +94,11 @@ src/
 
 **Context:** Typing engine needs thorough unit tests. UI needs cross-browser E2E verification.
 
-| Layer | Tool | Scope |
-|-------|------|-------|
-| Unit | Vitest | `src/lib/core/` — WPM calc, accuracy, text processing, state machine |
-| Component | Vitest + @solidjs/testing-library | Individual components, keyboard input |
-| E2E | Playwright | Full typing flows across Chrome, Firefox, Safari |
+| Layer     | Tool                              | Scope                                                                |
+| --------- | --------------------------------- | -------------------------------------------------------------------- |
+| Unit      | Vitest                            | `src/lib/core/` — WPM calc, accuracy, text processing, state machine |
+| Component | Vitest + @solidjs/testing-library | Individual components, keyboard input                                |
+| E2E       | Playwright                        | Full typing flows across Chrome, Firefox, Safari                     |
 
 **Rationale:**
 - Vitest 4.0 with stable Browser Mode for real DOM testing of SolidJS components
@@ -130,23 +130,23 @@ src/
 
 **Options considered:**
 
-| Library | Bundle (gzip) | Reactive | SolidJS Support | Query Support |
-|---------|--------------|----------|-----------------|---------------|
-| Dexie.js v4 | 30 KB | Yes (liveQuery) | Yes (via `from()`) | Indexed, compound |
-| idb | 1.4 KB | No | Manual | Raw cursors |
-| @solid-primitives/storage | 2.0 KB | Native signals | Native | JS filter/sort only |
-| localStorage alone | 0 KB | No | No | None (5 MB cap) |
-| RxDB | 47 KB | Yes | No | Overkill — sync/replication |
-| TinyBase | 5.5 KB | Yes | No adapter | Tables, no IndexedDB |
-| localForage | 8.7 KB | No | No | Abandoned (Aug 2021) |
-| PGlite | ~3 MB WASM | No | No | Full SQL — absurd for this |
+| Library                   | Bundle (gzip) | Reactive        | SolidJS Support    | Query Support               |
+| ------------------------- | ------------- | --------------- | ------------------ | --------------------------- |
+| Dexie.js v4               | 30 KB         | Yes (liveQuery) | Yes (via `from()`) | Indexed, compound           |
+| idb                       | 1.4 KB        | No              | Manual             | Raw cursors                 |
+| @solid-primitives/storage | 2.0 KB        | Native signals  | Native             | JS filter/sort only         |
+| localStorage alone        | 0 KB          | No              | No                 | None (5 MB cap)             |
+| RxDB                      | 47 KB         | Yes             | No                 | Overkill — sync/replication |
+| TinyBase                  | 5.5 KB        | Yes             | No adapter         | Tables, no IndexedDB        |
+| localForage               | 8.7 KB        | No              | No                 | Abandoned (Aug 2021)        |
+| PGlite                    | ~3 MB WASM    | No              | No                 | Full SQL — absurd for this  |
 
 **Decision:** Dexie.js v4 for structured data, @solid-primitives/storage for preferences.
 
-| Storage | Use Case | Size |
-|---------|----------|------|
-| Dexie.js v4 (IndexedDB) | Typing results, history, personal bests | 30 KB |
-| @solid-primitives/storage (localStorage) | User preferences (theme, config) | 2 KB |
+| Storage                                  | Use Case                                | Size  |
+| ---------------------------------------- | --------------------------------------- | ----- |
+| Dexie.js v4 (IndexedDB)                  | Typing results, history, personal bests | 30 KB |
+| @solid-primitives/storage (localStorage) | User preferences (theme, config)        | 2 KB  |
 
 **Rationale:**
 - Dexie.js v4: 30 KB, reactive `liveQuery`, compound indexes (`[mode+wpm]`), Safari v4 bug workarounds baked in, 1M+ weekly downloads, 14k stars
@@ -160,17 +160,21 @@ src/
 
 ```typescript
 // Results — Dexie + SolidJS from()
-import { from } from 'solid-js';
-import { liveQuery } from 'dexie';
+import { from } from "solid-js";
+import { liveQuery } from "dexie";
 
 const results = from(
-  liveQuery(() => db.results.where('mode').equals('timed-60').reverse().sortBy('wpm'))
+	liveQuery(() =>
+		db.results.where("mode").equals("timed-60").reverse().sortBy("wpm"),
+	),
 );
 
 // Preferences — @solid-primitives/storage
-import { makePersisted } from '@solid-primitives/storage';
+import { makePersisted } from "@solid-primitives/storage";
 
-const [theme, setTheme] = makePersisted(createSignal('dark'), { name: 'typer-theme' });
+const [theme, setTheme] = makePersisted(createSignal("dark"), {
+	name: "typer-theme",
+});
 ```
 
 ---
@@ -193,12 +197,12 @@ const [theme, setTheme] = makePersisted(createSignal('dark'), { name: 'typer-the
 
 **Context:** Two distinct animation needs — high-frequency caret movement and one-time result reveals.
 
-| Use Case | Tool | Why |
-|----------|------|-----|
-| Caret movement | CSS `transition` | Lowest latency — no JS in the path, GPU composited |
-| Caret blink | CSS `animation` (step-end) | Pure CSS, zero overhead |
-| Result screen stats | motion (vanilla `animate` API) | Stagger, spring physics, number counting |
-| Page transitions | View Transitions API | Native browser API, progressive enhancement |
+| Use Case            | Tool                           | Why                                                |
+| ------------------- | ------------------------------ | -------------------------------------------------- |
+| Caret movement      | CSS `transition`               | Lowest latency — no JS in the path, GPU composited |
+| Caret blink         | CSS `animation` (step-end)     | Pure CSS, zero overhead                            |
+| Result screen stats | motion (vanilla `animate` API) | Stagger, spring physics, number counting           |
+| Page transitions    | View Transitions API           | Native browser API, progressive enhancement        |
 
 **Rationale:**
 - The caret is on the keystroke hot path — CSS transitions have zero JS overhead

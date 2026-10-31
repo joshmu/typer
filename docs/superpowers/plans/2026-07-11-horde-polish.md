@@ -75,7 +75,12 @@ in white; measure prefix via `ctx.measureText` after setting the same font, draw
 runs manually (drop `drawText`, use raw context + `texture.update()`):
 
 ```ts
-function drawLabel(v: EnemyVisual, word: string, typedCount: number, isTarget: boolean) {
+function drawLabel(
+	v: EnemyVisual,
+	word: string,
+	typedCount: number,
+	isTarget: boolean,
+) {
 	const text = `${word}:${typedCount}:${isTarget ? 1 : 0}`;
 	if (text === v.lastText) return;
 	v.lastText = text;
@@ -123,7 +128,10 @@ scene-level color grade (fog/clearColor lerp to icy blue / amber).
 
 ```ts
 export function createEffects(scene: Scene): {
-	deathBurst(pos: { x: number; y: number }, color: [number, number, number]): void;
+	deathBurst(
+		pos: { x: number; y: number },
+		color: [number, number, number],
+	): void;
 	playerHit(): void; // triggers shake envelope
 	update(state: GameState): void; // per-frame: shake decay + status tint
 	dispose(): void;

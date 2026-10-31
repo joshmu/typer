@@ -23,15 +23,15 @@ Source of truth: `src/lib/game/content/enemies.ts` (32 archetypes). The roster i
 (`corkscrew-1`, `lunger-1`) + 6 word-chain bosses. Each family owns one movement;
 tiers escalate hp/size and layer on abilities.
 
-| Family    | Movement          | Character                                  |
-|-----------|-------------------|--------------------------------------------|
-| Husk      | `chase`           | straight-line pressure; enrage/heal at high tiers |
-| Darter    | `zigzag`          | erratic lateral weaving                    |
-| Wraith    | `orbit-then-dive` | circles the core, then commits inward      |
-| Charger   | `dash-pause`      | bursts of speed punctuated by pauses       |
-| Weaver    | `flank`           | approaches off-axis to flank the core      |
-| Brood     | `spiral`          | inward spiral; the `split`/`spawn` minion source (`brood-1`) |
-| Corkscrew | `spiral-fast`     | tight fast corkscrew (tier 2, reuses Darter sprite art) |
+| Family    | Movement          | Character                                                                           |
+| --------- | ----------------- | ----------------------------------------------------------------------------------- |
+| Husk      | `chase`           | straight-line pressure; enrage/heal at high tiers                                   |
+| Darter    | `zigzag`          | erratic lateral weaving                                                             |
+| Wraith    | `orbit-then-dive` | circles the core, then commits inward                                               |
+| Charger   | `dash-pause`      | bursts of speed punctuated by pauses                                                |
+| Weaver    | `flank`           | approaches off-axis to flank the core                                               |
+| Brood     | `spiral`          | inward spiral; the `split`/`spawn` minion source (`brood-1`)                        |
+| Corkscrew | `spiral-fast`     | tight fast corkscrew (tier 2, reuses Darter sprite art)                             |
 | Lunger    | `feint`           | sprints in, recoils, then creeps — a jump scare (tier 3, reuses Charger sprite art) |
 
 **Movements** (`MovementId`): `chase`, `zigzag`, `orbit-then-dive`, `dash-pause`,
@@ -116,12 +116,12 @@ distinct bank (`nova, pulse, surge, blitz, volt, flux`; falls back to `pickWord`
 if the initial collides with a live enemy) and expire after
 `POWERUP_LIFETIME_TICKS = 600`. Typing a pickup's word applies its effect:
 
-| Kind   | Effect                                       | Constant |
-|--------|----------------------------------------------|----------|
-| freeze | halts all enemy movement                     | `FREEZE_TICKS = 180` |
-| slow   | enemies move at half speed                   | `SLOW_TICKS = 300`, `SLOW_FACTOR = 0.5` |
-| heal   | +1 player hp (capped at `maxPlayerHp`)       | — |
-| bomb   | kills every live enemy immediately           | — |
+| Kind   | Effect                                 | Constant                                |
+| ------ | -------------------------------------- | --------------------------------------- |
+| freeze | halts all enemy movement               | `FREEZE_TICKS = 180`                    |
+| slow   | enemies move at half speed             | `SLOW_TICKS = 300`, `SLOW_FACTOR = 0.5` |
+| heal   | +1 player hp (capped at `maxPlayerHp`) | —                                       |
+| bomb   | kills every live enemy immediately     | —                                       |
 
 ## Scoring & combo
 
@@ -199,11 +199,11 @@ replacement so the three cards are distinct; owned non-repeatable perks are
 excluded (`plating`/`greed` are repeatable and always eligible; a starved pool is
 padded from them).
 
-| rarity | perks |
-|--------|-------|
+| rarity         | perks                                                                                                                                                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | epic (weapons) | `splash-rounds` (kill → 1 dmg within 6), `piercing-bolt` (kill → 1 dmg to nearest enemy behind the victim, cone dot ≥ 0.5, range 12), `chain-arc` (kill at combo ≥ 10 → 1 dmg to nearest within 10), `heavy-rounds` (knockback ×2; boss recoil 0.4→0.6) |
-| rare | `steady-hands` (first miss/wave keeps combo), `sharpshooter` (kill score ×1.5), `overclock` (20-hit streak primes +1 dmg on the next kill), `gravity-well` (enemies within 8 move at 75%), `vampiric` (heal 1 every 15 kills, capped) |
-| common | `plating` (+1 max hp & heal 1, **repeatable**), `cryo-mastery` (freeze/slow ×1.5), `adrenaline` (combo decay ×1.5), `scavenger` (powerup every 9 kills), `greed` (+10% score, **repeatable/stacking**) |
+| rare           | `steady-hands` (first miss/wave keeps combo), `sharpshooter` (kill score ×1.5), `overclock` (20-hit streak primes +1 dmg on the next kill), `gravity-well` (enemies within 8 move at 75%), `vampiric` (heal 1 every 15 kills, capped)                   |
+| common         | `plating` (+1 max hp & heal 1, **repeatable**), `cryo-mastery` (freeze/slow ×1.5), `adrenaline` (combo decay ×1.5), `scavenger` (powerup every 9 kills), `greed` (+10% score, **repeatable/stacking**)                                                  |
 
 **Shared damage path.** `resolveCompletion` and every weapon-perk hit funnel
 through `dealDamage(s, e, moveScale)` (absorb → chip+knockback+`advanceWord` →
@@ -312,7 +312,7 @@ sampled NEAREST so pixels stay crisp. Key pieces:
   cellIndex, mirroring `sprites.json`.
 - **Player hero** (`turret.ts`): a top-down marine/turret **sprite** at the core
   whose heading is the **LAST-SHOT heading** — it snaps toward a target on `fire()`
-  and slerps toward a *locked* target in `update()`, and simply **HOLDS** otherwise,
+  and slerps toward a _locked_ target in `update()`, and simply **HOLDS** otherwise,
   never re-anchoring to the nearest enemy on its own (explicit playtest feedback).
   It squashes for 50ms per shot. Two flat ground rings survive: a pulse
   (`ringPulse()`) on a powerup or, wider and in --primary, a combo tier-up, and
