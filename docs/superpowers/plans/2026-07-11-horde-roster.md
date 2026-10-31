@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD058 -->
+
 # Horde Mode — Enemy Roster + Word Banding Implementation Plan (Plan 3)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -60,7 +62,6 @@ Band ranges (word length), each non-empty against the real data (1k has ≥73 wo
 | 2    | english-1k | 5–6    | medium common           |
 | 3    | english-5k | 6–8    | long                    |
 | 4    | english-5k | 8–12   | long/rare (boss chains) |
-
 - [ ] **Step 1: Rewrite the words test** (`words.test.ts`)
 
 ```ts
@@ -287,7 +288,6 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 | boss-hive   | Hivemind      | 4   | 0.022 | 2.5  | 4    | spiral          | spawn brood-1 /90   |
 | boss-choir  | Phantom Choir | 4   | 0.026 | 2.3  | 4    | zigzag          | cloak/50            |
 | boss-sunder | Sunderer      | 5   | 0.020 | 2.8  | 4    | flank           | enrage-at-half ×2.0 |
-
 - [ ] **Step 1: Write the roster validation test** (`enemies.test.ts`)
 
 ```ts
