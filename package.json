@@ -31,7 +31,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.3",
 		"@commitlint/cli": "^21.2.3",
-		"@commitlint/config-conventional": "^21.2.2",
+		"@commitlint/config-conventional": "^21.2.4",
 		"@playwright/test": "^1.64.1",
 		"@solidjs/testing-library": "^0.8.10",
 		"@testing-library/jest-dom": "^7.0.1",
