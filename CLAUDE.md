@@ -91,6 +91,7 @@ CSS custom properties (`--bg`, `--text`, `--primary`, `--error`, `--caret`) swap
 ### TDD (Test-Driven Development)
 
 All new features and bug fixes **must** follow red-green-refactor:
+
 1. **Red** — Write a failing test first
 2. **Green** — Write the minimum code to pass
 3. **Refactor** — Clean up while keeping tests green
@@ -102,6 +103,7 @@ Pure engine functions (`src/lib/core/`) are the primary TDD targets. UI componen
 **Atomic commits** — each commit is a single logical change that passes all checks independently. Never bundle unrelated changes.
 
 **Commitlint** with required scope is enforced via husky `commit-msg` hook:
+
 ```
 type(scope): description
 ```
@@ -129,6 +131,7 @@ AngularJS 1.x + Grunt + Bower + node-webkit. Broadcasts every keypress to all 12
 ## Detailed Docs
 
 See `docs/` for full specifications:
+
 - `docs/architecture.md` — project structure, engine design, data strategy
 - `docs/tech-decisions.md` — ADRs with options considered and rationale
 - `docs/roadmap.md` — phased delivery plan (Phase 0–3)

@@ -44,6 +44,7 @@ v1 was built with AngularJS 1.x, Grunt, Bower, and node-webkit — a 2014-era st
 ## Key Architectural Decisions
 
 See [architecture.md](./architecture.md) for details on:
+
 - Why SolidJS over React/Svelte/others
 - O(1) keystroke processing via signal-based cursor
 - Word-level rendering with imperative character updates

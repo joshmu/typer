@@ -26,6 +26,7 @@
 ### Task 1: Per-family visual recipes + tier scaling
 
 **Files:**
+
 - Create: `src/lib/game/render/visuals.ts`
 - Modify: `src/lib/game/render/enemy-renderer.ts`
 
@@ -68,6 +69,7 @@ Commit: `feat(game): add per-family enemy visuals with tier scaling`
 ### Task 2: Label prefix highlight + target emphasis
 
 **Files:**
+
 - Modify: `src/lib/game/render/enemy-renderer.ts`
 
 Label texture draw becomes two-segment: typed prefix in accent (`#facc15`), remainder
@@ -114,6 +116,7 @@ Commit: `feat(game): highlight typed prefix and locked target on labels`
 ### Task 3: Effects — deaths, hits, shake, status tints
 
 **Files:**
+
 - Create: `src/lib/game/render/effects.ts`
 - Modify: `src/lib/game/render/loop.ts`, `src/lib/game/render/scene.ts`, `src/lib/game/render/enemy-renderer.ts`
 
@@ -154,9 +157,11 @@ Commit: `feat(game): add death bursts, screen shake and status tints`
 ### Task 4: HUD — wave banner, combo meter, hearts
 
 **Files:**
+
 - Modify: `src/components/game/GameShell.tsx`
 
 HUD additions (Solid, CSS only, `pointer-events-none`):
+
 - Wave banner: on `wavePhase === "intermission" && wave > 0` show "WAVE {wave+1} INCOMING" pulsing; during active show `wave` chip top-left.
 - Combo: `combo` count + multiplier chip (from `comboMultiplier(state.combo)` — import from `@/lib/game/sim/score`, pure) with a width-animated decay bar fed by `comboTicksLeft / COMBO_DECAY_TICKS`.
 - HP as hearts (`playerHp` of `maxPlayerHp`).
@@ -169,6 +174,7 @@ Commit: `feat(game): add wave, combo and hp hud`
 ### Task 5: Asset pipeline — seeded generator + committed outputs
 
 **Files:**
+
 - Create: `scripts/gen-assets.ts`
 - Create: `public/game/particle.png`, `public/game/ground.png` (generated)
 - Modify: `package.json` (script `gen:assets": "node --experimental-strip-types scripts/gen-assets.ts"` — Node ≥ 22.6; verify local node supports strip-types, else use `tsx` via `pnpm dlx`)
@@ -178,6 +184,7 @@ Commit: `feat(game): add wave, combo and hp hud`
 Generator: pure node, zero new runtime deps. Hand-roll minimal PNG encoding (RGBA,
 no filter, zlib via `node:zlib` deflateSync, CRC32 table inline — ~60 lines) — this is
 the whole pipeline, deterministic from a fixed seed constant:
+
 - `particle.png` 64×64: radial falloff sprite, white core → transparent.
 - `ground.png` 512×512: dark base + seeded value-noise cells + faint grid lines
   (tileable: noise sampled on a wrapping lattice).
@@ -200,6 +207,7 @@ Snapshot regen rides. Commit: `feat(game): add seeded asset pipeline with genera
 ### Task 6: Perf probes
 
 **Files:**
+
 - Create: `src/lib/game/sim/perf.test.ts`
 - Modify: `e2e/performance.spec.ts` (add /game keystroke probe)
 
@@ -219,6 +227,7 @@ Commit: `test(game): add sim step and keystroke latency perf probes`
 ### Task 7: Visual freeze — linux CI baseline
 
 **Files:**
+
 - Create: `.github/workflows/update-snapshots.yml`
 - Modify: `e2e/game.spec.ts` (remove darwin-only gate)
 - Add: `e2e/game.spec.ts-snapshots/horde-arena-chromium-linux.png` (from CI artifact)

@@ -34,6 +34,7 @@ A typing app's hot path is: keydown event → state update → DOM update. This 
 **SolidJS** has no Virtual DOM. When a signal updates, it directly mutates the specific DOM node that reads that signal. There is no diffing, no reconciliation, no component re-rendering. Components run exactly once (like a setup function), and only the reactive expressions within them re-execute.
 
 This matters because:
+
 - React re-renders the component function and diffs a virtual tree on every state change (14.1ms partial update vs SolidJS's 10.4ms)
 - Svelte 5 runes are close but restricted to `.svelte` and `.svelte.ts` files
 - SolidJS signals work in any `.ts` file, enabling clean separation between engine logic and UI

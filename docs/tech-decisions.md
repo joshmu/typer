@@ -23,6 +23,7 @@ Benchmark data: krausest/js-framework-benchmark, Chrome 145, Feb 2026.
 **Decision:** SolidJS (without SolidStart)
 
 **Rationale:**
+
 - No VDOM means zero diffing overhead on the keystroke hot path
 - Fine-grained signals update only the specific DOM nodes that changed — O(1) per keystroke
 - 4.5 KB brotli — smallest bundle of the mature options
@@ -43,6 +44,7 @@ Benchmark data: krausest/js-framework-benchmark, Chrome 145, Feb 2026.
 **Decision:** Tailwind CSS v4
 
 **Rationale:**
+
 - Zero runtime — no JS executed for styling
 - CSS custom properties are the natural theming mechanism (swap `--color-*` variables)
 - v4's Oxide engine (Rust) makes builds fast
@@ -58,6 +60,7 @@ Benchmark data: krausest/js-framework-benchmark, Chrome 145, Feb 2026.
 **Decision:** No external library. Use SolidJS signals and stores.
 
 **Rationale:**
+
 - Signals provide O(1) granular updates — when `currentIndex` changes, only the DOM nodes reading it update
 - Stores (proxy-based) track property access at the leaf level
 - `createMemo` for derived values (WPM, accuracy) — only recompute when dependencies change
@@ -72,6 +75,7 @@ Benchmark data: krausest/js-framework-benchmark, Chrome 145, Feb 2026.
 **Decision:** Vite (with vite-plugin-solid)
 
 **Rationale:**
+
 - Near-instant HMR via native ESM
 - SolidJS ecosystem built around Vite
 - Flat project structure — no monorepo overhead (Turborepo/pnpm workspaces dropped as unjustified for a single app)
@@ -79,6 +83,7 @@ Benchmark data: krausest/js-framework-benchmark, Chrome 145, Feb 2026.
 - Rolldown integration available when Vite 8 stabilizes
 
 **Structure:**
+
 ```
 src/
   components/     # Solid components
@@ -101,6 +106,7 @@ src/
 | E2E       | Playwright                        | Full typing flows across Chrome, Firefox, Safari                     |
 
 **Rationale:**
+
 - Vitest 4.0 with stable Browser Mode for real DOM testing of SolidJS components
 - Playwright for cross-browser E2E — its keyboard API can simulate real typing flows
 - The typing engine is pure TypeScript — trivially testable without any browser
@@ -114,6 +120,7 @@ src/
 **Decision:** Biome alone (replaces ESLint + Prettier + oxlint)
 
 **Rationale:**
+
 - 423+ lint rules, viable as sole linter
 - Rust-based — runs in <1s where ESLint + Prettier would take 10-30s
 - Single tool for both linting and formatting — no config overlap or duplicate diagnostics
@@ -149,6 +156,7 @@ src/
 | @solid-primitives/storage (localStorage) | User preferences (theme, config)        | 2 KB  |
 
 **Rationale:**
+
 - Dexie.js v4: 30 KB, reactive `liveQuery`, compound indexes (`[mode+wpm]`), Safari v4 bug workarounds baked in, 1M+ weekly downloads, 14k stars
 - SolidJS integration via built-in `from()` to subscribe to `liveQuery` observables — skip unmaintained `solid-dexie` (last published Jul 2022)
 - IndexedDB handles structured queries efficiently (filter by mode, sort by WPM, date ranges) with no storage ceiling
@@ -186,6 +194,7 @@ const [theme, setTheme] = makePersisted(createSignal("dark"), {
 **Decision:** Vercel
 
 **Rationale:**
+
 - Excellent SPA deployment support
 - Good free tier for personal projects
 - Simple GitHub integration for preview deploys on PR
@@ -205,6 +214,7 @@ const [theme, setTheme] = makePersisted(createSignal("dark"), {
 | Page transitions    | View Transitions API           | Native browser API, progressive enhancement        |
 
 **Rationale:**
+
 - The caret is on the keystroke hot path — CSS transitions have zero JS overhead
 - `animate`, `spring` and `stagger` imported from `"motion"` are the vanilla (framework-agnostic) API of the Motion library — works with SolidJS without a framework-specific wrapper
 - ~15 KB gz, MIT licensed
@@ -218,6 +228,7 @@ const [theme, setTheme] = makePersisted(createSignal("dark"), {
 **Decision:** @solidjs/router (official SolidJS router)
 
 **Rationale:**
+
 - Official, maintained by the SolidJS team
 - File-based or config-based routing
 - Lazy loading built-in for code splitting (results page, settings page)

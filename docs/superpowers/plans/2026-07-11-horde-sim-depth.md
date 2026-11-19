@@ -82,6 +82,7 @@ it). Any plan test that asserts a dead enemy is still in the array AFTER a full
 ### Task 0: Deterministic math module
 
 **Files:**
+
 - Create: `src/lib/game/sim/math.ts`
 - Create: `src/lib/game/sim/math.test.ts`
 - Modify: `src/lib/game/sim/determinism.test.ts` (widen source scan per A1)
@@ -101,10 +102,12 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 1: Golden-fixture recorder tooling
 
 **Files:**
+
 - Modify: `src/lib/game/sim/replay.test.ts`
 - Modify: `src/lib/game/sim/__fixtures__/replay-first-kill.json` (regenerated)
 
 **Interfaces:**
+
 - Consumes: `runReplay`, `stateHash` (`./replay`), `createInitialState` (`./state`), `step` (`./step`).
 - Produces: a probe-based, timing-independent fixture generator + an env-guarded recorder test. Every later task re-runs this recorder instead of hand-editing the fixture.
 
@@ -209,6 +212,7 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 2: Enemy state + archetype extension + spawn factory
 
 **Files:**
+
 - Modify: `src/lib/game/content/enemies.ts`
 - Modify: `src/lib/game/content/enemies.test.ts`
 - Create: `src/lib/game/sim/enemy-factory.ts`
@@ -217,6 +221,7 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 - Modify: `src/lib/game/sim/step.ts`
 
 **Interfaces:**
+
 - Consumes: `nextFloat` (`./rng`), `pickWord` (`../content/words`), `ARENA` (`./state`).
 - Produces:
 
@@ -565,11 +570,13 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 3: Movement behaviour functions
 
 **Files:**
+
 - Create: `src/lib/game/sim/movement.ts`
 - Create: `src/lib/game/sim/movement.test.ts`
 - Modify: `src/lib/game/sim/step.ts`
 
 **Interfaces:**
+
 - Consumes: `EnemyState`, `Vec2` (`./state`); `MovementId` (`../content/enemies`).
 - Produces:
 
@@ -817,6 +824,7 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 4: Wave director + spawner
 
 **Files:**
+
 - Create: `src/lib/game/sim/spawner.ts`
 - Create: `src/lib/game/sim/spawner.test.ts`
 - Modify: `src/lib/game/sim/state.ts`
@@ -825,6 +833,7 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 - Modify: `src/lib/game/sim/step.test.ts`
 
 **Interfaces:**
+
 - Consumes: `getArchetype` (`../content/enemies`), `pickWord` (`../content/words`), `createEnemy` (`./enemy-factory`), `nextFloat` (`./rng`), `ARENA`/`GameState`/`Vec2` (`./state`).
 - Produces:
 
@@ -1225,6 +1234,7 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 5: Multi-hp combat, word reassignment, boss chains + combo scoring
 
 **Files:**
+
 - Create: `src/lib/game/sim/score.ts`
 - Create: `src/lib/game/sim/score.test.ts`
 - Create: `src/lib/game/sim/combat.ts`
@@ -1234,6 +1244,7 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 - Modify: `src/lib/game/sim/step.ts` (wire combat + combo decay)
 
 **Interfaces:**
+
 - Consumes: `pickWord` (`../content/words`), `spawnFromArchetype` (`./spawner`), `getArchetype` (`../content/enemies`), `EnemyState`/`GameState` (`./state`).
 - Produces:
 
@@ -1532,12 +1543,14 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 6: Enemy abilities
 
 **Files:**
+
 - Create: `src/lib/game/sim/abilities.ts`
 - Create: `src/lib/game/sim/abilities.test.ts`
 - Modify: `src/lib/game/sim/combat.ts` (use real absorption)
 - Modify: `src/lib/game/sim/step.ts` (ability tick phase + targetable gating)
 
 **Interfaces:**
+
 - Consumes: `spawnFromArchetype` (`./spawner`), `EnemyState`/`GameState` (`./state`).
 - Produces:
 
@@ -1848,12 +1861,14 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 7: Word-labelled powerups
 
 **Files:**
+
 - Create: `src/lib/game/sim/powerups.ts`
 - Create: `src/lib/game/sim/powerups.test.ts`
 - Modify: `src/lib/game/sim/state.ts` (powerup + effect fields)
 - Modify: `src/lib/game/sim/step.ts` (spawn, lifetime, movement scaling, powerup typing)
 
 **Interfaces:**
+
 - Consumes: `pickWord` (`../content/words`), `nextFloat`/`nextInt` (`./rng`), `ARENA`/`GameState` (`./state`); `isCharMatch` (`@/lib/core/text/char-match`).
 - Produces:
 
@@ -2252,10 +2267,12 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 8: Comprehensive determinism fixture + verification
 
 **Files:**
+
 - Create: `src/lib/game/sim/__fixtures__/replay-deep-run.json`
 - Modify: `src/lib/game/sim/replay.test.ts`
 
 **Interfaces:**
+
 - Consumes: `runReplay`, `stateHash` (`./replay`), `createInitialState`, `step` (`./state`, `./step`).
 - Produces: a second golden fixture that exercises multiple waves, multi-hp kills, combo scoring, and (incidentally) abilities/powerups over a long untyped-plus-scripted run.
 
