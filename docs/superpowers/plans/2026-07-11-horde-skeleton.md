@@ -22,10 +22,12 @@
 ### Task 1: Dependency + scope scaffolding
 
 **Files:**
+
 - Modify: `package.json` (via pnpm add)
 - Modify: `commitlint.config.mjs` (scope enum)
 
 **Interfaces:**
+
 - Produces: `@babylonjs/core` available; commit scope `game` legal.
 
 - [ ] **Step 1: Add Babylon (exact latest)**
@@ -58,10 +60,12 @@ git commit -m "chore(game): add @babylonjs/core and game commit scope"
 ### Task 2: Seeded RNG
 
 **Files:**
+
 - Create: `src/lib/game/sim/rng.ts`
 - Test: `src/lib/game/sim/rng.test.ts`
 
 **Interfaces:**
+
 - Produces: `createRngState(seed: number): number`, `nextFloat(state: number): [value: number, next: number]` (value in [0,1)), `nextInt(state: number, maxExclusive: number): [value: number, next: number]`.
 
 - [ ] **Step 1: Write failing test** (`rng.test.ts`)
@@ -158,10 +162,12 @@ git commit -m "feat(game): add pure seeded rng for deterministic sim"
 ### Task 3: Game state + initial state
 
 **Files:**
+
 - Create: `src/lib/game/sim/state.ts`
 - Test: `src/lib/game/sim/state.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createRngState` from Task 2.
 - Produces:
 
@@ -249,11 +255,13 @@ git commit -m "feat(game): add game state types and initial state"
 ### Task 4: Skeleton content — grunt archetype + word picker
 
 **Files:**
+
 - Create: `src/lib/game/content/enemies.ts`
 - Create: `src/lib/game/content/words.ts`
 - Test: `src/lib/game/content/enemies.test.ts`, `src/lib/game/content/words.test.ts`
 
 **Interfaces:**
+
 - Consumes: `nextInt` (Task 2); `top200` from `@/lib/core/text/data` via `src/lib/core/text/words.ts` export (verify actual export name in that file: it re-exports word lists; import `top200` from `"@/lib/core/text/words"` — if that module doesn't re-export it, import from its actual location `"@/lib/core/text/words"` source; check file first, adjust import path, keep the pinned function signatures unchanged).
 - Produces:
 
@@ -387,10 +395,12 @@ git commit -m "feat(game): add grunt archetype and deterministic word picker"
 ### Task 5: Sim step — spawn, chase, type-to-kill, death
 
 **Files:**
+
 - Create: `src/lib/game/sim/step.ts`
 - Test: `src/lib/game/sim/step.test.ts`
 
 **Interfaces:**
+
 - Consumes: Tasks 2–4 exports.
 - Produces:
 
@@ -402,6 +412,7 @@ export function step(state: GameState, events: readonly GameEvent[]): GameState;
 ```
 
 Rules (skeleton):
+
 - tick+1 each step; no-op if status `gameover`.
 - Spawn: when `tick % SPAWN_INTERVAL_TICKS === 0` and alive < MAX_ALIVE → new grunt at angle `2π·nextFloat` on spawnRadius, word via `pickWord` excluding live initials.
 - Movement: each alive enemy moves toward origin by `speed`.
@@ -623,10 +634,12 @@ git commit -m "feat(game): add fixed-timestep sim step with spawn, chase and typ
 ### Task 6: Replay + state hash
 
 **Files:**
+
 - Create: `src/lib/game/sim/replay.ts`
 - Test: `src/lib/game/sim/replay.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createInitialState`, `step`, `GameEvent`.
 - Produces:
 
@@ -752,6 +765,7 @@ git commit -m "test(game): add deterministic replay runner with golden hash fixt
 ### Task 7: Babylon render layer
 
 **Files:**
+
 - Create: `src/lib/game/render/scene.ts`
 - Create: `src/lib/game/render/enemy-renderer.ts`
 - Create: `src/lib/game/render/loop.ts`
@@ -759,6 +773,7 @@ git commit -m "test(game): add deterministic replay runner with golden hash fixt
 No unit tests (render layer verified by E2E/visual in Task 9); keep every file under ~120 lines.
 
 **Interfaces:**
+
 - Consumes: `GameState`, `step`, `GameEvent`, `createInitialState`.
 - Produces:
 
@@ -1052,11 +1067,13 @@ git commit -m "feat(game): add babylon scene, enemy renderer and fixed-timestep 
 ### Task 8: Solid shell + route
 
 **Files:**
+
 - Create: `src/components/game/GameShell.tsx`
 - Create: `src/routes/Game.tsx`
 - Modify: `src/index.tsx` (add route)
 
 **Interfaces:**
+
 - Consumes: `startGameLoop` (dynamic import), `GameState`.
 - Produces: `/game` route; `window.__game = { getState, sendKeys, stepTicks }` when `testMode`.
 
@@ -1188,9 +1205,11 @@ git commit -m "feat(game): add /game route with solid shell, hud and test hooks"
 ### Task 9: E2E smoke + visual snapshot
 
 **Files:**
+
 - Create: `e2e/game.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `/game?seed=42&testMode=1`, `window.__game` hooks, testids from Task 8.
 
 - [ ] **Step 1: Write the spec**
@@ -1245,6 +1264,7 @@ git commit -m "test(e2e): add horde smoke and deterministic visual snapshot"
 ### Task 10: Skeleton docs + push
 
 **Files:**
+
 - Create: `docs/game-design.md` (skeleton section only)
 - Modify: `docs/progress.md` (status note)
 

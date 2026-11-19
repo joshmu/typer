@@ -22,6 +22,7 @@
 ### Task 1: Run stats derivation (pure)
 
 **Files:**
+
 - Create: `src/lib/game/sim/run-stats.ts` + `run-stats.test.ts`
 
 ```ts
@@ -52,6 +53,7 @@ duration. Commit: `feat(game): track hits and derive run stats`
 ### Task 2: gameRuns persistence
 
 **Files:**
+
 - Modify: `src/lib/db.ts` (+ `db.test.ts`)
 - Create: `src/lib/game-runs.ts` + `game-runs.test.ts`
 
@@ -87,6 +89,7 @@ Commit: `feat(db): persist horde runs with best-run queries`
 ### Task 3: Start + death screens
 
 **Files:**
+
 - Modify: `src/components/game/GameShell.tsx`
 - Create: `src/components/game/DeathScreen.tsx`, `src/components/game/StartScreen.tsx`
 
@@ -113,6 +116,7 @@ Commit: `feat(game): add start and death screens with persisted stats`
 ### Task 4: App integration — mode entry + nav
 
 **Files:**
+
 - Modify: `src/components/typing/ModeSelector.tsx` (read it first; follow its item
   pattern — add a "horde" entry that NAVIGATES to `/game` instead of switching typing
   mode; visually distinct accent)
@@ -128,6 +132,7 @@ Commit: `feat(game): add horde entry to mode selector and nav`
 ### Task 5: Docs finish + roadmap/progress
 
 **Files:**
+
 - Modify: `docs/game-design.md` — full gameplay reference: enemy families table
   (generated from content — keep human-written summary + pointer to `enemies.ts` as
   source of truth), powerups, scoring/combo rules, wave pacing, determinism/replay

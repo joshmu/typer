@@ -35,11 +35,13 @@ Create `scripts/visual-probe.mjs` (committed; imports `@playwright/test` from re
 ### Task 1: Top-down camera + large arena + survivable pacing
 
 **Sim (`state.ts`, roster, spawner):**
+
 - `ARENA = { spawnRadius: 34, killRadius: 1.6 }` (travel at tier-1 speed 0.04/tick ≈ 14 s; verify per-family: tier-1 regulars must take ≥ 13 s, bosses ≥ 20 s — retune roster `speed` values that violate this, TDD a content test asserting the bounds: `spawnRadius / (speed * 60)` within [13, 45] s for regulars, bosses slower).
 - Wave-1 grace: first wave spawnCooldown 90 (currently 45) — add `waveSpawnCooldown(wave)` in spawner (min 30, starts 90, -10/wave), TDD.
 - Re-record fixtures once at task end.
 
 **Render (`scene.ts`):**
+
 - Camera: `beta = 0.12` (near-vertical top-down), `radius` sized so the arena spans ~90% of viewport height at 1440×900 (compute: disc radius 38 → camera radius ≈ 55 with fov default; verify by probe).
 - Ground disc radius 38.
 - E2E: game probes use `stepTicks`, unaffected by pacing; death-screen drive loop cap may need raising (longer survival) — adjust bounded loop, keep <60s.
@@ -101,6 +103,7 @@ Commit: `feat(game): add rotating turret with keystroke tracers and muzzle flash
 **Files:** `render/enemy-models.ts` (new), `enemy-renderer.ts` (consume), `visuals.ts` (extend recipe: `parts` config).
 
 Per-family multi-part builds (Babylon `MergeMeshes` into ONE master mesh per family+tier tint via instance color where possible; else pooled clones):
+
 - husk: faceted icosphere + 6 radial spikes (scaled cones)
 - darter: flattened elongated tetra/arrowhead + twin fins
 - wraith: torus ring + floating inner core sphere (core bobs)

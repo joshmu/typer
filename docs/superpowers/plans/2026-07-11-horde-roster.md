@@ -32,12 +32,14 @@
 ### Task 1: Per-tier word bands
 
 **Files:**
+
 - Modify: `src/lib/game/content/words.ts`
 - Modify: `src/lib/game/content/words.test.ts`
 - Modify: `src/lib/game/sim/spawner.ts` (tiered picker in `spawnFromArchetype`)
 - Modify: `src/lib/game/sim/combat.ts` (tiered picker in `reassignWord`)
 
 **Interfaces:**
+
 - Consumes: `english-1k.json`, `english-5k.json` (`@/lib/core/text/data/*` — `string[]`), `top200` (`@/lib/core/text/words`), `nextInt` (`../sim/rng`).
 - Produces:
 
@@ -245,12 +247,14 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 2: Full 30+ enemy roster
 
 **Files:**
+
 - Modify: `src/lib/game/content/enemies.ts` (replace `ENEMIES`)
 - Modify: `src/lib/game/content/enemies.test.ts` (roster validation)
 - Modify: `src/lib/game/sim/combat.test.ts` (interim id references → roster ids)
 - Modify: `src/lib/game/sim/powerups.test.ts` (interim id references → roster ids)
 
 **Interfaces:**
+
 - Consumes: `EnemyArchetype`, `MovementId`, `Ability` (all from `./enemies`, defined in Plan 2).
 - Produces: `ENEMIES` with 30 entries (24 `role: "regular"` + 6 `role: "boss"`), all ids unique, every `movement` a valid `MovementId`, every ability `minion` resolving to a roster id, every tier 1–4 represented.
 
@@ -814,10 +818,12 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 3: Wave-banded spawner weighting
 
 **Files:**
+
 - Modify: `src/lib/game/sim/spawner.ts` (replace `selectArchetypeId` body)
 - Modify: `src/lib/game/sim/spawner.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ENEMIES` (`../content/enemies`), `nextFloat`/`nextInt` (`./rng`).
 - Produces: same `selectArchetypeId(wave, rngState) → [id, next]` signature (unchanged), now weighting regulars by wave-gated tiers and fielding a boss on boss waves.
 
@@ -981,6 +987,7 @@ Claude-Session: https://claude.ai/code/session_01N1YqXkNqwh76TbQtmr9DRC
 ### Task 4: Full verification + docs + push
 
 **Files:**
+
 - Modify: `docs/game-design.md` (roster/content section)
 
 - [ ] **Step 1: Append a roster section to `docs/game-design.md`**

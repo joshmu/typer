@@ -17,6 +17,7 @@ Route: `/game` (new page, lazy-loaded). Name in UI: **Horde**.
 ## 2. Goals & Non-Goals
 
 Goals
+
 - Premium feel: Babylon.js rendered arena, particles, screen shake, juice.
 - 30+ distinct enemy types (data-driven archetypes × behaviours).
 - Deterministic simulation → replay tests byte-for-byte reproducible.
@@ -26,6 +27,7 @@ Goals
 - Documented: architecture doc + this spec + gameplay doc.
 
 Non-Goals (YAGNI)
+
 - Multiplayer, leaderboard server, mobile touch controls, gamepad.
 - Player movement (Crimsonland typing variant keeps player static — typing IS the gun).
 - Audio beyond existing `src/lib/sound.ts` hooks (extend, don't rebuild).
@@ -61,6 +63,7 @@ scripts/gen-assets.ts    # asset pipeline: generates texture atlas + palette jso
 ```
 
 Key rules
+
 - `src/lib/game/sim` and `content` import nothing from Babylon/Solid/DOM. Vitest-only testable.
 - All randomness through injected RNG; all time through tick count. `step` is the ONLY state mutator.
 - Render layer is disposable: kill the Babylon scene, sim continues (headless mode = tests).
